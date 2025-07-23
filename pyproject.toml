@@ -1,7 +1,20 @@
 [project]
 name = "builder-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "Helping robots build Airbyte connectors."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "fastmcp>=2.10.6",
+    "typing-extensions>=4.14.1",
+]
+
+[dependency-groups]
+dev = [
+    "deptry>=0.23.0",
+    "pyrefly>=0.25.0",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.12.4",
+    "ty>=0.0.1a15",
+]
