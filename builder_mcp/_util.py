@@ -30,7 +30,6 @@ def filter_config_secrets(config: dict[str, Any]) -> dict[str, Any]:
         "key",
         "secret",
         "credential",
-        "auth",
         "api_key",
         "access_token",
         "refresh_token",
@@ -38,10 +37,10 @@ def filter_config_secrets(config: dict[str, Any]) -> dict[str, Any]:
     }
 
     for key, value in filtered.items():
-        if any(sensitive in key.lower() for sensitive in sensitive_keys):
-            filtered[key] = "***REDACTED***"
-        elif isinstance(value, dict):
+        if isinstance(value, dict):
             filtered[key] = filter_config_secrets(value)
+        elif any(sensitive in key.lower() for sensitive in sensitive_keys):
+            filtered[key] = "***REDACTED***"
 
     return filtered
 
