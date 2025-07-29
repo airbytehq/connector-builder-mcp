@@ -27,10 +27,16 @@ The MCP server follows the established PyAirbyte pattern with:
 - **Configuration Management**: Validate connector configurations
 - **Test Execution**: Run connector tests with proper limits and constraints
 
+## Getting Started
+
+To use the Builder MCP server, you'll need Python 3.10+ and [uv](https://docs.astral.sh/uv/) for package management.
+
+For detailed development setup and contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Installation
 
 ```bash
-poetry install
+uv sync --all-extras
 ```
 
 ## Usage
@@ -38,23 +44,44 @@ poetry install
 Start the MCP server:
 
 ```bash
-poetry run builder-mcp
+uv run builder-mcp
 ```
 
 Or use with MCP clients by configuring the server in your MCP client configuration.
 
+### Using Poe Tasks
+
+For convenience, you can use [Poe the Poet](https://poethepoet.natn.io/) task runner:
+
+```bash
+# Install Poe
+uv tool install poethepoet
+
+# Then use ergonomic commands
+poe install     # Install dependencies
+poe server      # Start MCP server
+poe test        # Run tests
+poe check       # Run all checks (lint + typecheck + test)
+```
+
 ## Development
 
-This project uses Poetry for dependency management and follows standard Python development practices.
+This project uses [uv](https://docs.astral.sh/uv/) for package management and follows modern Python development practices.
 
 ```bash
 # Install dependencies
-poetry install
+uv sync --all-extras
 
 # Run linting
-poetry run ruff check .
+uv run ruff check .
 
 # Run formatting  
-poetry run ruff format .
+uv run ruff format .
+
+# Run tests
+uv run pytest tests/ -v
+
+# Type checking
+uv run mypy builder_mcp
 ```
 Helping robots build Airbyte connectors.

@@ -8,7 +8,7 @@ import logging
 from typing import Annotated, Any, Literal
 
 from airbyte_cdk.connector_builder.connector_builder_handler import (
-    TestReadLimits,
+    TestLimits,
     create_source,
     get_limits,
     read_stream,
@@ -192,7 +192,7 @@ def get_resolved_manifest(
 
         config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
 
-        limits = TestReadLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
+        limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
 
         source = create_source(config_with_manifest, limits)
         result = resolve_manifest(source)

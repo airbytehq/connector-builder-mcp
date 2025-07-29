@@ -1,28 +1,29 @@
-[tool.poetry]
+[project]
 name = "builder-mcp"
 version = "0.1.0"
 description = "MCP server for Airbyte connector building operations with AI ownership focus"
-authors = ["Airbyte <contact@airbyte.io>"]
+authors = [{name = "Airbyte", email = "contact@airbyte.io"}]
 readme = "README.md"
-packages = [{include = "builder_mcp"}]
+requires-python = ">=3.10"
+dependencies = [
+    "airbyte-cdk>=5.0.0",
+    "fastmcp>=0.2.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-airbyte-cdk = "^5.0.0"
-fastmcp = "^0.2.0"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-asyncio = "^0.24.0"
-ruff = "^0.8.0"
-mypy = "^1.13.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 builder-mcp = "builder_mcp.server:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
 target-version = "py310"
