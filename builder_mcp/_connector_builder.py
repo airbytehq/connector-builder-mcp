@@ -213,6 +213,6 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    app.tool()(validate_manifest)
-    app.tool()(execute_stream_read)
-    app.tool()(get_resolved_manifest)
+    app.tool(validate_manifest)
+    app.tool(execute_stream_read)
+    app.tool(get_resolved_manifest)
