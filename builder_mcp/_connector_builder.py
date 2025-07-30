@@ -96,7 +96,7 @@ def validate_manifest(
     )
 
 
-def test_stream_read(
+def execute_stream_read(
     manifest: Annotated[
         dict[str, Any],
         Field(description="The connector manifest"),
@@ -114,7 +114,7 @@ def test_stream_read(
         Field(description="Maximum number of records to read", ge=1, le=1000),
     ] = 10,
 ) -> StreamTestResult:
-    """Test reading from a connector stream.
+    """Execute reading from a connector stream.
 
     Args:
         manifest: The connector manifest
@@ -214,5 +214,5 @@ def register_connector_builder_tools(app: FastMCP) -> None:
         app: FastMCP application instance
     """
     app.tool()(validate_manifest)
-    app.tool()(test_stream_read)
+    app.tool()(execute_stream_read)
     app.tool()(get_resolved_manifest)

@@ -6,7 +6,7 @@ from builder_mcp._connector_builder import (
     ManifestValidationResult,
     StreamTestResult,
     validate_manifest,
-    test_stream_read,
+    execute_stream_read,
     get_resolved_manifest,
 )
 
@@ -67,7 +67,7 @@ class TestStreamTesting:
                 mock_result.type.value = "RECORD"
                 mock_read.return_value = mock_result
                 
-                result = test_stream_read(manifest, config, "test_stream", 5)
+                result = execute_stream_read(manifest, config, "test_stream", 5)
                 
                 assert isinstance(result, StreamTestResult)
                 assert result.success
@@ -90,7 +90,7 @@ class TestStreamTesting:
                 mock_result.trace.error.message = "Connection failed"
                 mock_read.return_value = mock_result
                 
-                result = test_stream_read(manifest, config, "test_stream", 5)
+                result = execute_stream_read(manifest, config, "test_stream", 5)
                 
                 assert isinstance(result, StreamTestResult)
                 assert not result.success
