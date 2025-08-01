@@ -67,7 +67,7 @@ To use the Builder MCP server with MCP clients like Claude Desktop, add the foll
     "connector-builder-mcp": {
       "command": "uvx",
       "args": [
-        "connector-builder-mcp",
+        "connector-builder-mcp"
       ]
     }
   }
