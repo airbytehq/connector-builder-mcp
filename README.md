@@ -49,6 +49,52 @@ uv run builder-mcp
 
 Or use with MCP clients by configuring the server in your MCP client configuration.
 
+### MCP Client Configuration
+
+To use the Builder MCP server with MCP clients like Claude Desktop, add the following configuration:
+
+#### Stable Version (Latest PyPI Release)
+
+```json
+{
+  "mcpServers": {
+    "builder-mcp": {
+      "command": "uvx",
+      "args": ["builder-mcp"]
+    }
+  }
+}
+```
+
+#### Development Version (Main Branch)
+
+```json
+{
+  "mcpServers": {
+    "builder-mcp": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/airbytehq/builder-mcp.git", "builder-mcp"]
+    }
+  }
+}
+```
+
+#### With Custom Configuration
+
+```json
+{
+  "mcpServers": {
+    "builder-mcp": {
+      "command": "uvx",
+      "args": ["builder-mcp"],
+      "env": {
+        "AIRBYTE_CDK_LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
 ### Using Poe Tasks
 
 For convenience, you can use [Poe the Poet](https://poethepoet.natn.io/) task runner:
