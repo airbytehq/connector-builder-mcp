@@ -9,8 +9,8 @@ import requests
 import yaml
 
 from builder_mcp._connector_builder import (
-    _get_topic_mapping,
     StreamTestResult,
+    _get_topic_mapping,
     execute_stream_read,
     get_connector_builder_docs,
     get_resolved_manifest,
