@@ -3,13 +3,11 @@
 This module provides MCP tools for connector building operations, including
 manifest validation, stream testing, and configuration management.
 """
+
 import logging
 from typing import Annotated, Any, Literal
 
 import requests
-from fastmcp import FastMCP
-from pydantic import BaseModel, Field
-
 from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
@@ -24,8 +22,10 @@ from airbyte_cdk.models.airbyte_protocol import (
     DestinationSyncMode,
     SyncMode,
 )
-from builder_mcp._util import validate_manifest_structure
+from fastmcp import FastMCP
+from pydantic import BaseModel, Field
 
+from builder_mcp._util import validate_manifest_structure
 
 logger = logging.getLogger(__name__)
 
