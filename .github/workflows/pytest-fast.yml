@@ -18,12 +18,12 @@ jobs:
         uses: astral-sh/setup-uv@v6.4.3
 
       - name: Check uv lock file is current
-        run: uv sync --check
+        run: uv lock --check
 
       - uses: hynek/build-and-inspect-python-package@v2
         env:
           # Pass in dummy version '0.0.0dev0' version to appease dynamic versioning
-          uv_DYNAMIC_VERSIONING_BYPASS: 0.0.0dev0
+          UV_DYNAMIC_VERSIONING_BYPASS: 0.0.0dev0
 
       - uses: actions/upload-artifact@v4
         with:
