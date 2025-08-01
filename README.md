@@ -83,7 +83,7 @@ To use the Builder MCP server with MCP clients like Claude Desktop, add the foll
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/airbytehq/connector-builder-mcp.git",
+        "git+https://github.com/airbytehq/connector-builder-mcp.git@main",
         "connector-builder-mcp"
       ]
     }
