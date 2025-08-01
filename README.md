@@ -152,7 +152,7 @@ uv run ruff format .
 uv run pytest tests/ -v
 
 # Type checking
-uv run mypy builder_mcp
+uv run mypy connector_builder_mcp
 ```
 
 Helping robots build Airbyte connectors.

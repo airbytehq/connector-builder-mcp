@@ -5,7 +5,7 @@ sync = { cmd = "uv sync --all-extras", help = "Sync project dependencies. (Alias
 format = { cmd = "uv run ruff format .", help = "Format code with ruff" }
 lint = { cmd = "uv run ruff check .", help = "Lint code with ruff" }
 lint-fix = { cmd = "uv run ruff check --fix .", help = "Lint and fix code with ruff" }
-typecheck = { cmd = "uv run mypy builder_mcp", help = "Type check code with mypy" }
+typecheck = { cmd = "uv run mypy connector_builder_mcp", help = "Type check code with mypy" }
 test = { cmd = "uv run pytest tests/ -v", help = "Run tests with verbose output" }
 test-fast = { cmd = "uv run pytest --exitfirst tests", help = "Run tests, stop on first failure" }
 
@@ -14,10 +14,10 @@ server = { cmd = "uv run connector-builder-mcp", help = "Start the MCP server" }
 mcp-serve-local = { cmd = "uv run connector-builder-mcp", help = "Start the MCP server with STDIO transport" }
 mcp-serve-http = { cmd = "uv run python -c \"from connector_builder_mcp.server import app; app.run(transport='http', host='127.0.0.1', port=8000)\"", help = "Start the MCP server with HTTP transport" }
 mcp-serve-sse = { cmd = "uv run python -c \"from connector_builder_mcp.server import app; app.run(transport='sse', host='127.0.0.1', port=8000)\"", help = "Start the MCP server with SSE transport" }
-inspect = { cmd = "uv run fastmcp inspect builder_mcp/server.py:app", help = "Inspect MCP tools and resources (supports --tools, --health, etc.)" }
+inspect = { cmd = "uv run fastmcp inspect connector_builder_mcp/server.py:app", help = "Inspect MCP tools and resources (supports --tools, --health, etc.)" }
 
 # Documentation tasks
-docs-generate = { cmd = "uv run pdoc builder_mcp --output-dir docs/generated", help = "Generate API documentation" }
+docs-generate = { cmd = "uv run pdoc connector_builder_mcp --output-dir docs/generated", help = "Generate API documentation" }
 
 # Combined tasks
 check = { sequence = ["lint", "typecheck", "test"], help = "Run all checks" }

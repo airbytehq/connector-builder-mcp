@@ -12,7 +12,7 @@ on:
     branches:
       - main
     paths:
-      - "builder_mcp/**"
+      - "connector_builder_mcp/**"
       - "tests/**"
       - "uv.lock"
       - "pyproject.toml"
@@ -52,7 +52,7 @@ jobs:
         with:
           filters: |
             src:
-              - 'builder_mcp/**'
+              - 'connector_builder_mcp/**'
               - 'tests/**'
               - 'uv.lock'
               - 'pyproject.toml'

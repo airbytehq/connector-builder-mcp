@@ -54,11 +54,11 @@ Inspect the MCP server to see available tools, resources, and prompts:
 ```bash
 # Inspect the server structure (generates comprehensive JSON report)
 poe inspect
-# Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app
+# Equivalent to: uv run fastmcp inspect connector_builder_mcp/server.py:app
 
 # Save inspection report to custom file
 poe inspect --output my-server-report.json
-# Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app --output my-server-report.json
+# Equivalent to: uv run fastmcp inspect connector_builder_mcp/server.py:app --output my-server-report.json
 
 # View help for inspection options
 poe inspect --help
@@ -120,7 +120,7 @@ from fastmcp import Client
 
 async def test_tools():
     # Connect to the server
-    async with Client("builder_mcp/server.py:app") as client:
+    async with Client("connector_builder_mcp/server.py:app") as client:
         # List available tools
         tools = await client.list_tools()
         print(f"Available tools: {[tool.name for tool in tools]}")
@@ -234,7 +234,7 @@ import concurrent.futures
 from fastmcp import Client
 
 async def load_test():
-    async with Client("builder_mcp/server.py:app") as client:
+    async with Client("connector_builder_mcp/server.py:app") as client:
         # Run 50 concurrent tool calls
         tasks = []
         for i in range(50):
@@ -282,7 +282,7 @@ Use FastMCP's built-in debugging tools:
 FASTMCP_DEBUG=1 uv run connector-builder-mcp
 
 # Inspect protocol messages (use full command for debugging flags)
-uv run fastmcp inspect builder_mcp/server.py:app --protocol-debug
+uv run fastmcp inspect connector_builder_mcp/server.py:app --protocol-debug
 ```
 
 ### Common Issues
@@ -302,8 +302,8 @@ The repository includes CI workflows that run tests automatically:
 # .github/workflows/test.yml
 - name: Run MCP Tests
   run: |
-    uv run pytest tests/ -v --cov=builder_mcp
-    uv run fastmcp inspect builder_mcp/server.py:app --health
+    uv run pytest tests/ -v --cov=connector_builder_mcp
+    uv run fastmcp inspect connector_builder_mcp/server.py:app --health
 ```
 
 ### Pre-commit Hooks

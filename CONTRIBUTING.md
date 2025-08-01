@@ -68,15 +68,15 @@ If you prefer to run commands directly with uv:
 
 ```bash
 # Development
-uv sync --all-extras                              # Install dependencies
-uv run ruff format .                              # Format code
-uv run ruff check .                               # Lint code
-uv run mypy builder_mcp                           # Type checking
-uv run pytest tests/ -v                          # Run tests
+uv sync --all-extras                 # Install dependencies
+uv run ruff format .                 # Format code
+uv run ruff check .                  # Lint code
+uv run mypy connector_builder_mcp    # Type checking
+uv run pytest tests/ -v              # Run tests
 
 # MCP server
-uv run connector-builder-mcp                                # Start server
-uv run fastmcp inspect builder_mcp/server.py:app # Inspect tools
+uv run connector-builder-mcp         # Start server
+poe inspect                          # Inspect tools
 ```
 
 ## Testing
@@ -122,7 +122,7 @@ poe check  # Runs formatting, linting, type checking, and tests
 
 When adding new MCP tools:
 
-1. **Add the tool function** in the appropriate module (e.g., `builder_mcp/_connector_builder.py`)
+1. **Add the tool function** in the appropriate module (e.g., `connector_builder_mcp/_connector_builder.py`)
 2. **Use proper type annotations** with Pydantic models for complex inputs/outputs
 3. **Register the tool** in the module's registration function
 4. **Add comprehensive tests** covering success and failure cases
@@ -195,7 +195,7 @@ test: add integration tests for connector builder
 
 ```
 connector-builder-mcp/
-├── builder_mcp/           # Main package
+├── connector_builder_mcp/  # Main package
 │   ├── server.py         # FastMCP server entry point
 │   ├── _connector_builder.py  # Connector building tools
 │   └── _util.py          # Shared utilities
