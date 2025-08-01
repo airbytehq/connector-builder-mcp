@@ -1,17 +1,17 @@
 """Integration tests for Builder MCP using real manifest examples."""
 
-from pathlib import Path
 import concurrent.futures
 import time
+from pathlib import Path
 
 import pytest
 import yaml
 
 from builder_mcp._connector_builder import (
+    StreamTestResult,
     execute_stream_read,
     get_resolved_manifest,
     validate_manifest,
-    StreamTestResult,
 )
 
 
@@ -34,10 +34,7 @@ def simple_api_manifest():
 @pytest.fixture
 def invalid_manifest():
     """Invalid manifest for error testing."""
-    return {
-        "invalid": "manifest",
-        "missing": "required_fields"
-    }
+    return {"invalid": "manifest", "missing": "required_fields"}
 
 
 @pytest.fixture
@@ -86,11 +83,11 @@ class TestHighLevelMCPWorkflows:
         validation_result = validate_manifest(rick_and_morty_manifest, empty_config)
         assert validation_result.is_valid
         assert validation_result.resolved_manifest is not None
-        
+
         resolved_manifest = get_resolved_manifest(rick_and_morty_manifest, empty_config)
         assert isinstance(resolved_manifest, dict)
         assert "streams" in resolved_manifest
-        
+
         stream_result = execute_stream_read(
             rick_and_morty_manifest, empty_config, "characters", max_records=3
         )
@@ -117,42 +114,38 @@ class TestHighLevelMCPWorkflows:
             "version": "4.6.2",
             "type": "DeclarativeSource",
             "check": {"type": "CheckStream", "stream_names": ["test"]},
-            "streams": [{
-                "type": "DeclarativeStream",
-                "name": "test",
-                "primary_key": ["id"],
-                "retriever": {
-                    "type": "SimpleRetriever",
-                    "requester": {
-                        "type": "HttpRequester",
-                        "url_base": "https://api.example.com",
-                        "path": "/test",
-                        "http_method": "GET",
-                        "authenticator": {
-                            "type": "BearerAuthenticator",
-                            "api_token": "{{ config['api_token'] }}"
-                        }
+            "streams": [
+                {
+                    "type": "DeclarativeStream",
+                    "name": "test",
+                    "primary_key": ["id"],
+                    "retriever": {
+                        "type": "SimpleRetriever",
+                        "requester": {
+                            "type": "HttpRequester",
+                            "url_base": "https://api.example.com",
+                            "path": "/test",
+                            "http_method": "GET",
+                            "authenticator": {
+                                "type": "BearerAuthenticator",
+                                "api_token": "{{ config['api_token'] }}",
+                            },
+                        },
+                        "record_selector": {
+                            "type": "RecordSelector",
+                            "extractor": {"type": "DpathExtractor", "field_path": []},
+                        },
                     },
-                    "record_selector": {
-                        "type": "RecordSelector",
-                        "extractor": {
-                            "type": "DpathExtractor",
-                            "field_path": []
-                        }
-                    }
-                },
-                "schema_loader": {
-                    "type": "InlineSchemaLoader",
-                    "schema": {
-                        "$schema": "http://json-schema.org/draft-07/schema#",
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "integer"},
-                            "name": {"type": "string"}
-                        }
-                    }
+                    "schema_loader": {
+                        "type": "InlineSchemaLoader",
+                        "schema": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
+                        },
+                    },
                 }
-            }],
+            ],
             "spec": {
                 "type": "Spec",
                 "connection_specification": {
@@ -160,14 +153,12 @@ class TestHighLevelMCPWorkflows:
                     "title": "Test API Source Spec",
                     "type": "object",
                     "additionalProperties": True,
-                    "properties": {
-                        "api_token": {"type": "string", "airbyte_secret": True}
-                    },
-                    "required": ["api_token"]
-                }
-            }
+                    "properties": {"api_token": {"type": "string", "airbyte_secret": True}},
+                    "required": ["api_token"],
+                },
+            },
         }
-        
+
         config_with_auth = {"api_token": "test_token_123"}
         result = validate_manifest(auth_manifest, config_with_auth)
         assert isinstance(result.errors, list)  # Should return a proper validation result
@@ -176,21 +167,21 @@ class TestHighLevelMCPWorkflows:
     def test_performance_multiple_tool_calls(self, rick_and_morty_manifest, empty_config):
         """Test performance with multiple rapid tool calls."""
         start_time = time.time()
-        
-        for i in range(5):
+
+        for _ in range(5):
             validate_manifest(rick_and_morty_manifest, empty_config)
             get_resolved_manifest(rick_and_morty_manifest, empty_config)
-        
+
         end_time = time.time()
         duration = end_time - start_time
-        
+
         assert duration < 30.0, f"Multiple tool calls took too long: {duration}s"
 
     def test_simple_api_manifest_workflow(self, simple_api_manifest, empty_config):
         """Test workflow with simple API manifest."""
         validation_result = validate_manifest(simple_api_manifest, empty_config)
         assert validation_result.is_valid
-        
+
         resolved_manifest = get_resolved_manifest(simple_api_manifest, empty_config)
         assert isinstance(resolved_manifest, dict)
         assert "streams" in resolved_manifest
@@ -198,34 +189,33 @@ class TestHighLevelMCPWorkflows:
 
 class TestMCPServerIntegration:
     """Integration tests for MCP server functionality."""
-    
+
     @pytest.mark.asyncio
     async def test_mcp_server_tool_discovery(self):
         """Test that MCP server properly exposes all tools."""
         from builder_mcp.server import app
-        
-        expected_tools = ["validate_manifest", "execute_stream_read", "get_resolved_manifest"]
-        
+
         assert app is not None
         assert app.name == "builder-mcp"
 
     def test_concurrent_tool_execution(self, rick_and_morty_manifest, empty_config):
         """Test concurrent execution of multiple tools."""
+
         def run_validation():
             return validate_manifest(rick_and_morty_manifest, empty_config)
-        
+
         def run_resolution():
             return get_resolved_manifest(rick_and_morty_manifest, empty_config)
-        
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             futures = [
                 executor.submit(run_validation),
                 executor.submit(run_resolution),
-                executor.submit(run_validation)
+                executor.submit(run_validation),
             ]
-            
+
             results = [future.result() for future in concurrent.futures.as_completed(futures)]
-            
+
         assert len(results) == 3
         for result in results:
             assert result is not None
