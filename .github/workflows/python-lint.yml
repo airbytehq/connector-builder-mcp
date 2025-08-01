@@ -1,0 +1,69 @@
+name: Linters
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+
+jobs:
+  ruff-lint-check:
+    name: Ruff Lint Check
+    runs-on: ubuntu-24.04
+    steps:
+      # Common steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6.4.3
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: uv sync
+
+      # Job-specific step(s):
+      - name: Run lint check
+        run: uv run ruff check .
+
+  ruff-format-check:
+    name: Ruff Format Check
+    runs-on: ubuntu-24.04
+    steps:
+      # Common steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6.4.3
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: uv sync
+
+      # Job-specific step(s):
+      - name: Check code format
+        run: uv run ruff format --diff .
+
+  mypy-check:
+    name: MyPy Check
+    runs-on: ubuntu-24.04
+    steps:
+      # Common steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6.4.3
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: uv sync
+
+      # Job-specific step(s):
+
+      - name: Run mypy
+        run: uv run mypy --config-file mypy.ini src
