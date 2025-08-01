@@ -108,7 +108,7 @@ Remember to update the path to your actual repo location.
         "/path/to/repos/builder-mcp",
         "builder-mcp"
       ]
-    },
+    }
   }
 }
 ```
