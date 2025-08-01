@@ -1,7 +1,5 @@
 """Tests for MCP server functionality."""
 
-import pytest
-
 from builder_mcp.server import app
 
 

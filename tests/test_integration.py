@@ -44,7 +44,9 @@ class TestManifestIntegration:
         assert isinstance(result, dict)
         assert "streams" in result, f"Expected 'streams' key in resolved manifest, got: {result}"
 
-    @pytest.mark.skip(reason="Test has catalog configuration issue - empty catalog causing 'list index out of range' error")
+    @pytest.mark.skip(
+        reason="Test has catalog configuration issue - empty catalog causing 'list index out of range' error"
+    )
     def test_execute_stream_read_rick_and_morty(self, rick_and_morty_manifest, empty_config):
         """Test reading from Rick and Morty characters stream."""
         result = execute_stream_read(
