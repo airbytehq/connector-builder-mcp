@@ -31,7 +31,7 @@ dev = [
 ]
 
 [project.scripts]
-connector-builder-mcp = "builder_mcp.server:main"
+connector-builder-mcp = "connector_builder_mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - "builder_mcp/**"
+      - "connector_builder_mcp/**"
       - "tests/**"
       - "uv.lock"
       - "pyproject.toml"
   pull_request:
     paths:
-      - "builder_mcp/**"
+      - "connector_builder_mcp/**"
       - "tests/**"
       - "uv.lock"
       - "pyproject.toml"

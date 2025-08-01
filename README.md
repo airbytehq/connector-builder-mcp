@@ -7,6 +7,7 @@ The `connector-builder-mcp` repository provides a Model Context Protocol (MCP) s
 ### AI Ownership vs AI Assist
 
 This project emphasizes **end-to-end AI ownership**, including:
+
 - Autonomous connector building and testing
 - Automated PR creation and management
 - Complete workflow automation without human intervention
@@ -16,6 +17,7 @@ This differs from AI assist tools that merely help human developers - instead, t
 ## MCP Implementation
 
 The MCP server follows the established PyAirbyte pattern with:
+
 - Main server module that initializes FastMCP
 - Separate tool modules for different functional areas
 - Comprehensive connector building capabilities exposed as MCP tools
@@ -39,12 +41,16 @@ For detailed development setup and contribution guidelines, see [CONTRIBUTING.md
 uv sync --all-extras
 ```
 
-## Usage
+## Manual Start
 
 Start the MCP server:
 
 ```bash
+# You can use any of these to start the server manually:
 uv run connector-builder-mcp
+poe mcp-serve-local
+poe mcp-serve-http
+poe mcp-serve-sse
 ```
 
 Or use with MCP clients by configuring the server in your MCP client configuration.
@@ -60,7 +66,9 @@ To use the Builder MCP server with MCP clients like Claude Desktop, add the foll
   "mcpServers": {
     "connector-builder-mcp": {
       "command": "uvx",
-      "args": ["connector-builder-mcp"]
+      "args": [
+        "connector-builder-mcp"
+      ]
     }
   }
 }
@@ -73,23 +81,33 @@ To use the Builder MCP server with MCP clients like Claude Desktop, add the foll
   "mcpServers": {
     "connector-builder-mcp": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/airbytehq/connector-builder-mcp.git", "connector-builder-mcp"]
+      "args": [
+        "--from",
+        "git+https://github.com/airbytehq/connector-builder-mcp.git@main",
+        "connector-builder-mcp"
+      ]
     }
   }
 }
 ```
 
-#### With Custom Configuration
+#### Repo Cloned Out Locally
+
+You can run from a locally cloned version of the repo using the below syntax.
+
+Remember to update the path to your actual repo location.
 
 ```json
 {
   "mcpServers": {
     "connector-builder-mcp": {
-      "command": "uvx",
-      "args": ["connector-builder-mcp"],
-      "env": {
-        "AIRBYTE_CDK_LOG_LEVEL": "INFO"
-      }
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "/path/to/repos/connector-builder-mcp",
+        "connector-builder-mcp"
+      ]
     }
   }
 }
@@ -104,11 +122,17 @@ For convenience, you can use [Poe the Poet](https://poethepoet.natn.io/) task ru
 uv tool install poethepoet
 
 # Then use ergonomic commands
-poe install     # Install dependencies
-poe server      # Start MCP server
-poe test        # Run tests
-poe check       # Run all checks (lint + typecheck + test)
+poe install         # Install dependencies
+poe check           # Run all checks (lint + typecheck + test)
+poe test            # Run tests
+poe mcp-serve-local # Serve locally
+poe mcp-serve-http  # Serve over HTTP
+poe mcp-serve-sse   # Serve over SSE
 ```
+
+You can also run `poe --help` to see a full list of available Poe commands.
+
+If you ever want to see what a Poe task is doing (such as to run it directly or customize how it runs), check out the `poe_tasks.toml` file at the root of the repo.
 
 ## Development
 
@@ -128,7 +152,7 @@ uv run ruff format .
 uv run pytest tests/ -v
 
 # Type checking
-uv run mypy builder_mcp
+uv run mypy connector_builder_mcp
 ```
 
 Helping robots build Airbyte connectors.

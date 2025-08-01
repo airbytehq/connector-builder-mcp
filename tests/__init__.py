@@ -34,8 +34,8 @@ class TestManifestValidation:
             "streams": [],
         }
 
-        with patch("builder_mcp._connector_builder.create_source"):
-            with patch("builder_mcp._connector_builder.resolve_manifest") as mock_resolve:
+        with patch("connector_builder_mcp._connector_builder.create_source"):
+            with patch("connector_builder_mcp._connector_builder.resolve_manifest") as mock_resolve:
                 mock_result = Mock()
                 mock_result.type.value = "RECORD"
                 mock_result.record.data = {"manifest": {"resolved": True}}
@@ -61,8 +61,8 @@ class TestStreamTesting:
         }
         config = {"api_key": "test_key"}
 
-        with patch("builder_mcp._connector_builder.create_source"):
-            with patch("builder_mcp._connector_builder.read_stream") as mock_read:
+        with patch("connector_builder_mcp._connector_builder.create_source"):
+            with patch("connector_builder_mcp._connector_builder.read_stream") as mock_read:
                 mock_result = Mock()
                 mock_result.type.value = "RECORD"
                 mock_read.return_value = mock_result
@@ -83,8 +83,8 @@ class TestStreamTesting:
         }
         config = {"api_key": "test_key"}
 
-        with patch("builder_mcp._connector_builder.create_source"):
-            with patch("builder_mcp._connector_builder.read_stream") as mock_read:
+        with patch("connector_builder_mcp._connector_builder.create_source"):
+            with patch("connector_builder_mcp._connector_builder.read_stream") as mock_read:
                 mock_result = Mock()
                 mock_result.type.value = "TRACE"
                 mock_result.trace.error.message = "Connection failed"
@@ -109,8 +109,8 @@ class TestManifestResolution:
             "streams": [],
         }
 
-        with patch("builder_mcp._connector_builder.create_source"):
-            with patch("builder_mcp._connector_builder.resolve_manifest") as mock_resolve:
+        with patch("connector_builder_mcp._connector_builder.create_source"):
+            with patch("connector_builder_mcp._connector_builder.resolve_manifest") as mock_resolve:
                 mock_result = Mock()
                 mock_result.type.value = "RECORD"
                 mock_result.record.data = {"manifest": {"resolved": True}}
@@ -130,8 +130,8 @@ class TestManifestResolution:
             "streams": [],
         }
 
-        with patch("builder_mcp._connector_builder.create_source"):
-            with patch("builder_mcp._connector_builder.resolve_manifest") as mock_resolve:
+        with patch("connector_builder_mcp._connector_builder.create_source"):
+            with patch("connector_builder_mcp._connector_builder.resolve_manifest") as mock_resolve:
                 mock_result = Mock()
                 mock_result.type.value = "TRACE"
                 mock_resolve.return_value = mock_result

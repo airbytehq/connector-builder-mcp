@@ -66,4 +66,4 @@ jobs:
       # Job-specific step(s):
 
       - name: Run mypy
-        run: uv run mypy builder_mcp
+        run: uv run mypy connector_builder_mcp
