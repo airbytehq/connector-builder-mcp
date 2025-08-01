@@ -133,6 +133,10 @@ uv run mypy builder_mcp
 
 Helping robots build Airbyte connectors.
 
+## Testing
+
+For comprehensive testing instructions, including FastMCP CLI tools and integration testing patterns, see the [Testing Guide](./TESTING.md).
+
 ## Contributing
 
 See the [Contributing Guide](./CONTRIBUTING.md) for information on how to contribute.
