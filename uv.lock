@@ -177,6 +177,7 @@ source = { editable = "." }
 dependencies = [
     { name = "airbyte-cdk" },
     { name = "fastmcp" },
+    { name = "pydantic" },
     { name = "typing-extensions" },
 ]
 
@@ -204,6 +205,7 @@ requires-dist = [
     { name = "airbyte-cdk", specifier = ">=6.0,<7.0" },
     { name = "fastmcp", specifier = ">=0.2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
+    { name = "pydantic", specifier = ">=2.7.0,<3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
