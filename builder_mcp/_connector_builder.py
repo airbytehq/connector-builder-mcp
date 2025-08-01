@@ -367,10 +367,6 @@ def _get_high_level_overview() -> str:
 4. Make sure you have working authentication and data retrieval before moving onto pagination and other components
 5. When all is confirmed working on the first stream, you can add additional streams. It is generally safest to add one stream at a time, and test each one before moving to the next
 
-- `validate_manifest`: Validate connector manifest structure and configuration
-- `execute_stream_read`: Test reading from a connector stream
-- `get_resolved_manifest`: Get the resolved connector manifest
-
 We use the Declarative YAML Connector convention for building connectors. Note that we don't yet support custom Python components.
 
 For detailed documentation on specific components, request one of these topics:
