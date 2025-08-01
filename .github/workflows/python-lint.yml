@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.10"
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       # Job-specific step(s):
       - name: Run lint check
@@ -41,7 +41,7 @@ jobs:
         with:
           python-version: "3.10"
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       # Job-specific step(s):
       - name: Check code format
@@ -61,9 +61,9 @@ jobs:
         with:
           python-version: "3.10"
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       # Job-specific step(s):
 
       - name: Run mypy
-        run: uv run mypy --config-file mypy.ini src
+        run: uv run mypy builder_mcp

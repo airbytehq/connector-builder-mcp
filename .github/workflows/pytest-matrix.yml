@@ -12,8 +12,8 @@ on:
     branches:
       - main
     paths:
-      - "src/builder_mcp/**"
-      - "src/tests/**"
+      - "builder_mcp/**"
+      - "tests/**"
       - "uv.lock"
       - "pyproject.toml"
   pull_request:
@@ -52,7 +52,8 @@ jobs:
         with:
           filters: |
             src:
-              - 'src/**'
+              - 'builder_mcp/**'
+              - 'tests/**'
               - 'uv.lock'
               - 'pyproject.toml'
       - name: Set up uv
@@ -65,7 +66,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         if: steps.changes.outputs.src == 'true'
-        run: uv sync
+        run: uv sync --all-extras
 
       # Job-specific step(s):
       - name: Run Pytest
