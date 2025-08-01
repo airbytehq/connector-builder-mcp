@@ -49,7 +49,7 @@ class StreamTestResult(BaseModel):
 
 
 def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
-    """Create a dummy configured catalog one stream.
+    """Create a dummy configured catalog for one stream.
 
     We shouldn't have to do this. We should push it into the CDK code instead.
 
