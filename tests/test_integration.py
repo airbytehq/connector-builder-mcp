@@ -71,7 +71,6 @@ class TestManifestIntegration:
         )
 
         assert isinstance(result, StreamTestResult)
-
         assert result.message is not None
         if result.success:
             assert result.records_read > 0
