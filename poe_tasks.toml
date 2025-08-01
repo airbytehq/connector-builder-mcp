@@ -11,6 +11,9 @@ test-fast = { cmd = "uv run pytest --exitfirst tests", help = "Run tests, stop o
 
 # MCP server tasks
 server = { cmd = "uv run builder-mcp", help = "Start the MCP server" }
+mcp-serve-local = { cmd = "uv run builder-mcp", help = "Start the MCP server with STDIO transport" }
+mcp-serve-http = { cmd = "uv run python -c \"from builder_mcp.server import app; app.run(transport='http', host='127.0.0.1', port=8000)\"", help = "Start the MCP server with HTTP transport" }
+mcp-serve-sse = { cmd = "uv run python -c \"from builder_mcp.server import app; app.run(transport='sse', host='127.0.0.1', port=8000)\"", help = "Start the MCP server with SSE transport" }
 inspect = { cmd = "uv run fastmcp inspect builder_mcp/server.py:app", help = "Inspect MCP tools" }
 
 # Documentation tasks

@@ -21,12 +21,14 @@ The Builder MCP server provides tools for Airbyte connector building operations.
 
 ### Install Dependencies
 ```bash
-uv sync --all-extras
+poe sync
+# Equivalent to: uv sync --all-extras
 ```
 
 ### Run All Tests
 ```bash
-uv run pytest tests/ -v
+poe test
+# Equivalent to: uv run pytest tests/ -v
 ```
 
 ### Run Specific Test Categories
@@ -43,7 +45,7 @@ uv run pytest tests/ -v -m "not requires_creds"
 
 ## FastMCP CLI Tools
 
-FastMCP 2.0 provides powerful CLI tools for testing and debugging MCP servers.
+FastMCP 2.0 provides powerful CLI tools for testing and debugging MCP servers. For convenience, we've added poe shortcuts for common FastMCP commands.
 
 ### Server Inspection
 
@@ -51,13 +53,16 @@ Inspect the MCP server to see available tools, resources, and prompts:
 
 ```bash
 # Inspect the server structure
-uv run fastmcp inspect builder_mcp/server.py:app
+poe inspect
+# Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app
 
 # Get detailed tool information
-uv run fastmcp inspect builder_mcp/server.py:app --tools
+poe inspect --tools
+# Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app --tools
 
 # Check server health
-uv run fastmcp inspect builder_mcp/server.py:app --health
+poe inspect --health
+# Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app --health
 ```
 
 ### Running the Server
@@ -66,19 +71,16 @@ Start the MCP server for manual testing:
 
 ```bash
 # Run with default STDIO transport
-uv run builder-mcp
+poe mcp-serve-local
+# Equivalent to: uv run builder-mcp
 
 # Run with HTTP transport for web testing
-uv run python -c "
-from builder_mcp.server import app
-app.run(transport='http', host='127.0.0.1', port=8000)
-"
+poe mcp-serve-http
+# Equivalent to: uv run python -c "from builder_mcp.server import app; app.run(transport='http', host='127.0.0.1', port=8000)"
 
 # Run with SSE transport
-uv run python -c "
-from builder_mcp.server import app
-app.run(transport='sse', host='127.0.0.1', port=8000)
-"
+poe mcp-serve-sse
+# Equivalent to: uv run python -c "from builder_mcp.server import app; app.run(transport='sse', host='127.0.0.1', port=8000)"
 ```
 
 ### Interactive Testing
@@ -86,6 +88,9 @@ app.run(transport='sse', host='127.0.0.1', port=8000)
 Use FastMCP client to test tools interactively:
 
 ```bash
+# First, inspect available tools
+poe inspect --tools
+
 # Create a test script
 cat > test_client.py << 'EOF'
 import asyncio
@@ -254,7 +259,7 @@ Use FastMCP's built-in debugging tools:
 # Run server with protocol debugging
 FASTMCP_DEBUG=1 uv run builder-mcp
 
-# Inspect protocol messages
+# Inspect protocol messages (use full command for debugging flags)
 uv run fastmcp inspect builder_mcp/server.py:app --protocol-debug
 ```
 
