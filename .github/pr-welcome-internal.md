@@ -11,7 +11,7 @@ To test the changes in this specific branch with an MCP client like Claude Deskt
   "mcpServers": {
     "builder-mcp-dev": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/airbytehq/builder-mcp.git@devin/1753831735-basic-mcp-implementation", "builder-mcp"]
+      "args": ["--from", "git+https://github.com/airbytehq/builder-mcp.git@{{ .branch_name }}", "builder-mcp"]
     }
   }
 }
