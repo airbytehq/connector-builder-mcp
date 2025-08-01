@@ -106,7 +106,7 @@ Remember to update the path to your actual repo location.
         "run",
         "--project",
         "/path/to/repos/builder-mcp",
-        "builder-mcp"
+        "connector-builder-mcp"
       ]
     }
   }
