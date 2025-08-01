@@ -3,11 +3,14 @@
 This module provides MCP tools for connector building operations, including
 manifest validation, stream testing, and configuration management.
 """
-
 import logging
 from typing import Annotated, Any, Literal
 
 import requests
+from fastmcp import FastMCP
+from pydantic import BaseModel, Field
+
+from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
     create_source,
@@ -16,10 +19,13 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     resolve_manifest,
 )
 from airbyte_cdk.models import ConfiguredAirbyteCatalog
-from fastmcp import FastMCP
-from pydantic import BaseModel, Field
-
+from airbyte_protocol_dataclasses.models.airbyte_protocol import (
+    AirbyteStream,
+    DestinationSyncMode,
+    SyncMode,
+)
 from builder_mcp._util import validate_manifest_structure
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +46,28 @@ class StreamTestResult(BaseModel):
     message: str
     records_read: int = 0
     errors: list[str] = []
+
+
+def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
+    """Create a dummy configured catalog one stream.
+
+    We shouldn't have to do this. We should push it into the CDK code instead.
+
+    For now, we have to create this (with no schema) or the read operation will fail.
+    """
+    return ConfiguredAirbyteCatalog(
+        streams=[
+            ConfiguredAirbyteStream(
+                stream=AirbyteStream(
+                    name=stream_name,
+                    json_schema={},
+                    supported_sync_modes=[SyncMode.full_refresh],
+                ),
+                sync_mode=SyncMode.full_refresh,
+                destination_sync_mode=DestinationSyncMode.append,
+            ),
+        ]
+    )
 
 
 def validate_manifest(
@@ -101,7 +129,7 @@ def validate_manifest(
     )
 
 
-def execute_stream_read(
+def execute_stream_test_read(
     manifest: Annotated[
         dict[str, Any],
         Field(description="The connector manifest"),
@@ -146,10 +174,15 @@ def execute_stream_read(
 
         limits = get_limits(config_with_manifest)
         source = create_source(config_with_manifest, limits)
+        catalog = _get_dummy_catalog(stream_name)
 
-        catalog = ConfiguredAirbyteCatalog(streams=[])
-
-        result = read_stream(source, config_with_manifest, catalog, [], limits)
+        result = read_stream(
+            source=source,
+            config=config_with_manifest,
+            configured_catalog=catalog,
+            state=[],
+            limits=limits,
+        )
 
         if result.type.value == "RECORD":
             return StreamTestResult(
@@ -157,12 +190,12 @@ def execute_stream_read(
                 message=f"Successfully read from stream {stream_name}",
                 records_read=max_records,
             )
-        else:
-            error_msg = "Failed to read from stream"
-            if hasattr(result, "trace") and result.trace:
-                error_msg = result.trace.error.message
 
-            return StreamTestResult(success=False, message=error_msg, errors=[error_msg])
+        error_msg = "Failed to read from stream"
+        if hasattr(result, "trace") and result.trace:
+            error_msg = result.trace.error.message
+
+        return StreamTestResult(success=False, message=error_msg, errors=[error_msg])
 
     except Exception as e:
         logger.error(f"Error testing stream read: {e}")
@@ -418,6 +451,6 @@ def register_connector_builder_tools(app: FastMCP) -> None:
         app: FastMCP application instance
     """
     app.tool(validate_manifest)
-    app.tool(execute_stream_read)
+    app.tool(execute_stream_test_read)
     app.tool(get_resolved_manifest)
     app.tool(get_connector_builder_docs)

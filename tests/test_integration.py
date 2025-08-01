@@ -11,7 +11,7 @@ import yaml
 from builder_mcp._connector_builder import (
     StreamTestResult,
     _get_topic_mapping,
-    execute_stream_read,
+    execute_stream_test_read,
     get_connector_builder_docs,
     get_resolved_manifest,
     validate_manifest,
@@ -64,9 +64,9 @@ class TestManifestIntegration:
         assert isinstance(result, dict)
         assert "streams" in result, f"Expected 'streams' key in resolved manifest, got: {result}"
 
-    def test_execute_stream_read_rick_and_morty(self, rick_and_morty_manifest, empty_config):
+    def test_execute_stream_test_read_rick_and_morty(self, rick_and_morty_manifest, empty_config):
         """Test reading from Rick and Morty characters stream."""
-        result = execute_stream_read(
+        result = execute_stream_test_read(
             rick_and_morty_manifest, empty_config, "characters", max_records=5
         )
 
@@ -155,7 +155,7 @@ class TestHighLevelMCPWorkflows:
         assert isinstance(resolved_manifest, dict)
         assert "streams" in resolved_manifest
 
-        stream_result = execute_stream_read(
+        stream_result = execute_stream_test_read(
             rick_and_morty_manifest, empty_config, "characters", max_records=3
         )
         assert isinstance(stream_result, StreamTestResult)
@@ -163,7 +163,7 @@ class TestHighLevelMCPWorkflows:
 
     def test_error_handling_scenarios(self, rick_and_morty_manifest, empty_config):
         """Test various error handling scenarios."""
-        result = execute_stream_read(
+        result = execute_stream_test_read(
             rick_and_morty_manifest, empty_config, "nonexistent_stream", max_records=1
         )
         assert isinstance(result, StreamTestResult)
