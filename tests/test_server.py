@@ -1,8 +1,7 @@
 """Tests for MCP server functionality."""
 
+
 import pytest
-from unittest.mock import Mock, patch
-import asyncio
 
 from builder_mcp.server import app
 
@@ -17,13 +16,13 @@ class TestMCPServer:
 
     def test_tools_registered(self):
         """Test that connector builder tools are registered."""
-        assert hasattr(app, 'tool')
-        
+        assert hasattr(app, "tool")
+
         assert app is not None
 
     @pytest.mark.asyncio
     async def test_server_startup(self):
         """Test that the server can start up without errors."""
         assert app is not None
-        
+
         assert app.name == "builder-mcp"
