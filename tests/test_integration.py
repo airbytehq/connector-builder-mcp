@@ -99,7 +99,7 @@ class TestHighLevelMCPWorkflows:
         validation_result = validate_manifest(invalid_manifest, {})
         assert not validation_result.is_valid
         assert len(validation_result.errors) > 0
-        assert "missing required fields" in validation_result.errors[0].lower()
+        assert "missing required fields" in str(validation_result.errors[0]).lower()
 
     def test_missing_stream_error_handling(self, rick_and_morty_manifest, empty_config):
         """Test error handling when requesting non-existent stream."""
@@ -175,7 +175,7 @@ class TestHighLevelMCPWorkflows:
         end_time = time.time()
         duration = end_time - start_time
 
-        assert duration < 30.0, f"Multiple tool calls took too long: {duration}s"
+        assert duration < 15.0, f"Multiple tool calls took too long: {duration}s"
 
     def test_simple_api_manifest_workflow(self, simple_api_manifest, empty_config):
         """Test workflow with simple API manifest."""
