@@ -77,19 +77,24 @@ class TestManifestIntegration:
 class TestHighLevelMCPWorkflows:
     """High-level integration tests for complete MCP workflows."""
 
-    @pytest.mark.parametrize("manifest_fixture,expected_valid", [
-        ("rick_and_morty_manifest", True),
-        ("simple_api_manifest", True),
-        ("invalid_manifest", False),
-    ])
-    def test_manifest_validation_scenarios(self, manifest_fixture, expected_valid, request, empty_config):
+    @pytest.mark.parametrize(
+        "manifest_fixture,expected_valid",
+        [
+            ("rick_and_morty_manifest", True),
+            ("simple_api_manifest", True),
+            ("invalid_manifest", False),
+        ],
+    )
+    def test_manifest_validation_scenarios(
+        self, manifest_fixture, expected_valid, request, empty_config
+    ):
         """Test validation of different manifest scenarios."""
         manifest = request.getfixturevalue(manifest_fixture)
         config = {} if manifest_fixture == "invalid_manifest" else empty_config
-        
+
         result = validate_manifest(manifest, config)
         assert result.is_valid == expected_valid
-        
+
         if expected_valid:
             assert result.resolved_manifest is not None
             assert len(result.errors) == 0
@@ -123,10 +128,10 @@ class TestHighLevelMCPWorkflows:
         """Test manifest validation with authentication configuration."""
         auth_manifest = self._create_auth_manifest()
         config_with_auth = {"api_token": "test_token_123"}
-        
+
         result = validate_manifest(auth_manifest, config_with_auth)
-        assert hasattr(result, 'is_valid')
-        assert hasattr(result, 'errors')
+        assert hasattr(result, "is_valid")
+        assert hasattr(result, "errors")
         assert isinstance(result.errors, list)
 
     def _create_auth_manifest(self):
