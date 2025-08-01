@@ -5,11 +5,14 @@ import time
 from pathlib import Path
 
 import pytest
+import requests
 import yaml
 
 from builder_mcp._connector_builder import (
     StreamTestResult,
+    _get_topic_mapping,
     execute_stream_read,
+    get_connector_builder_docs,
     get_resolved_manifest,
     validate_manifest,
 )
@@ -72,6 +75,47 @@ class TestManifestIntegration:
         if result.success:
             assert result.records_read > 0
             assert "Successfully read from stream" in result.message
+
+
+class TestConnectorBuilderDocs:
+    """Test connector builder documentation functionality."""
+
+    def test_get_connector_builder_docs_overview(self):
+        """Test that overview is returned when no topic is specified."""
+        result = get_connector_builder_docs()
+
+        assert "# Connector Builder Documentation" in result
+        assert "Use the manifest YAML JSON schema" in result
+        assert "For detailed documentation on specific components" in result
+
+    @pytest.mark.parametrize("topic", list(_get_topic_mapping().keys()))
+    def test_topic_urls_are_accessible(self, topic):
+        """Test that all topic URLs in the mapping are accessible."""
+        topic_mapping = _get_topic_mapping()
+        relative_path, description = topic_mapping[topic]
+        raw_github_url = (
+            f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{relative_path}"
+        )
+
+        response = requests.get(raw_github_url, timeout=30)
+        assert response.status_code == 200, (
+            f"Topic '{topic}' URL {raw_github_url} returned status {response.status_code}"
+        )
+        assert len(response.text) > 0, f"Topic '{topic}' returned empty content"
+
+    def test_get_connector_builder_docs_specific_topic(self):
+        """Test that specific topic documentation is returned correctly."""
+        result = get_connector_builder_docs("overview")
+
+        assert "# overview Documentation" in result
+        assert len(result) > 100
+
+    def test_get_connector_builder_docs_invalid_topic(self):
+        """Test handling of invalid topic requests."""
+        result = get_connector_builder_docs("nonexistent-topic")
+
+        assert "Topic 'nonexistent-topic' not found" in result
+        assert "Available topics:" in result
 
 
 class TestHighLevelMCPWorkflows:

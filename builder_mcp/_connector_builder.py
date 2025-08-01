@@ -7,6 +7,7 @@ manifest validation, stream testing, and configuration management.
 import logging
 from typing import Annotated, Any, Literal
 
+import requests
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
     create_source,
@@ -218,6 +219,198 @@ def get_resolved_manifest(
         return "Failed to resolve manifest"
 
 
+def get_connector_builder_docs(
+    topic: Annotated[
+        str | None,
+        Field(
+            description="Specific YAML reference topic to get detailed documentation for. If not provided, returns high-level overview and topic list."
+        ),
+    ] = None,
+) -> str:
+    """Get connector builder documentation and guidance.
+
+    Args:
+        topic: Optional specific topic from YAML reference documentation
+
+    Returns:
+        High-level overview with topic list, or detailed topic-specific documentation
+    """
+    logger.info(f"Getting connector builder docs for topic: {topic}")
+
+    if topic is None:
+        return _get_high_level_overview()
+    else:
+        return _get_topic_specific_docs(topic)
+
+
+def _get_topic_mapping() -> dict[str, tuple[str, str]]:
+    """Get the topic mapping with relative paths and descriptions."""
+    return {
+        "overview": (
+            "docs/platform/connector-development/connector-builder-ui/overview.md",
+            "Connector Builder overview and introduction",
+        ),
+        "tutorial": (
+            "docs/platform/connector-development/connector-builder-ui/tutorial.mdx",
+            "Step-by-step tutorial for building connectors",
+        ),
+        "authentication": (
+            "docs/platform/connector-development/connector-builder-ui/authentication.md",
+            "Authentication configuration",
+        ),
+        "incremental-sync": (
+            "docs/platform/connector-development/connector-builder-ui/incremental-sync.md",
+            "Setting up incremental data synchronization",
+        ),
+        "pagination": (
+            "docs/platform/connector-development/connector-builder-ui/pagination.md",
+            "Handling paginated API responses",
+        ),
+        "partitioning": (
+            "docs/platform/connector-development/connector-builder-ui/partitioning.md",
+            "Configuring partition routing for complex APIs",
+        ),
+        "record-processing": (
+            "docs/platform/connector-development/connector-builder-ui/record-processing.mdx",
+            "Processing and transforming records",
+        ),
+        "error-handling": (
+            "docs/platform/connector-development/connector-builder-ui/error-handling.md",
+            "Handling API errors and retries",
+        ),
+        "ai-assist": (
+            "docs/platform/connector-development/connector-builder-ui/ai-assist.md",
+            "Using AI assistance in the Connector Builder",
+        ),
+        "stream-templates": (
+            "docs/platform/connector-development/connector-builder-ui/stream-templates.md",
+            "Using stream templates for faster development",
+        ),
+        "custom-components": (
+            "docs/platform/connector-development/connector-builder-ui/custom-components.md",
+            "Working with custom components",
+        ),
+        "async-streams": (
+            "docs/platform/connector-development/connector-builder-ui/async-streams.md",
+            "Configuring asynchronous streams",
+        ),
+        "yaml-overview": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/yaml-overview.md",
+            "Understanding the YAML file structure",
+        ),
+        "reference": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/reference.md",
+            "Complete YAML reference documentation",
+        ),
+        "yaml-incremental-syncs": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/incremental-syncs.md",
+            "Incremental sync configuration in YAML",
+        ),
+        "yaml-pagination": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/pagination.md",
+            "Pagination configuration options",
+        ),
+        "yaml-partition-router": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/partition-router.md",
+            "Partition routing in YAML manifests",
+        ),
+        "yaml-record-selector": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/record-selector.md",
+            "Record selection and transformation",
+        ),
+        "yaml-error-handling": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/error-handling.md",
+            "Error handling configuration",
+        ),
+        "yaml-authentication": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/authentication.md",
+            "Authentication methods in YAML",
+        ),
+        "requester": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/requester.md",
+            "HTTP requester configuration",
+        ),
+        "request-options": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/request-options.md",
+            "Request parameter configuration",
+        ),
+        "rate-limit-api-budget": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/rate-limit-api-budget.md",
+            "Rate limiting and API budget management",
+        ),
+        "file-syncing": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/file-syncing.md",
+            "File synchronization configuration",
+        ),
+        "property-chunking": (
+            "docs/platform/connector-development/config-based/understanding-the-yaml-file/property-chunking.md",
+            "Property chunking for large datasets",
+        ),
+    }
+
+
+def _get_high_level_overview() -> str:
+    """Return high-level connector building process and available topics."""
+    topic_mapping = _get_topic_mapping()
+
+    topic_list = []
+    for topic_key, (_, description) in topic_mapping.items():
+        topic_list.append(f"- {topic_key} - {description}")
+
+    topics_section = "\n".join(topic_list)
+
+    overview = f"""# Connector Builder Documentation
+
+1. Use the manifest YAML JSON schema for high-level guidelines
+2. Use the validate manifest tool to confirm JSON schema is correct
+3. Start with one stream or (better) a stream template that maps to a single stream
+4. Make sure you have working authentication and data retrieval before moving onto pagination and other components
+5. When all is confirmed working on the first stream, you can add additional streams. It is generally safest to add one stream at a time, and test each one before moving to the next
+
+We use the Declarative YAML Connector convention for building connectors. Note that we don't yet support custom Python components.
+
+For detailed documentation on specific components, request one of these topics:
+
+{topics_section}
+
+For detailed information on any topic, call this function again with the topic name.
+"""
+    return overview
+
+
+def _get_topic_specific_docs(topic: str) -> str:
+    """Get detailed documentation for a specific topic using raw GitHub URLs."""
+    logger.info(f"Fetching detailed docs for topic: {topic}")
+
+    topic_mapping = _get_topic_mapping()
+
+    if topic not in topic_mapping:
+        return f"# {topic} Documentation\n\nTopic '{topic}' not found. Please check the available topics list from the overview.\n\nAvailable topics: {', '.join(topic_mapping.keys())}"
+
+    relative_path, description = topic_mapping[topic]
+    raw_github_url = f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{relative_path}"
+
+    try:
+        response = requests.get(raw_github_url, timeout=30)
+        response.raise_for_status()
+
+        markdown_content = response.text
+        return f"# {topic} Documentation\n\n{markdown_content}"
+
+    except Exception as e:
+        logger.error(f"Error fetching documentation for topic {topic}: {e}")
+
+        if relative_path.endswith(".md"):
+            docs_path = relative_path[:-3]
+        elif relative_path.endswith(".mdx"):
+            docs_path = relative_path[:-4]
+        else:
+            docs_path = relative_path
+        docs_url = f"https://docs.airbyte.com/{docs_path}"
+
+        return f"# {topic} Documentation\n\nUnable to fetch detailed documentation from GitHub. Please refer to the full reference: {docs_url}\n\nError: {str(e)}"
+
+
 def register_connector_builder_tools(app: FastMCP) -> None:
     """Register connector builder tools with the FastMCP app.
 
@@ -227,3 +420,4 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(validate_manifest)
     app.tool(execute_stream_read)
     app.tool(get_resolved_manifest)
+    app.tool(get_connector_builder_docs)
