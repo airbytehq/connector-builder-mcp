@@ -17,7 +17,7 @@ on:
         description: >
           Note that this workflow is intended for prereleases. For public-facing stable releases,
           please use the GitHub Releases workflow instead:
-          https://github.com/airbytehq/builder-mcp/blob/main/docs/RELEASES.md.
+          https://github.com/airbytehq/connector-builder-mcp/blob/main/docs/RELEASES.md.
           For prereleases, please leave the version blank to use the detected version. Alternatively,
           you can override the dynamic versioning for special use cases.
         required: false
@@ -117,7 +117,7 @@ jobs:
       contents: write
     environment:
       name: PyPi
-      url: https://pypi.org/p/airbyte-builder-mcp/
+      url: https://pypi.org/p/airbyte-connector-builder-mcp/
     if: >
       (github.event_name == 'push' &&
        startsWith(github.ref, 'refs/tags/v')) ||

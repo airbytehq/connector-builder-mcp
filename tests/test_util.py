@@ -1,6 +1,6 @@
 """Tests for utility functions."""
 
-from builder_mcp._util import (
+from connector_builder_mcp._util import (
     filter_config_secrets,
     validate_manifest_structure,
 )

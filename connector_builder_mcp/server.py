@@ -9,12 +9,12 @@ import sys
 
 from fastmcp import FastMCP
 
-from builder_mcp._connector_builder import register_connector_builder_tools
-from builder_mcp._util import initialize_logging
+from connector_builder_mcp._connector_builder import register_connector_builder_tools
+from connector_builder_mcp._util import initialize_logging
 
 initialize_logging()
 
-app: FastMCP = FastMCP("builder-mcp")
+app: FastMCP = FastMCP("connector-builder-mcp")
 register_connector_builder_tools(app)
 
 

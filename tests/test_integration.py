@@ -8,7 +8,7 @@ import pytest
 import requests
 import yaml
 
-from builder_mcp._connector_builder import (
+from connector_builder_mcp._connector_builder import (
     StreamTestResult,
     _get_topic_mapping,
     execute_stream_test_read,

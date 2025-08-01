@@ -25,7 +25,7 @@ from airbyte_cdk.models.airbyte_protocol import (
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
-from builder_mcp._util import validate_manifest_structure
+from connector_builder_mcp._util import validate_manifest_structure
 
 logger = logging.getLogger(__name__)
 

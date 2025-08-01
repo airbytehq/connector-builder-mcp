@@ -94,15 +94,15 @@ Start the MCP server for manual testing:
 ```bash
 # Run with default STDIO transport
 poe mcp-serve-local
-# Equivalent to: uv run builder-mcp
+# Equivalent to: uv run connector-builder-mcp
 
 # Run with HTTP transport for web testing
 poe mcp-serve-http
-# Equivalent to: uv run python -c "from builder_mcp.server import app; app.run(transport='http', host='127.0.0.1', port=8000)"
+# Equivalent to: uv run python -c "from connector_builder_mcp.server import app; app.run(transport='http', host='127.0.0.1', port=8000)"
 
 # Run with SSE transport
 poe mcp-serve-sse
-# Equivalent to: uv run python -c "from builder_mcp.server import app; app.run(transport='sse', host='127.0.0.1', port=8000)"
+# Equivalent to: uv run python -c "from connector_builder_mcp.server import app; app.run(transport='sse', host='127.0.0.1', port=8000)"
 ```
 
 ### Interactive Testing
@@ -279,7 +279,7 @@ Use FastMCP's built-in debugging tools:
 
 ```bash
 # Run server with protocol debugging
-FASTMCP_DEBUG=1 uv run builder-mcp
+FASTMCP_DEBUG=1 uv run connector-builder-mcp
 
 # Inspect protocol messages (use full command for debugging flags)
 uv run fastmcp inspect builder_mcp/server.py:app --protocol-debug
@@ -332,4 +332,4 @@ uv run pre-commit run --all-files
 - [FastMCP Documentation](https://gofastmcp.com)
 - [Airbyte CDK Documentation](https://docs.airbyte.com/connector-development/cdk-python/)
 - [Pytest Documentation](https://docs.pytest.org/)
-- [Builder MCP Repository](https://github.com/airbytehq/builder-mcp)
+- [Builder MCP Repository](https://github.com/airbytehq/connector-builder-mcp)

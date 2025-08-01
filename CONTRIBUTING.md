@@ -15,8 +15,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/airbytehq/builder-mcp.git
-   cd builder-mcp
+   git clone https://github.com/airbytehq/connector-builder-mcp.git
+   cd connector-builder-mcp
    ```
 
 2. **Install dependencies**:
@@ -26,7 +26,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 3. **Verify the installation**:
    ```bash
-   uv run builder-mcp --help
+   uv run connector-builder-mcp --help
    ```
 
 ## Development Workflow
@@ -75,7 +75,7 @@ uv run mypy builder_mcp                           # Type checking
 uv run pytest tests/ -v                          # Run tests
 
 # MCP server
-uv run builder-mcp                                # Start server
+uv run connector-builder-mcp                                # Start server
 uv run fastmcp inspect builder_mcp/server.py:app # Inspect tools
 ```
 
@@ -194,7 +194,7 @@ test: add integration tests for connector builder
 ## Project Structure
 
 ```
-builder-mcp/
+connector-builder-mcp/
 ├── builder_mcp/           # Main package
 │   ├── server.py         # FastMCP server entry point
 │   ├── _connector_builder.py  # Connector building tools

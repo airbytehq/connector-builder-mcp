@@ -1,6 +1,6 @@
 """Tests for MCP server functionality."""
 
-from builder_mcp.server import app
+from connector_builder_mcp.server import app
 
 
 class TestMCPServer:
@@ -9,7 +9,7 @@ class TestMCPServer:
     def test_app_initialization(self):
         """Test that the FastMCP app is properly initialized."""
         assert app is not None
-        assert app.name == "builder-mcp"
+        assert app.name == "connector-builder-mcp"
 
     def test_tools_registered(self):
         """Test that connector builder tools are registered."""
@@ -18,4 +18,4 @@ class TestMCPServer:
     def test_server_startup(self):
         """Test that the server can start up without errors."""
         assert app is not None
-        assert app.name == "builder-mcp"
+        assert app.name == "connector-builder-mcp"

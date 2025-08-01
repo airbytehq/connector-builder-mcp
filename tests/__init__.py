@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from builder_mcp._connector_builder import (
+from connector_builder_mcp._connector_builder import (
     ManifestValidationResult,
     StreamTestResult,
     execute_stream_test_read,

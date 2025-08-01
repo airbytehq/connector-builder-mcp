@@ -1,8 +1,8 @@
-# builder-mcp
+# connector-builder-mcp
 
 ## Overview
 
-The `builder-mcp` repository provides a Model Context Protocol (MCP) server implementation for Airbyte connector building operations. This repository will eventually codify relevant parts of the `builder-ai` functionality, with a focus on **AI ownership** rather than AI assist.
+The `connector-builder-mcp` repository provides a Model Context Protocol (MCP) server implementation for Airbyte connector building operations. This repository will eventually codify relevant parts of the `builder-ai` functionality, with a focus on **AI ownership** rather than AI assist.
 
 ### AI Ownership vs AI Assist
 
@@ -44,7 +44,7 @@ uv sync --all-extras
 Start the MCP server:
 
 ```bash
-uv run builder-mcp
+uv run connector-builder-mcp
 ```
 
 Or use with MCP clients by configuring the server in your MCP client configuration.
@@ -58,9 +58,9 @@ To use the Builder MCP server with MCP clients like Claude Desktop, add the foll
 ```json
 {
   "mcpServers": {
-    "builder-mcp": {
+    "connector-builder-mcp": {
       "command": "uvx",
-      "args": ["builder-mcp"]
+      "args": ["connector-builder-mcp"]
     }
   }
 }
@@ -71,9 +71,9 @@ To use the Builder MCP server with MCP clients like Claude Desktop, add the foll
 ```json
 {
   "mcpServers": {
-    "builder-mcp": {
+    "connector-builder-mcp": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/airbytehq/builder-mcp.git", "builder-mcp"]
+      "args": ["--from", "git+https://github.com/airbytehq/connector-builder-mcp.git", "connector-builder-mcp"]
     }
   }
 }
@@ -84,9 +84,9 @@ To use the Builder MCP server with MCP clients like Claude Desktop, add the foll
 ```json
 {
   "mcpServers": {
-    "builder-mcp": {
+    "connector-builder-mcp": {
       "command": "uvx",
-      "args": ["builder-mcp"],
+      "args": ["connector-builder-mcp"],
       "env": {
         "AIRBYTE_CDK_LOG_LEVEL": "INFO"
       }

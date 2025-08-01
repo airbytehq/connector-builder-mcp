@@ -1,5 +1,5 @@
 def main():
-    print("Hello from builder-mcp!")
+    print("Hello from connector-builder-mcp!")
 
 
 if __name__ == "__main__":
