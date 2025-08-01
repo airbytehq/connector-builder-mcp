@@ -8,7 +8,7 @@ You can test this version of the MCP server using the following:
 
 ```bash
 # Run the CLI from this branch:
-uvx 'git+https://github.com/airbytehq/builder-mcp.git@{{ .branch_name }}#egg=airbyte-builder-mcp' --help
+uvx 'git+https://github.com/airbytehq/connector-builder-mcp.git@{{ .branch_name }}#egg=airbyte-connector-builder-mcp' --help
 ```
 
 ### Helpful Resources

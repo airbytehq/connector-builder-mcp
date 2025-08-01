@@ -171,7 +171,7 @@ wheels = [
 ]
 
 [[package]]
-name = "builder-mcp"
+name = "connector-builder-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
