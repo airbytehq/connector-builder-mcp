@@ -18,9 +18,9 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     read_stream,
     resolve_manifest,
 )
-from airbyte_cdk.models import ConfiguredAirbyteCatalog
-from airbyte_protocol_dataclasses.models.airbyte_protocol import (
+from airbyte_cdk.models.airbyte_protocol import (
     AirbyteStream,
+    ConfiguredAirbyteCatalog,
     DestinationSyncMode,
     SyncMode,
 )
