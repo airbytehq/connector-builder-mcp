@@ -95,7 +95,7 @@ jobs:
         env:
           # Pass in the evaluated version from the previous step
           # More info: https://github.com/mtkennerly/uv-dynamic-versioning#user-content-environment-variables
-          uv_DYNAMIC_VERSIONING_BYPASS: ${{ env.VERSION || '0.0.0dev0'}}
+          UV_DYNAMIC_VERSIONING_BYPASS: ${{ env.VERSION || '0.0.0dev0'}}
 
       - uses: actions/upload-artifact@v4
         with:
