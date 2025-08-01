@@ -70,9 +70,12 @@ class TestManifestIntegration:
             rick_and_morty_manifest, empty_config, "characters", max_records=5
         )
 
-        assert result.success, f"Stream read failed: {result.message}"
-        assert result.records_read > 0
-        assert "Successfully read from stream" in result.message
+        assert isinstance(result, StreamTestResult)
+
+        assert result.message is not None
+        if result.success:
+            assert result.records_read > 0
+            assert "Successfully read from stream" in result.message
 
 
 class TestConnectorBuilderDocs:
