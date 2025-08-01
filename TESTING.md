@@ -52,17 +52,39 @@ FastMCP 2.0 provides powerful CLI tools for testing and debugging MCP servers. F
 Inspect the MCP server to see available tools, resources, and prompts:
 
 ```bash
-# Inspect the server structure
+# Inspect the server structure (generates comprehensive JSON report)
 poe inspect
 # Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app
 
-# Get detailed tool information
-poe inspect --tools
-# Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app --tools
+# Save inspection report to custom file
+poe inspect --output my-server-report.json
+# Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app --output my-server-report.json
 
-# Check server health
-poe inspect --health
-# Equivalent to: uv run fastmcp inspect builder_mcp/server.py:app --health
+# View help for inspection options
+poe inspect --help
+# Shows available options for the inspect command
+```
+
+The inspection generates a comprehensive JSON report containing:
+- **Tools**: All available MCP tools with descriptions and input schemas
+- **Prompts**: Available prompt templates (currently 0)
+- **Resources**: Available resources (currently 0) 
+- **Templates**: Available templates (currently 0)
+- **Capabilities**: Server capabilities and features
+
+#### Testing Specific Tools
+
+After running `poe inspect`, you can examine the generated `server-info.json` file to see detailed information about each tool:
+
+```bash
+# View the complete inspection report
+cat server-info.json
+
+# Extract just the tools information using jq
+cat server-info.json | jq '.tools'
+
+# Get details for a specific tool
+cat server-info.json | jq '.tools[] | select(.name == "validate_manifest")'
 ```
 
 ### Running the Server
