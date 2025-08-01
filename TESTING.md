@@ -177,7 +177,7 @@ def test_complete_workflow():
     assert isinstance(resolved, dict)
     
     # 3. Test stream reading
-    stream_result = execute_stream_read(manifest, config, "stream_name")
+    stream_result = execute_stream_test_read(manifest, config, "stream_name")
     assert stream_result.success
 ```
 
