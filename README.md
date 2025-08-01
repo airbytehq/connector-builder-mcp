@@ -105,7 +105,7 @@ Remember to update the path to your actual repo location.
       "args": [
         "run",
         "--project",
-        "/path/to/repos/builder-mcp",
+        "/path/to/repos/connector-builder-mcp",
         "connector-builder-mcp"
       ]
     }
