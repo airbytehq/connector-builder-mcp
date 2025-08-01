@@ -5,12 +5,14 @@ on:
     branches:
       - main
     paths:
-      - "src/**"
+      - "builder_mcp/**"
+      - "tests/**"
       - "uv.lock"
       - "pyproject.toml"
   pull_request:
     paths:
-      - "src/**"
+      - "builder_mcp/**"
+      - "tests/**"
       - "uv.lock"
       - "pyproject.toml"
 
@@ -28,7 +30,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v6.4.3
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       # Job-specific step(s):
       - name: Run Deptry
