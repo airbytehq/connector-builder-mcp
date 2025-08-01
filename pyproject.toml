@@ -20,6 +20,7 @@ dev = [
     "mypy>=1.13.0",
     "pyyaml>=6.0.0",
     "coverage>=7.0.0",
+    "poethepoet>=0.29.0",
 ]
 
 [dependency-groups]
@@ -28,6 +29,7 @@ dev = [
     "pdoc>=15.0.4",
     "pyrefly>=0.25.0",
     "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
     "ruff>=0.12.4",
     "ty>=0.0.1a15",
@@ -74,3 +76,6 @@ markers = [
     "requires_creds: marks tests as requiring credentials (deselected by default)",
     "slow: marks tests as slow (deselected by default)",
 ]
+
+[tool.deptry]
+ignore = ["DEP002"]
