@@ -6,7 +6,6 @@ following the PyAirbyte MCP pattern with FastMCP integration.
 
 import asyncio
 import sys
-from typing import NoReturn
 
 from fastmcp import FastMCP
 
@@ -19,7 +18,7 @@ app: FastMCP = FastMCP("builder-mcp")
 register_connector_builder_tools(app)
 
 
-def main() -> NoReturn:
+def main() -> None:
     """Main entry point for the Builder MCP server."""
     print("Starting Builder MCP server.", file=sys.stderr)
     try:
@@ -31,6 +30,7 @@ def main() -> NoReturn:
         sys.exit(1)
 
     print("Builder MCP server stopped.", file=sys.stderr)
+    sys.exit(0)
 
 
 if __name__ == "__main__":

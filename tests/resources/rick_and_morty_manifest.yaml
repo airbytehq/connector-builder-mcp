@@ -1,0 +1,74 @@
+version: 4.6.2
+type: DeclarativeSource
+
+check:
+  type: CheckStream
+  stream_names:
+    - characters
+
+streams:
+  - type: DeclarativeStream
+    name: characters
+    primary_key:
+      - id
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://rickandmortyapi.com/api"
+        path: "/character"
+        http_method: GET
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: ["results"]
+      paginator:
+        type: DefaultPaginator
+        page_token_option:
+          type: RequestOption
+          inject_into: request_parameter
+          field_name: page
+        pagination_strategy:
+          type: PageIncrement
+          start_from_page: 1
+    schema_loader:
+      type: InlineSchemaLoader
+      schema:
+        $schema: http://json-schema.org/draft-07/schema#
+        type: object
+        properties:
+          id:
+            type: integer
+          name:
+            type: string
+          status:
+            type: string
+          species:
+            type: string
+          type:
+            type: string
+          gender:
+            type: string
+          origin:
+            type: object
+          location:
+            type: object
+          image:
+            type: string
+          episode:
+            type: array
+          url:
+            type: string
+          created:
+            type: string
+
+spec:
+  type: Spec
+  documentation_url: https://rickandmortyapi.com/documentation/
+  connection_specification:
+    $schema: http://json-schema.org/draft-07/schema#
+    title: Rick and Morty API Source Spec
+    type: object
+    additionalProperties: true
+    properties: {}

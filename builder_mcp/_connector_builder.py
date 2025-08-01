@@ -62,8 +62,8 @@ def validate_manifest(
     """
     logger.info("Validating connector manifest")
 
-    errors = []
-    warnings = []
+    errors: list[str] = []
+    warnings: list[str] = []
     resolved_manifest = None
 
     try:
@@ -80,7 +80,11 @@ def validate_manifest(
         source = create_source(config_with_manifest, limits)
 
         resolve_result = resolve_manifest(source)
-        if resolve_result.type.value == "RECORD":
+        if (
+            resolve_result.type.value == "RECORD"
+            and resolve_result.record is not None
+            and resolve_result.record.data is not None
+        ):
             resolved_manifest = resolve_result.record.data.get("manifest")
         else:
             errors.append("Failed to resolve manifest")
@@ -197,14 +201,21 @@ def get_resolved_manifest(
         source = create_source(config_with_manifest, limits)
         result = resolve_manifest(source)
 
-        if result.type.value == "RECORD":
-            return result.record.data.get("manifest", {})
+        if (
+            result.type.value == "RECORD"
+            and result.record is not None
+            and result.record.data is not None
+        ):
+            manifest_data = result.record.data.get("manifest", {})
+            if isinstance(manifest_data, dict):
+                return manifest_data
+            return {}
         else:
             return "Failed to resolve manifest"
 
     except Exception as e:
         logger.error(f"Error resolving manifest: {e}")
-        return f"Resolution error: {str(e)}"
+        return "Failed to resolve manifest"
 
 
 def register_connector_builder_tools(app: FastMCP) -> None:
