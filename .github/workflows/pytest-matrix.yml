@@ -65,7 +65,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         if: steps.changes.outputs.src == 'true'
-        run: uv install --all-extras
+        run: uv sync
 
       # Job-specific step(s):
       - name: Run Pytest

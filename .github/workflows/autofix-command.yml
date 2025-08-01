@@ -79,7 +79,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv install --all-extras
+        run: uv sync
 
       # Fix any lint or format issues
 
