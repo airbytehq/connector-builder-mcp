@@ -98,11 +98,11 @@ poe mcp-serve-local
 
 # Run with HTTP transport for web testing
 poe mcp-serve-http
-# Equivalent to: uv run python -c "from builder_mcp.server import app; app.run(transport='http', host='127.0.0.1', port=8000)"
+# Equivalent to: uv run python -c "from connector_builder_mcp.server import app; app.run(transport='http', host='127.0.0.1', port=8000)"
 
 # Run with SSE transport
 poe mcp-serve-sse
-# Equivalent to: uv run python -c "from builder_mcp.server import app; app.run(transport='sse', host='127.0.0.1', port=8000)"
+# Equivalent to: uv run python -c "from connector_builder_mcp.server import app; app.run(transport='sse', host='127.0.0.1', port=8000)"
 ```
 
 ### Interactive Testing

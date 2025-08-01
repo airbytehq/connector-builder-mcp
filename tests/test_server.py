@@ -1,6 +1,6 @@
 """Tests for MCP server functionality."""
 
-from builder_mcp.server import app
+from connector_builder_mcp.server import app
 
 
 class TestMCPServer:
