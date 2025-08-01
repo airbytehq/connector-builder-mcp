@@ -2,18 +2,29 @@
 
 Here are some helpful tips and reminders for your convenience.
 
-### Testing This Version
+### Testing This Branch via MCP
 
-You can test this version of the MCP Server using the following:
+To test the changes in this specific branch with an MCP client like Claude Desktop, use the following configuration:
+
+```json
+{
+  "mcpServers": {
+    "builder-mcp-dev": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/airbytehq/builder-mcp.git@{{ .branch_name }}", "builder-mcp"]
+    }
+  }
+}
+```
+
+### Testing This Branch via CLI
+
+You can test this version of the MCP Server using the following CLI snippet:
 
 ```bash
 # Run the CLI from this branch:
 uvx 'git+https://github.com/airbytehq/builder-mcp.git@{{ .branch_name }}#egg=airbyte-builder-mcp' --help
 ```
-
-### Helpful Resources
-
-- TBA
 
 ### PR Slash Commands
 
