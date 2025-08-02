@@ -13,6 +13,7 @@ from dotenv import dotenv_values, set_key
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -135,9 +136,10 @@ def populate_dotenv_missing_secrets_stubs(
         dict[str, Any] | None, Field(description="Connector manifest to analyze for secrets")
     ] = None,
     config_paths: Annotated[
-        list[str] | None,
+        str | None,
         Field(
-            description="List of config paths like ['credentials.password', 'oauth.client_secret']"
+            description="Comma-separated list of config paths like "
+            "'credentials.password,oauth.client_secret'"
         ),
     ] = None,
     allow_create: Annotated[bool, Field(description="Create the file if it doesn't exist")] = True,
@@ -146,18 +148,15 @@ def populate_dotenv_missing_secrets_stubs(
 
     Supports two modes:
     1. Manifest-based: Pass manifest to auto-detect secrets from connection_specification
-    2. Path-based: Pass config_paths list like ['credentials.password', 'oauth.client_secret']
+    2. Path-based: Pass config_paths list like 'credentials.password,oauth.client_secret'
 
-    Args:
-        dotenv_path: Path to the .env file to add secrets to
-        manifest: Connector manifest to analyze for airbyte_secret fields
-        config_paths: List of config paths to convert to environment variables
-        allow_create: Create the file if it doesn't exist
+    If both are provided, both sets of secrets will be added.
 
     Returns:
         Message about the operation result
     """
-    if not any([manifest, config_paths]):
+    config_paths_list = config_paths.split(",") if config_paths else []
+    if not any([manifest, config_paths_list]):
         return "Error: Must provide either manifest or config_paths"
 
     try:
@@ -172,8 +171,8 @@ def populate_dotenv_missing_secrets_stubs(
         if manifest:
             secrets_to_add.extend(_extract_secrets_names_from_manifest(manifest))
 
-        if config_paths:
-            for path in config_paths:
+        if config_paths_list:
+            for path in config_paths_list:
                 dotenv_key = _config_path_to_dotenv_key(path)
                 secrets_to_add.append(dotenv_key)
 
