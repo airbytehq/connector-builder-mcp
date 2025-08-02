@@ -104,7 +104,7 @@ def validate_manifest(
         if config is None:
             config = {}
 
-        config = hydrate_config(config)
+        config = hydrate_config(config, dotenv_path=None)
         config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
 
         limits = get_limits(config_with_manifest)
@@ -163,7 +163,7 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
 
     try:
-        config = hydrate_config(config)
+        config = hydrate_config(config, dotenv_path=None)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest,
@@ -231,7 +231,7 @@ def get_resolved_manifest(
         if config is None:
             config = {}
 
-        config = hydrate_config(config)
+        config = hydrate_config(config, dotenv_path=None)
         config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
 
         limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
