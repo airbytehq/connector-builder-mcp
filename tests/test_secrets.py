@@ -11,22 +11,7 @@ from connector_builder_mcp._secrets import (
     list_dotenv_secrets,
     load_secrets,
     populate_dotenv_missing_secrets_stubs,
-    set_dotenv_path,
 )
-
-
-class TestSetDotenvPath:
-    """Test setting dotenv path via tool."""
-
-    def test_set_dotenv_path(self):
-        """Test setting dotenv path creates file and returns absolute path."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            test_file = Path(temp_dir) / "test.env"
-
-            result = set_dotenv_path(str(test_file))
-
-            assert test_file.exists()
-            assert f"Dotenv file ready at: {test_file.resolve()}" in result
 
 
 class TestLoadSecrets:
@@ -40,13 +25,13 @@ class TestLoadSecrets:
     def test_load_secrets_existing_file(self):
         """Test loading from existing file with secrets."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
-            f.write("CREDENTIALS_PASSWORD=secret123\n")
-            f.write("API_TOKEN=token456\n")
+            f.write("credentials.password=secret123\n")
+            f.write("api_token=token456\n")
             f.flush()
 
             secrets = load_secrets(f.name)
 
-            assert secrets == {"CREDENTIALS_PASSWORD": "secret123", "API_TOKEN": "token456"}
+            assert secrets == {"credentials.password": "secret123", "api_token": "token456"}
 
             Path(f.name).unlink()
 
@@ -69,13 +54,13 @@ class TestHydrateConfig:
             assert result == config
 
     def test_hydrate_config_with_secrets(self):
-        """Test hydration with secrets using naming convention."""
+        """Test hydration with secrets using dot notation."""
         config = {"host": "localhost", "credentials": {"username": "user"}, "oauth": {}}
 
         secrets = {
-            "API_KEY": "secret123",
-            "CREDENTIALS_PASSWORD": "pass456",
-            "OAUTH_CLIENT_SECRET": "oauth789",
+            "api_key": "secret123",
+            "credentials.password": "pass456",
+            "oauth.client_secret": "oauth789",
         }
 
         with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
@@ -90,9 +75,9 @@ class TestHydrateConfig:
             assert result == expected
 
     def test_hydrate_config_simple_keys(self):
-        """Test hydration with simple environment variable names."""
+        """Test hydration with simple dotenv keys."""
         config = {"host": "localhost"}
-        secrets = {"TOKEN": "token123", "URL": "https://api.example.com"}
+        secrets = {"token": "token123", "url": "https://api.example.com"}
 
         with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
             result = hydrate_config(config, "/path/to/.env")
@@ -103,7 +88,7 @@ class TestHydrateConfig:
     def test_hydrate_config_ignores_comment_values(self):
         """Test that comment values (starting with #) are ignored."""
         config = {"host": "localhost"}
-        secrets = {"API_KEY": "# TODO: Set actual value for API_KEY", "TOKEN": "real_token_value"}
+        secrets = {"api_key": "# TODO: Set actual value for api_key", "token": "real_token_value"}
 
         with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
             result = hydrate_config(config, "/path/to/.env")
@@ -125,7 +110,7 @@ class TestHydrateConfig:
         """Test that secrets overwrite existing config values."""
         config = {"api_key": "old_value", "credentials": {"password": "old_password"}}
 
-        secrets = {"API_KEY": "new_secret", "CREDENTIALS_PASSWORD": "new_password"}
+        secrets = {"api_key": "new_secret", "credentials.password": "new_password"}
 
         with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
             result = hydrate_config(config, "/path/to/.env")
@@ -149,9 +134,9 @@ class TestListDotenvSecrets:
     def test_list_dotenv_secrets_with_file(self):
         """Test listing secrets from existing file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
-            f.write("CREDENTIALS_PASSWORD=secret123\n")
-            f.write("EMPTY_KEY=\n")
-            f.write("API_TOKEN=token456\n")
+            f.write("credentials.password=secret123\n")
+            f.write("empty_key=\n")
+            f.write("api_token=token456\n")
             f.flush()
 
             result = list_dotenv_secrets(f.name)
@@ -161,10 +146,10 @@ class TestListDotenvSecrets:
             assert len(result.secrets) == 3
 
             secret_keys = {s.key for s in result.secrets}
-            assert secret_keys == {"CREDENTIALS_PASSWORD", "EMPTY_KEY", "API_TOKEN"}
+            assert secret_keys == {"credentials.password", "empty_key", "api_token"}
 
             for secret in result.secrets:
-                if secret.key == "EMPTY_KEY":
+                if secret.key == "empty_key":
                     assert secret.is_set is False
                 else:
                     assert secret.is_set is True
@@ -184,15 +169,15 @@ class TestPopulateDotenvMissingSecretsStubs:
             )
 
             assert "Added 2 secret stub(s)" in result
-            assert "CREDENTIALS_PASSWORD" in result
-            assert "OAUTH_CLIENT_SECRET" in result
+            assert "credentials.password" in result
+            assert "oauth.client_secret" in result
 
             with open(f.name) as file:
                 content = file.read()
-                assert "CREDENTIALS_PASSWORD=" in content
-                assert "OAUTH_CLIENT_SECRET=" in content
-                assert "TODO: Set actual value for CREDENTIALS_PASSWORD" in content
-                assert "TODO: Set actual value for OAUTH_CLIENT_SECRET" in content
+                assert "credentials.password=" in content
+                assert "oauth.client_secret=" in content
+                assert "TODO: Set actual value for credentials.password" in content
+                assert "TODO: Set actual value for oauth.client_secret" in content
 
             Path(f.name).unlink()
 
@@ -218,16 +203,16 @@ class TestPopulateDotenvMissingSecretsStubs:
             result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest)
 
             assert "Added 2 secret stub(s)" in result
-            assert "API_TOKEN" in result
-            assert "CLIENT_SECRET" in result
+            assert "api_token" in result
+            assert "client_secret" in result
             assert "username" not in result  # Should not include non-secret fields
 
             with open(f.name) as file:
                 content = file.read()
-                assert "API_TOKEN=" in content
-                assert "CLIENT_SECRET=" in content
-                assert "TODO: Set actual value for API_TOKEN" in content
-                assert "TODO: Set actual value for CLIENT_SECRET" in content
+                assert "api_token=" in content
+                assert "client_secret=" in content
+                assert "TODO: Set actual value for api_token" in content
+                assert "TODO: Set actual value for client_secret" in content
 
             Path(f.name).unlink()
 
@@ -249,18 +234,18 @@ class TestPopulateDotenvMissingSecretsStubs:
             )
 
             assert "Added 3 secret stub(s)" in result
-            assert "API_TOKEN" in result
-            assert "CREDENTIALS_PASSWORD" in result
-            assert "OAUTH_REFRESH_TOKEN" in result
+            assert "api_token" in result
+            assert "credentials.password" in result
+            assert "oauth.refresh_token" in result
 
             with open(f.name) as file:
                 content = file.read()
-                assert "API_TOKEN=" in content
-                assert "CREDENTIALS_PASSWORD=" in content
-                assert "OAUTH_REFRESH_TOKEN=" in content
-                assert "TODO: Set actual value for API_TOKEN" in content
-                assert "TODO: Set actual value for CREDENTIALS_PASSWORD" in content
-                assert "TODO: Set actual value for OAUTH_REFRESH_TOKEN" in content
+                assert "api_token=" in content
+                assert "credentials.password=" in content
+                assert "oauth.refresh_token=" in content
+                assert "TODO: Set actual value for api_token" in content
+                assert "TODO: Set actual value for credentials.password" in content
+                assert "TODO: Set actual value for oauth.refresh_token" in content
 
             Path(f.name).unlink()
 

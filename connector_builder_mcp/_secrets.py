@@ -31,28 +31,6 @@ class SecretsFileInfo(BaseModel):
     secrets: list[SecretInfo]
 
 
-def set_dotenv_path(
-    file_path: Annotated[str, Field(description="Path to the .env file to use for secrets")],
-) -> str:
-    """Set up a dotenv file for secrets management.
-
-    This creates the file and directory structure if they don't exist.
-
-    Args:
-        file_path: Path to the .env file to create/use
-
-    Returns:
-        Confirmation message with the absolute path
-    """
-    abs_path = str(Path(file_path).resolve())
-    logger.info(f"Setting up dotenv file at: {abs_path}")
-
-    Path(abs_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(abs_path).touch()
-
-    return f"Dotenv file ready at: {abs_path}"
-
-
 def load_secrets(dotenv_path: str) -> dict[str, str]:
     """Load secrets from the specified dotenv file.
 
@@ -77,12 +55,12 @@ def load_secrets(dotenv_path: str) -> dict[str, str]:
 
 
 def hydrate_config(config: dict[str, Any], dotenv_path: str | None = None) -> dict[str, Any]:
-    """Hydrate configuration with secrets from dotenv file using naming convention.
+    """Hydrate configuration with secrets from dotenv file using dot notation.
 
-    Environment variables are mapped to config paths using underscore convention:
-    - CREDENTIALS_PASSWORD -> credentials.password
-    - API_KEY -> api_key
-    - OAUTH_CLIENT_SECRET -> oauth.client_secret
+    Dotenv keys are mapped directly to config paths using dot notation:
+    - credentials.password -> credentials.password
+    - api_key -> api_key
+    - oauth.client_secret -> oauth.client_secret
 
     Args:
         config: Configuration dictionary to hydrate with secrets
@@ -109,40 +87,11 @@ def hydrate_config(config: dict[str, Any], dotenv_path: str | None = None) -> di
             current = current[key]
         current[path[-1]] = value
 
-    def _env_var_to_path(env_var: str) -> list[str]:
-        """Convert environment variable name to config path.
-
-        Examples:
-        - CREDENTIALS_PASSWORD -> ['credentials', 'password']
-        - API_KEY -> ['api_key']
-        - OAUTH_CLIENT_SECRET -> ['oauth', 'client_secret']
-        """
-        lower_name = env_var.lower()
-
-        if env_var in ["API_KEY", "ACCESS_TOKEN", "CLIENT_ID", "CLIENT_SECRET", "REFRESH_TOKEN"]:
-            return [lower_name]
-
-        parts = lower_name.split("_")
-
-        # For single part, return as-is
-        if len(parts) == 1:
-            return parts
-
-        # For two parts, check if it should be nested or flat
-        if len(parts) == 2:
-            if parts[0] in ["credentials", "oauth", "auth", "config", "settings"]:
-                return parts
-            else:
-                return [lower_name]
-
-        # For multi-part names, use first part as parent and join rest
-        return [parts[0], "_".join(parts[1:])]
-
     result = config.copy()
 
-    for env_var, secret_value in secrets.items():
+    for dotenv_key, secret_value in secrets.items():
         if secret_value and not secret_value.startswith("#"):
-            path = _env_var_to_path(env_var)
+            path = dotenv_key.split(".")
             _set_nested_value(result, path, secret_value)
 
     return result
@@ -225,16 +174,16 @@ def populate_dotenv_missing_secrets_stubs(
 
         if config_paths:
             for path in config_paths:
-                env_var = _config_path_to_env_var(path)
-                secrets_to_add.append(env_var)
+                dotenv_key = _config_path_to_dotenv_key(path)
+                secrets_to_add.append(dotenv_key)
 
         if not secrets_to_add:
             return "No secrets found to add"
 
         added_count = 0
-        for env_var in secrets_to_add:
-            placeholder_value = f"# TODO: Set actual value for {env_var}"
-            set_key(dotenv_path, env_var, placeholder_value)
+        for dotenv_key in secrets_to_add:
+            placeholder_value = f"# TODO: Set actual value for {dotenv_key}"
+            set_key(dotenv_path, dotenv_key, placeholder_value)
             added_count += 1
 
         return f"Added {added_count} secret stub(s) to {dotenv_path}: {', '.join(secrets_to_add)}. Please set the actual values."
@@ -251,7 +200,7 @@ def _extract_secrets_names_from_manifest(manifest: dict[str, Any]) -> list[str]:
         manifest: Connector manifest dictionary
 
     Returns:
-        List of environment variable names
+        List of dotenv key names
     """
     secrets = []
 
@@ -262,8 +211,8 @@ def _extract_secrets_names_from_manifest(manifest: dict[str, Any]) -> list[str]:
 
         for field_name, field_spec in properties.items():
             if field_spec.get("airbyte_secret", False):
-                env_var = _config_path_to_env_var(field_name)
-                secrets.append(env_var)
+                dotenv_key = _config_path_to_dotenv_key(field_name)
+                secrets.append(dotenv_key)
 
     except Exception as e:
         logger.warning(f"Error extracting secrets from manifest: {e}")
@@ -271,21 +220,21 @@ def _extract_secrets_names_from_manifest(manifest: dict[str, Any]) -> list[str]:
     return secrets
 
 
-def _config_path_to_env_var(config_path: str) -> str:
-    """Convert config path to environment variable name.
+def _config_path_to_dotenv_key(config_path: str) -> str:
+    """Convert config path to dotenv key (keeping original format).
 
     Examples:
-    - 'credentials.password' -> 'CREDENTIALS_PASSWORD'
-    - 'api_key' -> 'API_KEY'
-    - 'oauth.client_secret' -> 'OAUTH_CLIENT_SECRET'
+    - 'credentials.password' -> 'credentials.password'
+    - 'api_key' -> 'api_key'
+    - 'oauth.client_secret' -> 'oauth.client_secret'
 
     Args:
         config_path: Dot-separated config path
 
     Returns:
-        Environment variable name
+        Dotenv key name (same as input)
     """
-    return config_path.replace(".", "_").upper()
+    return config_path
 
 
 def get_dotenv_path(
@@ -310,7 +259,6 @@ def register_secrets_tools(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    app.tool(set_dotenv_path)
     app.tool(list_dotenv_secrets)
     app.tool(populate_dotenv_missing_secrets_stubs)
     app.tool(get_dotenv_path)
