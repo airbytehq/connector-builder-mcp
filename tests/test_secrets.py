@@ -10,12 +10,12 @@ from connector_builder_mcp._secrets import (
     DEFAULT_SECRETS_FILE,
     SECRETS_FILE_ENV_VAR,
     SecretsFileInfo,
-    add_secret_stub,
+    get_dotenv_path,
     get_secrets_file_path,
-    get_secrets_file_path_for_user,
     hydrate_config,
-    list_secrets,
+    list_dotenv_secrets,
     load_secrets,
+    populate_dotenv_missing_secrets_stubs,
     set_dotenv_path,
 )
 
@@ -195,16 +195,16 @@ class TestHydrateConfig:
             assert result == expected
 
 
-class TestListSecrets:
+class TestListDotenvSecrets:
     """Test listing secrets without exposing values."""
 
-    def test_list_secrets_no_file(self):
+    def test_list_dotenv_secrets_no_file(self):
         """Test listing when secrets file doesn't exist."""
         original_path = secrets_module._current_dotenv_path
 
         try:
             secrets_module._current_dotenv_path = "/nonexistent/file.env"
-            result = list_secrets()
+            result = list_dotenv_secrets()
 
             assert isinstance(result, SecretsFileInfo)
             assert result.exists is False
@@ -213,7 +213,7 @@ class TestListSecrets:
         finally:
             secrets_module._current_dotenv_path = original_path
 
-    def test_list_secrets_with_file(self):
+    def test_list_dotenv_secrets_with_file(self):
         """Test listing secrets from existing file."""
         original_path = secrets_module._current_dotenv_path
 
@@ -225,7 +225,7 @@ class TestListSecrets:
                 f.flush()
 
                 secrets_module._current_dotenv_path = f.name
-                result = list_secrets()
+                result = list_dotenv_secrets()
 
                 assert isinstance(result, SecretsFileInfo)
                 assert result.exists is True
@@ -245,10 +245,10 @@ class TestListSecrets:
             secrets_module._current_dotenv_path = original_path
 
 
-class TestAddSecretStub:
+class TestPopulateDotenvMissingSecretsStubs:
     """Test adding secret stubs."""
 
-    def test_add_secret_stub(self):
+    def test_populate_dotenv_missing_secrets_stubs(self):
         """Test adding a secret stub to file."""
         original_path = secrets_module._current_dotenv_path
 
@@ -256,7 +256,7 @@ class TestAddSecretStub:
             with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
                 secrets_module._current_dotenv_path = f.name
 
-                result = add_secret_stub("CREDENTIALS_PASSWORD", "Password for API authentication")
+                result = populate_dotenv_missing_secrets_stubs("CREDENTIALS_PASSWORD", "Password for API authentication")
 
                 assert "Added secret stub 'CREDENTIALS_PASSWORD'" in result
                 assert f.name in result
@@ -271,7 +271,7 @@ class TestAddSecretStub:
         finally:
             secrets_module._current_dotenv_path = original_path
 
-    def test_add_secret_stub_no_description(self):
+    def test_populate_dotenv_missing_secrets_stubs_no_description(self):
         """Test adding a secret stub without description."""
         original_path = secrets_module._current_dotenv_path
 
@@ -279,7 +279,7 @@ class TestAddSecretStub:
             with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
                 secrets_module._current_dotenv_path = f.name
 
-                result = add_secret_stub("OAUTH_CLIENT_SECRET")
+                result = populate_dotenv_missing_secrets_stubs("OAUTH_CLIENT_SECRET")
 
                 assert "Added secret stub 'OAUTH_CLIENT_SECRET'" in result
 
@@ -293,10 +293,10 @@ class TestAddSecretStub:
             secrets_module._current_dotenv_path = original_path
 
 
-class TestGetSecretsFilePathForUser:
+class TestGetDotenvPath:
     """Test getting secrets file path for user reference."""
 
-    def test_get_secrets_file_path_for_user(self):
+    def test_get_dotenv_path(self):
         """Test getting absolute path for user."""
         original_path = secrets_module._current_dotenv_path
 
@@ -304,7 +304,7 @@ class TestGetSecretsFilePathForUser:
             test_path = "relative/path/.env"
             secrets_module._current_dotenv_path = test_path
 
-            result = get_secrets_file_path_for_user()
+            result = get_dotenv_path()
 
             assert result == str(Path(test_path).absolute())
         finally:

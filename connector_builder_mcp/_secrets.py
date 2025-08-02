@@ -169,7 +169,7 @@ def hydrate_config(config: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def list_secrets() -> SecretsFileInfo:
+def list_dotenv_secrets() -> SecretsFileInfo:
     """List all secrets in the secrets file without exposing values.
 
     Returns:
@@ -198,7 +198,7 @@ def list_secrets() -> SecretsFileInfo:
     )
 
 
-def add_secret_stub(
+def populate_dotenv_missing_secrets_stubs(
     secret_key: Annotated[str, Field(description="Name of the secret to add")],
     description: Annotated[str, Field(description="Description of what this secret is for")] = "",
 ) -> str:
@@ -229,7 +229,7 @@ def add_secret_stub(
         return f"Error adding secret stub: {str(e)}"
 
 
-def get_secrets_file_path_for_user() -> str:
+def get_dotenv_path() -> str:
     """Get the absolute path to the secrets file for user reference.
 
     Returns:
@@ -246,6 +246,6 @@ def register_secrets_tools(app: FastMCP) -> None:
         app: FastMCP application instance
     """
     app.tool(set_dotenv_path)
-    app.tool(list_secrets)
-    app.tool(add_secret_stub)
-    app.tool(get_secrets_file_path_for_user)
+    app.tool(list_dotenv_secrets)
+    app.tool(populate_dotenv_missing_secrets_stubs)
+    app.tool(get_dotenv_path)
