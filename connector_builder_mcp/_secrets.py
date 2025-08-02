@@ -199,9 +199,18 @@ def list_dotenv_secrets() -> SecretsFileInfo:
 
 
 def populate_dotenv_missing_secrets_stubs(
-    manifest: Annotated[dict[str, Any] | None, Field(description="Connector manifest to analyze for secrets")] = None,
-    config_paths: Annotated[list[str] | None, Field(description="List of config paths like ['credentials.password', 'oauth.client_secret']")] = None,
-    secret_key: Annotated[str | None, Field(description="Single secret key to add (legacy mode)")] = None,
+    manifest: Annotated[
+        dict[str, Any] | None, Field(description="Connector manifest to analyze for secrets")
+    ] = None,
+    config_paths: Annotated[
+        list[str] | None,
+        Field(
+            description="List of config paths like ['credentials.password', 'oauth.client_secret']"
+        ),
+    ] = None,
+    secret_key: Annotated[
+        str | None, Field(description="Single secret key to add (legacy mode)")
+    ] = None,
     description: Annotated[str, Field(description="Description for the secret(s)")] = "",
 ) -> str:
     """Add secret stubs to the secrets file for the user to fill in.

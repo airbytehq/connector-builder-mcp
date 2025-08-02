@@ -284,7 +284,7 @@ class TestPopulateDotenvMissingSecretsStubs:
 
                 result = populate_dotenv_missing_secrets_stubs(
                     config_paths=["credentials.password", "oauth.client_secret"],
-                    description="API authentication secrets"
+                    description="API authentication secrets",
                 )
 
                 assert "Added 2 secret stub(s)" in result
@@ -314,9 +314,13 @@ class TestPopulateDotenvMissingSecretsStubs:
                     "spec": {
                         "connection_specification": {
                             "properties": {
-                                "api_token": {"type": "string", "airbyte_secret": True, "description": "API token for authentication"},
+                                "api_token": {
+                                    "type": "string",
+                                    "airbyte_secret": True,
+                                    "description": "API token for authentication",
+                                },
                                 "username": {"type": "string", "airbyte_secret": False},
-                                "client_secret": {"type": "string", "airbyte_secret": True}
+                                "client_secret": {"type": "string", "airbyte_secret": True},
                             }
                         }
                     }
@@ -350,16 +354,13 @@ class TestPopulateDotenvMissingSecretsStubs:
                 manifest = {
                     "spec": {
                         "connection_specification": {
-                            "properties": {
-                                "api_token": {"type": "string", "airbyte_secret": True}
-                            }
+                            "properties": {"api_token": {"type": "string", "airbyte_secret": True}}
                         }
                     }
                 }
 
                 result = populate_dotenv_missing_secrets_stubs(
-                    manifest=manifest,
-                    config_paths=["credentials.password", "oauth.refresh_token"]
+                    manifest=manifest, config_paths=["credentials.password", "oauth.refresh_token"]
                 )
 
                 assert "Added 3 secret stub(s)" in result
@@ -393,9 +394,7 @@ class TestPopulateDotenvMissingSecretsStubs:
                 manifest = {
                     "spec": {
                         "connection_specification": {
-                            "properties": {
-                                "username": {"type": "string", "airbyte_secret": False}
-                            }
+                            "properties": {"username": {"type": "string", "airbyte_secret": False}}
                         }
                     }
                 }
