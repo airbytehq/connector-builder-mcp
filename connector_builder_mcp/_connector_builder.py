@@ -5,6 +5,7 @@ manifest validation, stream testing, and configuration management.
 """
 
 import logging
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import requests
@@ -148,7 +149,7 @@ def execute_stream_test_read(
         Field(description="Maximum number of records to read", ge=1, le=1000),
     ] = 10,
     dotenv_path: Annotated[
-        str | None,
+        Path | None,
         Field(description="Optional path to .env file for secret hydration"),
     ] = None,
 ) -> StreamTestResult:
@@ -167,7 +168,7 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
 
     try:
-        config = hydrate_config(config, dotenv_path=dotenv_path)
+        config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest,

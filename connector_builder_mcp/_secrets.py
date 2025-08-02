@@ -236,22 +236,6 @@ def _config_path_to_dotenv_key(config_path: str) -> str:
     return config_path
 
 
-def get_dotenv_path(
-    dotenv_path: Annotated[
-        str, Field(description="Path to the .env file to get absolute path for")
-    ],
-) -> str:
-    """Get the absolute path to the specified dotenv file for user reference.
-
-    Args:
-        dotenv_path: Path to the .env file
-
-    Returns:
-        Absolute path to the dotenv file
-    """
-    return str(Path(dotenv_path).absolute())
-
-
 def register_secrets_tools(app: FastMCP) -> None:
     """Register secrets management tools with the FastMCP app.
 
@@ -260,4 +244,3 @@ def register_secrets_tools(app: FastMCP) -> None:
     """
     app.tool(list_dotenv_secrets)
     app.tool(populate_dotenv_missing_secrets_stubs)
-    app.tool(get_dotenv_path)
