@@ -52,7 +52,7 @@ def get_secrets_file_path() -> str:
 
 
 def set_dotenv_path(
-    file_path: Annotated[str, Field(description="Path to the .env file to use for secrets")]
+    file_path: Annotated[str, Field(description="Path to the .env file to use for secrets")],
 ) -> str:
     """Set the path to the dotenv file for secrets management.
 
@@ -140,10 +140,10 @@ def hydrate_config(config: dict[str, Any]) -> dict[str, Any]:
         """
         lower_name = env_var.lower()
 
-        if env_var in ['API_KEY', 'ACCESS_TOKEN', 'CLIENT_ID', 'CLIENT_SECRET', 'REFRESH_TOKEN']:
+        if env_var in ["API_KEY", "ACCESS_TOKEN", "CLIENT_ID", "CLIENT_SECRET", "REFRESH_TOKEN"]:
             return [lower_name]
 
-        parts = lower_name.split('_')
+        parts = lower_name.split("_")
 
         # For single part, return as-is
         if len(parts) == 1:
@@ -151,18 +151,18 @@ def hydrate_config(config: dict[str, Any]) -> dict[str, Any]:
 
         # For two parts, check if it should be nested or flat
         if len(parts) == 2:
-            if parts[0] in ['credentials', 'oauth', 'auth', 'config', 'settings']:
+            if parts[0] in ["credentials", "oauth", "auth", "config", "settings"]:
                 return parts
             else:
                 return [lower_name]
 
         # For multi-part names, use first part as parent and join rest
-        return [parts[0], '_'.join(parts[1:])]
+        return [parts[0], "_".join(parts[1:])]
 
     result = config.copy()
 
     for env_var, secret_value in secrets.items():
-        if secret_value and not secret_value.startswith('#'):
+        if secret_value and not secret_value.startswith("#"):
             path = _env_var_to_path(env_var)
             _set_nested_value(result, path, secret_value)
 
@@ -183,18 +183,18 @@ def list_secrets() -> SecretsFileInfo:
         try:
             secrets = dotenv_values(secrets_file)
             for key, value in (secrets or {}).items():
-                secrets_info.append(SecretInfo(
-                    key=key,
-                    is_set=bool(value and value.strip()),
-                    description=f"Secret value for {key}"
-                ))
+                secrets_info.append(
+                    SecretInfo(
+                        key=key,
+                        is_set=bool(value and value.strip()),
+                        description=f"Secret value for {key}",
+                    )
+                )
         except Exception as e:
             logger.error(f"Error reading secrets file: {e}")
 
     return SecretsFileInfo(
-        file_path=str(file_path.absolute()),
-        exists=file_path.exists(),
-        secrets=secrets_info
+        file_path=str(file_path.absolute()), exists=file_path.exists(), secrets=secrets_info
     )
 
 

@@ -103,7 +103,7 @@ class TestLoadSecrets:
         original_path = secrets_module._current_dotenv_path
 
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.env', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
                 f.write("CREDENTIALS_PASSWORD=secret123\n")
                 f.write("API_TOKEN=token456\n")
                 f.flush()
@@ -125,37 +125,28 @@ class TestHydrateConfig:
         """Test hydration with no secrets available."""
         config = {"host": "localhost", "credentials": {"username": "user"}}
 
-        with patch('connector_builder_mcp._secrets.load_secrets', return_value={}):
+        with patch("connector_builder_mcp._secrets.load_secrets", return_value={}):
             result = hydrate_config(config)
             assert result == config
 
     def test_hydrate_config_with_secrets(self):
         """Test hydration with secrets using naming convention."""
-        config = {
-            "host": "localhost",
-            "credentials": {"username": "user"},
-            "oauth": {}
-        }
+        config = {"host": "localhost", "credentials": {"username": "user"}, "oauth": {}}
 
         secrets = {
             "API_KEY": "secret123",
             "CREDENTIALS_PASSWORD": "pass456",
-            "OAUTH_CLIENT_SECRET": "oauth789"
+            "OAUTH_CLIENT_SECRET": "oauth789",
         }
 
-        with patch('connector_builder_mcp._secrets.load_secrets', return_value=secrets):
+        with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
             result = hydrate_config(config)
 
             expected = {
                 "host": "localhost",
                 "api_key": "secret123",
-                "credentials": {
-                    "username": "user",
-                    "password": "pass456"
-                },
-                "oauth": {
-                    "client_secret": "oauth789"
-                }
+                "credentials": {"username": "user", "password": "pass456"},
+                "oauth": {"client_secret": "oauth789"},
             }
             assert result == expected
 
@@ -164,31 +155,21 @@ class TestHydrateConfig:
         config = {"host": "localhost"}
         secrets = {"TOKEN": "token123", "URL": "https://api.example.com"}
 
-        with patch('connector_builder_mcp._secrets.load_secrets', return_value=secrets):
+        with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
             result = hydrate_config(config)
 
-            expected = {
-                "host": "localhost",
-                "token": "token123",
-                "url": "https://api.example.com"
-            }
+            expected = {"host": "localhost", "token": "token123", "url": "https://api.example.com"}
             assert result == expected
 
     def test_hydrate_config_ignores_comment_values(self):
         """Test that comment values (starting with #) are ignored."""
         config = {"host": "localhost"}
-        secrets = {
-            "API_KEY": "# TODO: Set actual value for API_KEY",
-            "TOKEN": "real_token_value"
-        }
+        secrets = {"API_KEY": "# TODO: Set actual value for API_KEY", "TOKEN": "real_token_value"}
 
-        with patch('connector_builder_mcp._secrets.load_secrets', return_value=secrets):
+        with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
             result = hydrate_config(config)
 
-            expected = {
-                "host": "localhost",
-                "token": "real_token_value"
-            }
+            expected = {"host": "localhost", "token": "real_token_value"}
             assert result == expected
 
     def test_hydrate_config_empty_config(self):
@@ -203,23 +184,14 @@ class TestHydrateConfig:
 
     def test_hydrate_config_overwrites_existing_values(self):
         """Test that secrets overwrite existing config values."""
-        config = {
-            "api_key": "old_value",
-            "credentials": {"password": "old_password"}
-        }
+        config = {"api_key": "old_value", "credentials": {"password": "old_password"}}
 
-        secrets = {
-            "API_KEY": "new_secret",
-            "CREDENTIALS_PASSWORD": "new_password"
-        }
+        secrets = {"API_KEY": "new_secret", "CREDENTIALS_PASSWORD": "new_password"}
 
-        with patch('connector_builder_mcp._secrets.load_secrets', return_value=secrets):
+        with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
             result = hydrate_config(config)
 
-            expected = {
-                "api_key": "new_secret",
-                "credentials": {"password": "new_password"}
-            }
+            expected = {"api_key": "new_secret", "credentials": {"password": "new_password"}}
             assert result == expected
 
 
@@ -246,7 +218,7 @@ class TestListSecrets:
         original_path = secrets_module._current_dotenv_path
 
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.env', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
                 f.write("CREDENTIALS_PASSWORD=secret123\n")
                 f.write("EMPTY_KEY=\n")
                 f.write("API_TOKEN=token456\n")
@@ -281,7 +253,7 @@ class TestAddSecretStub:
         original_path = secrets_module._current_dotenv_path
 
         try:
-            with tempfile.NamedTemporaryFile(suffix='.env', delete=False) as f:
+            with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
                 secrets_module._current_dotenv_path = f.name
 
                 result = add_secret_stub("CREDENTIALS_PASSWORD", "Password for API authentication")
@@ -304,7 +276,7 @@ class TestAddSecretStub:
         original_path = secrets_module._current_dotenv_path
 
         try:
-            with tempfile.NamedTemporaryFile(suffix='.env', delete=False) as f:
+            with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
                 secrets_module._current_dotenv_path = f.name
 
                 result = add_secret_stub("OAUTH_CLIENT_SECRET")
