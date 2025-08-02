@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from connector_builder_mcp._secrets import (
     SecretsFileInfo,
-    get_dotenv_path,
     hydrate_config,
     list_dotenv_secrets,
     load_secrets,
@@ -250,10 +249,3 @@ def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
         assert "No secrets found to add" in result
 
         Path(f.name).unlink()
-
-
-def test_get_dotenv_path():
-    """Test getting absolute path for user."""
-    test_path = "relative/path/.env"
-    result = get_dotenv_path(test_path)
-    assert result == str(Path(test_path).absolute())
