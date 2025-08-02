@@ -199,34 +199,111 @@ def list_dotenv_secrets() -> SecretsFileInfo:
 
 
 def populate_dotenv_missing_secrets_stubs(
-    secret_key: Annotated[str, Field(description="Name of the secret to add")],
-    description: Annotated[str, Field(description="Description of what this secret is for")] = "",
+    manifest: Annotated[dict[str, Any] | None, Field(description="Connector manifest to analyze for secrets")] = None,
+    config_paths: Annotated[list[str] | None, Field(description="List of config paths like ['credentials.password', 'oauth.client_secret']")] = None,
+    secret_key: Annotated[str | None, Field(description="Single secret key to add (legacy mode)")] = None,
+    description: Annotated[str, Field(description="Description for the secret(s)")] = "",
 ) -> str:
-    """Add a secret stub to the secrets file for the user to fill in.
+    """Add secret stubs to the secrets file for the user to fill in.
+
+    Supports three modes:
+    1. Manifest-based: Pass manifest to auto-detect secrets from connection_specification
+    2. Path-based: Pass config_paths list like ['credentials.password', 'oauth.client_secret']
+    3. Legacy: Pass single secret_key (for backward compatibility)
 
     Args:
-        secret_key: Name of the secret to add
-        description: Optional description of the secret
+        manifest: Connector manifest to analyze for airbyte_secret fields
+        config_paths: List of config paths to convert to environment variables
+        secret_key: Single secret key to add (legacy mode)
+        description: Optional description of the secret(s)
 
     Returns:
         Message about the operation result
     """
+    if not any([manifest, config_paths, secret_key]):
+        return "Error: Must provide either manifest, config_paths, or secret_key"
+
     secrets_file = get_secrets_file_path()
 
     try:
         Path(secrets_file).touch()
 
-        placeholder_value = f"# TODO: Set actual value for {secret_key}"
-        if description:
-            placeholder_value += f" - {description}"
+        secrets_to_add = []
 
-        set_key(secrets_file, secret_key, placeholder_value)
+        if manifest:
+            secrets_to_add.extend(_extract_secrets_from_manifest(manifest))
 
-        return f"Added secret stub '{secret_key}' to {secrets_file}. Please set the actual value."
+        if config_paths:
+            for path in config_paths:
+                env_var = _config_path_to_env_var(path)
+                secrets_to_add.append((env_var, f"Secret for {path}"))
+
+        if secret_key:
+            secrets_to_add.append((secret_key, description or f"Secret value for {secret_key}"))
+
+        if not secrets_to_add:
+            return "No secrets found to add"
+
+        added_count = 0
+        for env_var, desc in secrets_to_add:
+            placeholder_value = f"# TODO: Set actual value for {env_var}"
+            if desc:
+                placeholder_value += f" - {desc}"
+
+            set_key(secrets_file, env_var, placeholder_value)
+            added_count += 1
+
+        secret_names = [name for name, _ in secrets_to_add]
+        return f"Added {added_count} secret stub(s) to {secrets_file}: {', '.join(secret_names)}. Please set the actual values."
 
     except Exception as e:
-        logger.error(f"Error adding secret stub: {e}")
-        return f"Error adding secret stub: {str(e)}"
+        logger.error(f"Error adding secret stubs: {e}")
+        return f"Error adding secret stubs: {str(e)}"
+
+
+def _extract_secrets_from_manifest(manifest: dict[str, Any]) -> list[tuple[str, str]]:
+    """Extract secret fields from manifest connection specification.
+
+    Args:
+        manifest: Connector manifest dictionary
+
+    Returns:
+        List of (env_var_name, description) tuples
+    """
+    secrets = []
+
+    try:
+        spec = manifest.get("spec", {})
+        connection_spec = spec.get("connection_specification", {})
+        properties = connection_spec.get("properties", {})
+
+        for field_name, field_spec in properties.items():
+            if field_spec.get("airbyte_secret", False):
+                env_var = _config_path_to_env_var(field_name)
+                description = field_spec.get("description", f"Secret field: {field_name}")
+                secrets.append((env_var, description))
+
+    except Exception as e:
+        logger.warning(f"Error extracting secrets from manifest: {e}")
+
+    return secrets
+
+
+def _config_path_to_env_var(config_path: str) -> str:
+    """Convert config path to environment variable name.
+
+    Examples:
+    - 'credentials.password' -> 'CREDENTIALS_PASSWORD'
+    - 'api_key' -> 'API_KEY'
+    - 'oauth.client_secret' -> 'OAUTH_CLIENT_SECRET'
+
+    Args:
+        config_path: Dot-separated config path
+
+    Returns:
+        Environment variable name
+    """
+    return config_path.replace(".", "_").upper()
 
 
 def get_dotenv_path() -> str:

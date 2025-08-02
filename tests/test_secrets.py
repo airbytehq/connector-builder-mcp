@@ -248,8 +248,8 @@ class TestListDotenvSecrets:
 class TestPopulateDotenvMissingSecretsStubs:
     """Test adding secret stubs."""
 
-    def test_populate_dotenv_missing_secrets_stubs(self):
-        """Test adding a secret stub to file."""
+    def test_populate_dotenv_missing_secrets_stubs_legacy_mode(self):
+        """Test adding a secret stub using legacy single key mode."""
         original_path = secrets_module._current_dotenv_path
 
         try:
@@ -257,10 +257,11 @@ class TestPopulateDotenvMissingSecretsStubs:
                 secrets_module._current_dotenv_path = f.name
 
                 result = populate_dotenv_missing_secrets_stubs(
-                    "CREDENTIALS_PASSWORD", "Password for API authentication"
+                    secret_key="CREDENTIALS_PASSWORD", description="Password for API authentication"
                 )
 
-                assert "Added secret stub 'CREDENTIALS_PASSWORD'" in result
+                assert "Added 1 secret stub(s)" in result
+                assert "CREDENTIALS_PASSWORD" in result
                 assert f.name in result
 
                 with open(f.name) as file:
@@ -273,22 +274,134 @@ class TestPopulateDotenvMissingSecretsStubs:
         finally:
             secrets_module._current_dotenv_path = original_path
 
-    def test_populate_dotenv_missing_secrets_stubs_no_description(self):
-        """Test adding a secret stub without description."""
+    def test_populate_dotenv_missing_secrets_stubs_config_paths(self):
+        """Test adding secret stubs using config paths."""
         original_path = secrets_module._current_dotenv_path
 
         try:
             with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
                 secrets_module._current_dotenv_path = f.name
 
-                result = populate_dotenv_missing_secrets_stubs("OAUTH_CLIENT_SECRET")
+                result = populate_dotenv_missing_secrets_stubs(
+                    config_paths=["credentials.password", "oauth.client_secret"],
+                    description="API authentication secrets"
+                )
 
-                assert "Added secret stub 'OAUTH_CLIENT_SECRET'" in result
+                assert "Added 2 secret stub(s)" in result
+                assert "CREDENTIALS_PASSWORD" in result
+                assert "OAUTH_CLIENT_SECRET" in result
 
                 with open(f.name) as file:
                     content = file.read()
+                    assert "CREDENTIALS_PASSWORD=" in content
                     assert "OAUTH_CLIENT_SECRET=" in content
-                    assert "TODO: Set actual value for OAUTH_CLIENT_SECRET" in content
+                    assert "Secret for credentials.password" in content
+                    assert "Secret for oauth.client_secret" in content
+
+                Path(f.name).unlink()
+        finally:
+            secrets_module._current_dotenv_path = original_path
+
+    def test_populate_dotenv_missing_secrets_stubs_manifest_mode(self):
+        """Test adding secret stubs from manifest analysis."""
+        original_path = secrets_module._current_dotenv_path
+
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+                secrets_module._current_dotenv_path = f.name
+
+                manifest = {
+                    "spec": {
+                        "connection_specification": {
+                            "properties": {
+                                "api_token": {"type": "string", "airbyte_secret": True, "description": "API token for authentication"},
+                                "username": {"type": "string", "airbyte_secret": False},
+                                "client_secret": {"type": "string", "airbyte_secret": True}
+                            }
+                        }
+                    }
+                }
+
+                result = populate_dotenv_missing_secrets_stubs(manifest=manifest)
+
+                assert "Added 2 secret stub(s)" in result
+                assert "API_TOKEN" in result
+                assert "CLIENT_SECRET" in result
+                assert "username" not in result  # Should not include non-secret fields
+
+                with open(f.name) as file:
+                    content = file.read()
+                    assert "API_TOKEN=" in content
+                    assert "CLIENT_SECRET=" in content
+                    assert "API token for authentication" in content
+
+                Path(f.name).unlink()
+        finally:
+            secrets_module._current_dotenv_path = original_path
+
+    def test_populate_dotenv_missing_secrets_stubs_combined_mode(self):
+        """Test adding secret stubs using both manifest and config paths."""
+        original_path = secrets_module._current_dotenv_path
+
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+                secrets_module._current_dotenv_path = f.name
+
+                manifest = {
+                    "spec": {
+                        "connection_specification": {
+                            "properties": {
+                                "api_token": {"type": "string", "airbyte_secret": True}
+                            }
+                        }
+                    }
+                }
+
+                result = populate_dotenv_missing_secrets_stubs(
+                    manifest=manifest,
+                    config_paths=["credentials.password", "oauth.refresh_token"]
+                )
+
+                assert "Added 3 secret stub(s)" in result
+                assert "API_TOKEN" in result
+                assert "CREDENTIALS_PASSWORD" in result
+                assert "OAUTH_REFRESH_TOKEN" in result
+
+                with open(f.name) as file:
+                    content = file.read()
+                    assert "API_TOKEN=" in content
+                    assert "CREDENTIALS_PASSWORD=" in content
+                    assert "OAUTH_REFRESH_TOKEN=" in content
+
+                Path(f.name).unlink()
+        finally:
+            secrets_module._current_dotenv_path = original_path
+
+    def test_populate_dotenv_missing_secrets_stubs_no_args(self):
+        """Test error when no arguments provided."""
+        result = populate_dotenv_missing_secrets_stubs()
+        assert "Error: Must provide either manifest, config_paths, or secret_key" in result
+
+    def test_populate_dotenv_missing_secrets_stubs_empty_manifest(self):
+        """Test with manifest that has no secrets."""
+        original_path = secrets_module._current_dotenv_path
+
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+                secrets_module._current_dotenv_path = f.name
+
+                manifest = {
+                    "spec": {
+                        "connection_specification": {
+                            "properties": {
+                                "username": {"type": "string", "airbyte_secret": False}
+                            }
+                        }
+                    }
+                }
+
+                result = populate_dotenv_missing_secrets_stubs(manifest=manifest)
+                assert "No secrets found to add" in result
 
                 Path(f.name).unlink()
         finally:
