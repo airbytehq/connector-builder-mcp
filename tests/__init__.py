@@ -51,8 +51,8 @@ class TestManifestValidation:
 class TestStreamTesting:
     """Test stream testing functionality."""
 
-    def test_stream_read_success(self):
-        """Test successful stream reading with summary_only=True (default)."""
+    def test_stream_read_success_summary_only(self):
+        """Test successful stream reading with summary_only=True."""
         manifest = {
             "version": "0.1.0",
             "type": "DeclarativeSource",
@@ -67,7 +67,7 @@ class TestStreamTesting:
                 mock_result.type.value = "RECORD"
                 mock_read.return_value = mock_result
 
-                result = execute_stream_test_read(manifest, config, "test_stream", 5)
+                result = execute_stream_test_read(manifest, config, "test_stream", 5, summary_only=True)
 
                 assert isinstance(result, StreamTestResult)
                 assert result.success
@@ -97,8 +97,8 @@ class TestStreamTesting:
                 assert not result.success
                 assert len(result.errors) > 0
 
-    def test_stream_read_with_records(self):
-        """Test successful stream reading with summary_only=False."""
+    def test_stream_read_success_default_with_records(self):
+        """Test successful stream reading with default behavior (summary_only=False)."""
         manifest = {
             "version": "0.1.0",
             "type": "DeclarativeSource",
@@ -117,9 +117,7 @@ class TestStreamTesting:
                 }
                 mock_read.return_value = mock_result
 
-                result = execute_stream_test_read(
-                    manifest, config, "test_stream", 5, summary_only=False
-                )
+                result = execute_stream_test_read(manifest, config, "test_stream", 5)
 
                 assert isinstance(result, StreamTestResult)
                 assert result.success

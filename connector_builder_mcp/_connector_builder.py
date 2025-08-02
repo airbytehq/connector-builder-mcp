@@ -154,7 +154,7 @@ def execute_stream_test_read(
         Field(
             description="If True, return only summary information. If False, include actual record data."
         ),
-    ] = True,
+    ] = False,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
@@ -166,7 +166,7 @@ def execute_stream_test_read(
         summary_only: If True, return only summary information. If False, include actual record data.
 
     Returns:
-        Test result with success status and details, optionally including record data
+        Test result with success status and details, optionally excluding record data
     """
     logger.info(f"Testing stream read for stream: {stream_name}")
 
