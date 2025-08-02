@@ -175,34 +175,12 @@ class TestListDotenvSecrets:
 class TestPopulateDotenvMissingSecretsStubs:
     """Test adding secret stubs."""
 
-    def test_populate_dotenv_missing_secrets_stubs_legacy_mode(self):
-        """Test adding a secret stub using legacy single key mode."""
-        with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
-            result = populate_dotenv_missing_secrets_stubs(
-                f.name,
-                secret_key="CREDENTIALS_PASSWORD",
-                description="Password for API authentication",
-            )
-
-            assert "Added 1 secret stub(s)" in result
-            assert "CREDENTIALS_PASSWORD" in result
-            assert f.name in result
-
-            with open(f.name) as file:
-                content = file.read()
-                assert "CREDENTIALS_PASSWORD=" in content
-                assert "TODO: Set actual value for CREDENTIALS_PASSWORD" in content
-                assert "Password for API authentication" in content
-
-            Path(f.name).unlink()
-
     def test_populate_dotenv_missing_secrets_stubs_config_paths(self):
         """Test adding secret stubs using config paths."""
         with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
             result = populate_dotenv_missing_secrets_stubs(
                 f.name,
                 config_paths=["credentials.password", "oauth.client_secret"],
-                description="API authentication secrets",
             )
 
             assert "Added 2 secret stub(s)" in result
@@ -213,8 +191,8 @@ class TestPopulateDotenvMissingSecretsStubs:
                 content = file.read()
                 assert "CREDENTIALS_PASSWORD=" in content
                 assert "OAUTH_CLIENT_SECRET=" in content
-                assert "Secret for credentials.password" in content
-                assert "Secret for oauth.client_secret" in content
+                assert "TODO: Set actual value for CREDENTIALS_PASSWORD" in content
+                assert "TODO: Set actual value for OAUTH_CLIENT_SECRET" in content
 
             Path(f.name).unlink()
 
@@ -248,7 +226,8 @@ class TestPopulateDotenvMissingSecretsStubs:
                 content = file.read()
                 assert "API_TOKEN=" in content
                 assert "CLIENT_SECRET=" in content
-                assert "API token for authentication" in content
+                assert "TODO: Set actual value for API_TOKEN" in content
+                assert "TODO: Set actual value for CLIENT_SECRET" in content
 
             Path(f.name).unlink()
 
@@ -279,13 +258,16 @@ class TestPopulateDotenvMissingSecretsStubs:
                 assert "API_TOKEN=" in content
                 assert "CREDENTIALS_PASSWORD=" in content
                 assert "OAUTH_REFRESH_TOKEN=" in content
+                assert "TODO: Set actual value for API_TOKEN" in content
+                assert "TODO: Set actual value for CREDENTIALS_PASSWORD" in content
+                assert "TODO: Set actual value for OAUTH_REFRESH_TOKEN" in content
 
             Path(f.name).unlink()
 
     def test_populate_dotenv_missing_secrets_stubs_no_args(self):
         """Test error when no arguments provided."""
         result = populate_dotenv_missing_secrets_stubs("/path/to/.env")
-        assert "Error: Must provide either manifest, config_paths, or secret_key" in result
+        assert "Error: Must provide either manifest or config_paths" in result
 
     def test_populate_dotenv_missing_secrets_stubs_empty_manifest(self):
         """Test with manifest that has no secrets."""

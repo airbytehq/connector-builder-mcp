@@ -104,7 +104,6 @@ def validate_manifest(
         if config is None:
             config = {}
 
-        config = hydrate_config(config, dotenv_path=None)
         config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
 
         limits = get_limits(config_with_manifest)
@@ -148,6 +147,10 @@ def execute_stream_test_read(
         int,
         Field(description="Maximum number of records to read", ge=1, le=1000),
     ] = 10,
+    dotenv_path: Annotated[
+        str | None,
+        Field(description="Optional path to .env file for secret hydration"),
+    ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
@@ -156,6 +159,7 @@ def execute_stream_test_read(
         config: Connector configuration
         stream_name: Name of the stream to test
         max_records: Maximum number of records to read
+        dotenv_path: Optional path to .env file for secret hydration
 
     Returns:
         Test result with success status and details
@@ -163,7 +167,7 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
 
     try:
-        config = hydrate_config(config, dotenv_path=None)
+        config = hydrate_config(config, dotenv_path=dotenv_path)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest,
@@ -231,7 +235,6 @@ def get_resolved_manifest(
         if config is None:
             config = {}
 
-        config = hydrate_config(config, dotenv_path=None)
         config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
 
         limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
