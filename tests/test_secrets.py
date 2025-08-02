@@ -256,7 +256,9 @@ class TestPopulateDotenvMissingSecretsStubs:
             with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
                 secrets_module._current_dotenv_path = f.name
 
-                result = populate_dotenv_missing_secrets_stubs("CREDENTIALS_PASSWORD", "Password for API authentication")
+                result = populate_dotenv_missing_secrets_stubs(
+                    "CREDENTIALS_PASSWORD", "Password for API authentication"
+                )
 
                 assert "Added secret stub 'CREDENTIALS_PASSWORD'" in result
                 assert f.name in result
