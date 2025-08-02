@@ -240,7 +240,7 @@ def populate_dotenv_missing_secrets_stubs(
         secrets_to_add = []
 
         if manifest:
-            secrets_to_add.extend(_extract_secrets_from_manifest(manifest))
+            secrets_to_add.extend(_extract_secrets_names_from_manifest(manifest))
 
         if config_paths:
             for path in config_paths:
@@ -270,7 +270,7 @@ def populate_dotenv_missing_secrets_stubs(
         return f"Error adding secret stubs: {str(e)}"
 
 
-def _extract_secrets_from_manifest(manifest: dict[str, Any]) -> list[tuple[str, str]]:
+def _extract_secrets_names_from_manifest(manifest: dict[str, Any]) -> list[tuple[str, str]]:
     """Extract secret fields from manifest connection specification.
 
     Args:
