@@ -25,7 +25,7 @@ from airbyte_cdk.models.airbyte_protocol import (
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
-from connector_builder_mcp._util import validate_manifest_structure
+from connector_builder_mcp._util import filter_config_secrets, validate_manifest_structure
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,13 @@ class StreamTestResult(BaseModel):
     records_read: int = 0
     errors: list[str] = []
     records: list[dict[str, Any]] | None = Field(
-        default=None, description="Actual record data when summary_only=False"
+        default=None, description="Actual record data when include_records=True"
+    )
+    raw_requests: list[dict[str, Any]] | None = Field(
+        default=None, description="Raw HTTP request data when include_raw_requests=True"
+    )
+    raw_responses: list[dict[str, Any]] | None = Field(
+        default=None, description="Raw HTTP response data when include_raw_responses=True"
     )
 
 
@@ -149,12 +155,22 @@ def execute_stream_test_read(
         int,
         Field(description="Maximum number of records to read", ge=1, le=1000),
     ] = 10,
-    summary_only: Annotated[
+    include_records: Annotated[
         bool,
-        Field(
-            description="If True, return only summary information. If False, include actual record data."
-        ),
+        Field(description="If True, include actual record data in the response"),
     ] = False,
+    include_raw_requests: Annotated[
+        bool | None,
+        Field(
+            description="If True, include raw HTTP request data. If None, defaults to False on success, True on failure for debugging"
+        ),
+    ] = None,
+    include_raw_responses: Annotated[
+        bool | None,
+        Field(
+            description="If True, include raw HTTP response data. If None, defaults to False on success, True on failure for debugging"
+        ),
+    ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
@@ -163,10 +179,16 @@ def execute_stream_test_read(
         config: Connector configuration
         stream_name: Name of the stream to test
         max_records: Maximum number of records to read
-        summary_only: If True, return only summary information. If False, include actual record data.
+        include_records: If True, include actual record data in the response
+        include_raw_requests: If True, include raw HTTP request data. If None, defaults to False on success, True on failure for debugging
+        include_raw_responses: If True, include raw HTTP response data. If None, defaults to False on success, True on failure for debugging
 
     Returns:
-        Test result with success status and details, optionally excluding record data
+        Test result with success status and details, optionally including record and HTTP data
+
+    Note:
+        Raw request and response data is automatically sanitized using filter_config_secrets()
+        to prevent accidental exposure of API keys and other sensitive information.
     """
     logger.info(f"Testing stream read for stream: {stream_name}")
 
@@ -196,33 +218,178 @@ def execute_stream_test_read(
 
         if result.type.value == "RECORD":
             records_data = None
-            if not summary_only and result.record and result.record.data:
+            raw_requests_data = None
+            raw_responses_data = None
+
+            if result.record and result.record.data:
                 try:
                     stream_data = result.record.data
-                    if isinstance(stream_data, dict) and "records" in stream_data:
-                        records_data = stream_data["records"]
-                    elif isinstance(stream_data, dict):
-                        records_data = [stream_data]
+
+                    if include_records:
+                        if isinstance(stream_data, dict) and "records" in stream_data:
+                            records_data = stream_data["records"]
+                        elif isinstance(stream_data, dict):
+                            records_data = [stream_data]
+
+                    if include_raw_requests or include_raw_responses:
+                        slices = (
+                            stream_data.get("slices", []) if isinstance(stream_data, dict) else []
+                        )
+
+                        if include_raw_requests:
+                            raw_requests_data = []
+                            for slice_data in slices:
+                                if isinstance(slice_data, dict) and "pages" in slice_data:
+                                    for page in slice_data["pages"]:
+                                        if isinstance(page, dict) and "request" in page:
+                                            request_data = (
+                                                page["request"].copy()
+                                                if isinstance(page["request"], dict)
+                                                else page["request"]
+                                            )
+                                            if isinstance(request_data, dict):
+                                                request_data = filter_config_secrets(request_data)
+                                            raw_requests_data.append(request_data)
+
+                        if include_raw_responses:
+                            raw_responses_data = []
+                            for slice_data in slices:
+                                if isinstance(slice_data, dict) and "pages" in slice_data:
+                                    for page in slice_data["pages"]:
+                                        if isinstance(page, dict) and "response" in page:
+                                            response_data = (
+                                                page["response"].copy()
+                                                if isinstance(page["response"], dict)
+                                                else page["response"]
+                                            )
+                                            if isinstance(response_data, dict):
+                                                response_data = filter_config_secrets(response_data)
+                                            raw_responses_data.append(response_data)
+
                 except Exception as e:
-                    logger.warning(f"Failed to extract record data: {e}")
+                    logger.warning(f"Failed to extract data: {e}")
 
             return StreamTestResult(
                 success=True,
                 message=f"Successfully read from stream {stream_name}",
                 records_read=max_records,
                 records=records_data,
+                raw_requests=raw_requests_data,
+                raw_responses=raw_responses_data,
             )
 
         error_msg = "Failed to read from stream"
         if hasattr(result, "trace") and result.trace:
             error_msg = result.trace.error.message
 
-        return StreamTestResult(success=False, message=error_msg, errors=[error_msg])
+        raw_requests_data = None
+        raw_responses_data = None
+
+        if (include_raw_requests is None or include_raw_requests) or (
+            include_raw_responses is None or include_raw_responses
+        ):
+            if result.record and result.record.data:
+                try:
+                    stream_data = result.record.data
+                    slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
+
+                    if include_raw_requests is None or include_raw_requests:
+                        raw_requests_data = []
+                        for slice_data in slices:
+                            if isinstance(slice_data, dict) and "pages" in slice_data:
+                                for page in slice_data["pages"]:
+                                    if isinstance(page, dict) and "request" in page:
+                                        request_data = (
+                                            page["request"].copy()
+                                            if isinstance(page["request"], dict)
+                                            else page["request"]
+                                        )
+                                        if isinstance(request_data, dict):
+                                            request_data = filter_config_secrets(request_data)
+                                        raw_requests_data.append(request_data)
+
+                    if include_raw_responses is None or include_raw_responses:
+                        raw_responses_data = []
+                        for slice_data in slices:
+                            if isinstance(slice_data, dict) and "pages" in slice_data:
+                                for page in slice_data["pages"]:
+                                    if isinstance(page, dict) and "response" in page:
+                                        response_data = (
+                                            page["response"].copy()
+                                            if isinstance(page["response"], dict)
+                                            else page["response"]
+                                        )
+                                        if isinstance(response_data, dict):
+                                            response_data = filter_config_secrets(response_data)
+                                        raw_responses_data.append(response_data)
+                except Exception as e:
+                    logger.warning(f"Failed to extract debug data: {e}")
+
+        return StreamTestResult(
+            success=False,
+            message=error_msg,
+            errors=[error_msg],
+            raw_requests=raw_requests_data,
+            raw_responses=raw_responses_data,
+        )
 
     except Exception as e:
         logger.error(f"Error testing stream read: {e}")
         error_msg = f"Stream test error: {str(e)}"
-        return StreamTestResult(success=False, message=error_msg, errors=[error_msg])
+
+        raw_requests_data = None
+        raw_responses_data = None
+
+        if (
+            include_raw_requests is None
+            or include_raw_requests
+            or include_raw_responses is None
+            or include_raw_responses
+        ):
+            try:
+                if "result" in locals() and result.record and result.record.data:
+                    stream_data = result.record.data
+                    slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
+
+                    if include_raw_requests is None or include_raw_requests:
+                        raw_requests_data = []
+                        for slice_data in slices:
+                            if isinstance(slice_data, dict) and "pages" in slice_data:
+                                for page in slice_data["pages"]:
+                                    if isinstance(page, dict) and "request" in page:
+                                        request_data = (
+                                            page["request"].copy()
+                                            if isinstance(page["request"], dict)
+                                            else page["request"]
+                                        )
+                                        if isinstance(request_data, dict):
+                                            request_data = filter_config_secrets(request_data)
+                                        raw_requests_data.append(request_data)
+
+                    if include_raw_responses is None or include_raw_responses:
+                        raw_responses_data = []
+                        for slice_data in slices:
+                            if isinstance(slice_data, dict) and "pages" in slice_data:
+                                for page in slice_data["pages"]:
+                                    if isinstance(page, dict) and "response" in page:
+                                        response_data = (
+                                            page["response"].copy()
+                                            if isinstance(page["response"], dict)
+                                            else page["response"]
+                                        )
+                                        if isinstance(response_data, dict):
+                                            response_data = filter_config_secrets(response_data)
+                                        raw_responses_data.append(response_data)
+            except Exception:
+                pass
+
+        return StreamTestResult(
+            success=False,
+            message=error_msg,
+            errors=[error_msg],
+            raw_requests=raw_requests_data,
+            raw_responses=raw_responses_data,
+        )
 
 
 def get_resolved_manifest(
