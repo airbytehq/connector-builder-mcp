@@ -16,7 +16,7 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     read_stream,
     resolve_manifest,
 )
-from airbyte_cdk.models.airbyte_protocol import (
+from airbyte_cdk.models import (
     AirbyteStream,
     ConfiguredAirbyteCatalog,
     DestinationSyncMode,
@@ -218,8 +218,8 @@ def execute_stream_test_read(
 
         if result.type.value == "RECORD":
             records_data = None
-            raw_requests_data = None
-            raw_responses_data = None
+            raw_requests_data: list[dict[str, Any]] | None = None
+            raw_responses_data: list[dict[str, Any]] | None = None
 
             if result.record and result.record.data:
                 try:
