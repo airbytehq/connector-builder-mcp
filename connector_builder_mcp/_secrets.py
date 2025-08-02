@@ -1,7 +1,7 @@
 """Secrets management for connector configurations using dotenv files.
 
-This module provides stateless tools for managing secrets in .env files without 
-exposing actual secret values to the LLM. All functions require explicit dotenv 
+This module provides stateless tools for managing secrets in .env files without
+exposing actual secret values to the LLM. All functions require explicit dotenv
 file paths to be passed by the caller.
 """
 
@@ -306,7 +306,9 @@ def _config_path_to_env_var(config_path: str) -> str:
 
 
 def get_dotenv_path(
-    dotenv_path: Annotated[str, Field(description="Path to the .env file to get absolute path for")],
+    dotenv_path: Annotated[
+        str, Field(description="Path to the .env file to get absolute path for")
+    ],
 ) -> str:
     """Get the absolute path to the specified dotenv file for user reference.
 

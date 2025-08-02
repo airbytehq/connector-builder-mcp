@@ -1,6 +1,5 @@
 """Tests for secrets management functionality."""
 
-import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -181,8 +180,8 @@ class TestPopulateDotenvMissingSecretsStubs:
         with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
             result = populate_dotenv_missing_secrets_stubs(
                 f.name,
-                secret_key="CREDENTIALS_PASSWORD", 
-                description="Password for API authentication"
+                secret_key="CREDENTIALS_PASSWORD",
+                description="Password for API authentication",
             )
 
             assert "Added 1 secret stub(s)" in result
@@ -266,8 +265,8 @@ class TestPopulateDotenvMissingSecretsStubs:
 
             result = populate_dotenv_missing_secrets_stubs(
                 f.name,
-                manifest=manifest, 
-                config_paths=["credentials.password", "oauth.refresh_token"]
+                manifest=manifest,
+                config_paths=["credentials.password", "oauth.refresh_token"],
             )
 
             assert "Added 3 secret stub(s)" in result
