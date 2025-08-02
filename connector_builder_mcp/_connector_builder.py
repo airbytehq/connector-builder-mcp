@@ -16,7 +16,7 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     read_stream,
     resolve_manifest,
 )
-from airbyte_cdk.models.airbyte_protocol import (
+from airbyte_cdk.models import (
     AirbyteStream,
     ConfiguredAirbyteCatalog,
     DestinationSyncMode,
@@ -25,6 +25,7 @@ from airbyte_cdk.models.airbyte_protocol import (
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import validate_manifest_structure
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,7 @@ def validate_manifest(
         if config is None:
             config = {}
 
+        config = hydrate_config(config)
         config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
 
         limits = get_limits(config_with_manifest)
@@ -161,6 +163,7 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
 
     try:
+        config = hydrate_config(config)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest,
@@ -228,6 +231,7 @@ def get_resolved_manifest(
         if config is None:
             config = {}
 
+        config = hydrate_config(config)
         config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
 
         limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
@@ -454,3 +458,4 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(execute_stream_test_read)
     app.tool(get_resolved_manifest)
     app.tool(get_connector_builder_docs)
+    register_secrets_tools(app)

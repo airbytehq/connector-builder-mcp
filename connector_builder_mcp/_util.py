@@ -17,6 +17,8 @@ def initialize_logging() -> None:
 def filter_config_secrets(config: dict[str, Any]) -> dict[str, Any]:
     """Filter sensitive information from configuration for logging.
 
+    Note: For config hydration with secrets, see _secrets.hydrate_config()
+
     Args:
         config: Configuration dictionary that may contain secrets
 
