@@ -46,6 +46,9 @@ class StreamTestResult(BaseModel):
     message: str
     records_read: int = 0
     errors: list[str] = []
+    records: list[dict[str, Any]] | None = Field(
+        default=None, description="Actual record data when summary_only=False"
+    )
 
 
 def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
@@ -146,6 +149,12 @@ def execute_stream_test_read(
         int,
         Field(description="Maximum number of records to read", ge=1, le=1000),
     ] = 10,
+    summary_only: Annotated[
+        bool,
+        Field(
+            description="If True, return only summary information. If False, include actual record data."
+        ),
+    ] = True,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
@@ -154,9 +163,10 @@ def execute_stream_test_read(
         config: Connector configuration
         stream_name: Name of the stream to test
         max_records: Maximum number of records to read
+        summary_only: If True, return only summary information. If False, include actual record data.
 
     Returns:
-        Test result with success status and details
+        Test result with success status and details, optionally including record data
     """
     logger.info(f"Testing stream read for stream: {stream_name}")
 
@@ -185,10 +195,22 @@ def execute_stream_test_read(
         )
 
         if result.type.value == "RECORD":
+            records_data = None
+            if not summary_only and result.record and result.record.data:
+                try:
+                    stream_data = result.record.data
+                    if isinstance(stream_data, dict) and "records" in stream_data:
+                        records_data = stream_data["records"]
+                    elif isinstance(stream_data, dict):
+                        records_data = [stream_data]
+                except Exception as e:
+                    logger.warning(f"Failed to extract record data: {e}")
+
             return StreamTestResult(
                 success=True,
                 message=f"Successfully read from stream {stream_name}",
                 records_read=max_records,
+                records=records_data,
             )
 
         error_msg = "Failed to read from stream"

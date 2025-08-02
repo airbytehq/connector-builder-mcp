@@ -52,7 +52,7 @@ class TestStreamTesting:
     """Test stream testing functionality."""
 
     def test_stream_read_success(self):
-        """Test successful stream reading."""
+        """Test successful stream reading with summary_only=True (default)."""
         manifest = {
             "version": "0.1.0",
             "type": "DeclarativeSource",
@@ -72,6 +72,7 @@ class TestStreamTesting:
                 assert isinstance(result, StreamTestResult)
                 assert result.success
                 assert "Successfully read from stream" in result.message
+                assert result.records is None
 
     def test_stream_read_failure(self):
         """Test stream reading failure handling."""
@@ -95,6 +96,67 @@ class TestStreamTesting:
                 assert isinstance(result, StreamTestResult)
                 assert not result.success
                 assert len(result.errors) > 0
+
+    def test_stream_read_with_records(self):
+        """Test successful stream reading with summary_only=False."""
+        manifest = {
+            "version": "0.1.0",
+            "type": "DeclarativeSource",
+            "check": {"type": "CheckStream"},
+            "streams": [{"name": "test_stream"}],
+        }
+        config = {"api_key": "test_key"}
+
+        with patch("connector_builder_mcp._connector_builder.create_source"):
+            with patch("connector_builder_mcp._connector_builder.read_stream") as mock_read:
+                mock_result = Mock()
+                mock_result.type.value = "RECORD"
+                mock_result.record = Mock()
+                mock_result.record.data = {
+                    "records": [{"id": 1, "name": "test1"}, {"id": 2, "name": "test2"}]
+                }
+                mock_read.return_value = mock_result
+
+                result = execute_stream_test_read(
+                    manifest, config, "test_stream", 5, summary_only=False
+                )
+
+                assert isinstance(result, StreamTestResult)
+                assert result.success
+                assert "Successfully read from stream" in result.message
+                assert result.records is not None
+                assert len(result.records) == 2
+                assert result.records[0]["id"] == 1
+                assert result.records[1]["name"] == "test2"
+
+    def test_stream_read_with_records_fallback(self):
+        """Test stream reading with summary_only=False when records field is not present."""
+        manifest = {
+            "version": "0.1.0",
+            "type": "DeclarativeSource",
+            "check": {"type": "CheckStream"},
+            "streams": [{"name": "test_stream"}],
+        }
+        config = {"api_key": "test_key"}
+
+        with patch("connector_builder_mcp._connector_builder.create_source"):
+            with patch("connector_builder_mcp._connector_builder.read_stream") as mock_read:
+                mock_result = Mock()
+                mock_result.type.value = "RECORD"
+                mock_result.record = Mock()
+                mock_result.record.data = {"some_field": "some_value"}
+                mock_read.return_value = mock_result
+
+                result = execute_stream_test_read(
+                    manifest, config, "test_stream", 5, summary_only=False
+                )
+
+                assert isinstance(result, StreamTestResult)
+                assert result.success
+                assert "Successfully read from stream" in result.message
+                assert result.records is not None
+                assert len(result.records) == 1
+                assert result.records[0]["some_field"] == "some_value"
 
 
 class TestManifestResolution:
