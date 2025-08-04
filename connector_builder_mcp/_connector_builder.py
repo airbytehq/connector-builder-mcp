@@ -159,7 +159,8 @@ def execute_stream_test_read(
     include_raw_response_data: Annotated[
         bool | None,
         Field(
-            description="If True, include raw HTTP request and response data in slices structure"
+            description="If True, include raw HTTP request and response data in slices structure. "
+            "On success: None behaves like False. On failure: None behaves like True for debugging."
         ),
     ] = None,
 ) -> StreamTestResult:
@@ -171,7 +172,8 @@ def execute_stream_test_read(
         stream_name: Name of the stream to test
         max_records: Maximum number of records to read
         include_records: If True, include actual record data in the response
-        include_raw_response_data: If True, include raw HTTP request and response data in slices structure
+        include_raw_response_data: If True, include raw HTTP request and response data in slices structure. 
+            On success: None behaves like False. On failure: None behaves like True for debugging.
 
     Returns:
         Test result with success status and details, optionally including record and HTTP data
