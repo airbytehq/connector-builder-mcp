@@ -265,7 +265,7 @@ def execute_stream_test_read(
 
         slices_data = None
 
-        if include_raw_response_data:
+        if include_raw_response_data is not False:
             try:
                 if "result" in locals() and result.record and result.record.data:
                     stream_data = result.record.data
