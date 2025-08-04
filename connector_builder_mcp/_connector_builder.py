@@ -56,6 +56,67 @@ class StreamTestResult(BaseModel):
     )
 
 
+def _without_records(slices: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove records from slices structure while preserving other data.
+
+    Args:
+        slices: List of slice objects from CDK output
+
+    Returns:
+        Slices with records removed from pages
+    """
+    result = []
+    for slice_obj in slices:
+        if not isinstance(slice_obj, dict):
+            result.append(slice_obj)
+            continue
+
+        slice_copy = slice_obj.copy()
+        if "pages" in slice_copy and isinstance(slice_copy["pages"], list):
+            pages_copy = []
+            for page in slice_copy["pages"]:
+                if isinstance(page, dict):
+                    page_copy = page.copy()
+                    page_copy.pop("records", None)
+                    pages_copy.append(page_copy)
+                else:
+                    pages_copy.append(page)
+            slice_copy["pages"] = pages_copy
+        result.append(slice_copy)
+    return result
+
+
+def _without_raw_requests_and_responses(slices: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove raw request and response data from slices structure.
+
+    Args:
+        slices: List of slice objects from CDK output
+
+    Returns:
+        Slices with request and response data removed from pages
+    """
+    result = []
+    for slice_obj in slices:
+        if not isinstance(slice_obj, dict):
+            result.append(slice_obj)
+            continue
+
+        slice_copy = slice_obj.copy()
+        if "pages" in slice_copy and isinstance(slice_copy["pages"], list):
+            pages_copy = []
+            for page in slice_copy["pages"]:
+                if isinstance(page, dict):
+                    page_copy = page.copy()
+                    page_copy.pop("request", None)
+                    page_copy.pop("response", None)
+                    pages_copy.append(page_copy)
+                else:
+                    pages_copy.append(page)
+            slice_copy["pages"] = pages_copy
+        result.append(slice_copy)
+    return result
+
+
 def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
     """Create a dummy configured catalog for one stream.
 
@@ -212,18 +273,26 @@ def execute_stream_test_read(
             if result.record and result.record.data:
                 try:
                     stream_data = result.record.data
+                    slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
 
                     if include_records:
-                        if isinstance(stream_data, dict) and "records" in stream_data:
-                            records_data = stream_data["records"]
-                        elif isinstance(stream_data, dict):
-                            records_data = [stream_data]
+                        records_data = []
+                        for slice_obj in slices:
+                            if isinstance(slice_obj, dict) and "pages" in slice_obj:
+                                for page in slice_obj["pages"]:
+                                    if isinstance(page, dict) and "records" in page:
+                                        records_data.extend(page["records"])
 
-                    if include_raw_response_data is not False:
-                        slices = (
-                            stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-                        )
-                        slices_data = filter_config_secrets(slices)  # type: ignore[assignment]
+                    if slices:
+                        slices_data = slices.copy()
+
+                        if not include_records:
+                            slices_data = _without_records(slices_data)
+
+                        if include_raw_response_data is False:
+                            slices_data = _without_raw_requests_and_responses(slices_data)
+
+                        slices_data = filter_config_secrets(slices_data)  # type: ignore[assignment]
 
                 except Exception as e:
                     logger.warning(f"Failed to extract data: {e}")
@@ -247,7 +316,16 @@ def execute_stream_test_read(
                 try:
                     stream_data = result.record.data
                     slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-                    slices_data = filter_config_secrets(slices)  # type: ignore[assignment]
+                    if slices:
+                        slices_data = slices.copy()
+
+                        if not include_records:
+                            slices_data = _without_records(slices_data)
+
+                        if include_raw_response_data is False:
+                            slices_data = _without_raw_requests_and_responses(slices_data)
+
+                        slices_data = filter_config_secrets(slices_data)  # type: ignore[assignment]
                 except Exception as e:
                     logger.warning(f"Failed to extract debug data: {e}")
 
@@ -269,7 +347,16 @@ def execute_stream_test_read(
                 if "result" in locals() and result.record and result.record.data:
                     stream_data = result.record.data
                     slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-                    slices_data = filter_config_secrets(slices)  # type: ignore[assignment]
+                    if slices:
+                        slices_data = slices.copy()
+
+                        if not include_records:
+                            slices_data = _without_records(slices_data)
+
+                        if include_raw_response_data is False:
+                            slices_data = _without_raw_requests_and_responses(slices_data)
+
+                        slices_data = filter_config_secrets(slices_data)  # type: ignore[assignment]
             except Exception:
                 pass
 
