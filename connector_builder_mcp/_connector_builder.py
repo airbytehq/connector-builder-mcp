@@ -157,11 +157,11 @@ def execute_stream_test_read(
         Field(description="If True, include actual record data in the response"),
     ] = False,
     include_raw_response_data: Annotated[
-        bool,
+        bool | None,
         Field(
             description="If True, include raw HTTP request and response data in slices structure"
         ),
-    ] = False,
+    ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
