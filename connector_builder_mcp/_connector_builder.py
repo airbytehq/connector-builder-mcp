@@ -224,35 +224,7 @@ def execute_stream_test_read(
                         slices = (
                             stream_data.get("slices", []) if isinstance(stream_data, dict) else []
                         )
-                        slices_data = []
-
-                        for slice_data in slices:
-                            if isinstance(slice_data, dict):
-                                slice_copy = slice_data.copy()
-                                if "pages" in slice_copy:
-                                    pages_copy = []
-                                    for page in slice_copy["pages"]:
-                                        if isinstance(page, dict):
-                                            page_copy = page.copy()
-                                            if "request" in page_copy and isinstance(
-                                                page_copy["request"], dict
-                                            ):
-                                                page_copy["request"] = filter_config_secrets(
-                                                    page_copy["request"].copy()
-                                                )
-                                            if "response" in page_copy and isinstance(
-                                                page_copy["response"], dict
-                                            ):
-                                                page_copy["response"] = filter_config_secrets(
-                                                    page_copy["response"].copy()
-                                                )
-                                            pages_copy.append(page_copy)
-                                        else:
-                                            pages_copy.append(page)
-                                    slice_copy["pages"] = pages_copy
-                                slices_data.append(slice_copy)
-                            else:
-                                slices_data.append(slice_data)
+                        slices_data = filter_config_secrets(slices)  # type: ignore[assignment]
 
                 except Exception as e:
                     logger.warning(f"Failed to extract data: {e}")
@@ -276,35 +248,7 @@ def execute_stream_test_read(
                 try:
                     stream_data = result.record.data
                     slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-                    slices_data = []
-
-                    for slice_data in slices:
-                        if isinstance(slice_data, dict):
-                            slice_copy = slice_data.copy()
-                            if "pages" in slice_copy:
-                                pages_copy = []
-                                for page in slice_copy["pages"]:
-                                    if isinstance(page, dict):
-                                        page_copy = page.copy()
-                                        if "request" in page_copy and isinstance(
-                                            page_copy["request"], dict
-                                        ):
-                                            page_copy["request"] = filter_config_secrets(
-                                                page_copy["request"].copy()
-                                            )
-                                        if "response" in page_copy and isinstance(
-                                            page_copy["response"], dict
-                                        ):
-                                            page_copy["response"] = filter_config_secrets(
-                                                page_copy["response"].copy()
-                                            )
-                                        pages_copy.append(page_copy)
-                                    else:
-                                        pages_copy.append(page)
-                                slice_copy["pages"] = pages_copy
-                            slices_data.append(slice_copy)
-                        else:
-                            slices_data.append(slice_data)
+                    slices_data = filter_config_secrets(slices)  # type: ignore[assignment]
                 except Exception as e:
                     logger.warning(f"Failed to extract debug data: {e}")
 
@@ -326,35 +270,7 @@ def execute_stream_test_read(
                 if "result" in locals() and result.record and result.record.data:
                     stream_data = result.record.data
                     slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-                    slices_data = []
-
-                    for slice_data in slices:
-                        if isinstance(slice_data, dict):
-                            slice_copy = slice_data.copy()
-                            if "pages" in slice_copy:
-                                pages_copy = []
-                                for page in slice_copy["pages"]:
-                                    if isinstance(page, dict):
-                                        page_copy = page.copy()
-                                        if "request" in page_copy and isinstance(
-                                            page_copy["request"], dict
-                                        ):
-                                            page_copy["request"] = filter_config_secrets(
-                                                page_copy["request"].copy()
-                                            )
-                                        if "response" in page_copy and isinstance(
-                                            page_copy["response"], dict
-                                        ):
-                                            page_copy["response"] = filter_config_secrets(
-                                                page_copy["response"].copy()
-                                            )
-                                        pages_copy.append(page_copy)
-                                    else:
-                                        pages_copy.append(page)
-                                slice_copy["pages"] = pages_copy
-                            slices_data.append(slice_copy)
-                        else:
-                            slices_data.append(slice_data)
+                    slices_data = filter_config_secrets(slices)  # type: ignore[assignment]
             except Exception:
                 pass
 
