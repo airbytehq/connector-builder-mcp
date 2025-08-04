@@ -131,8 +131,8 @@ class TestStreamTesting:
                 assert result.records[0]["id"] == 1
                 assert result.records[1]["name"] == "test2"
 
-    def test_stream_read_with_raw_requests_success(self):
-        """Test successful stream reading with include_raw_requests=True."""
+    def test_stream_read_with_raw_response_data_success(self):
+        """Test successful stream reading with include_raw_response_data=True."""
         manifest = {
             "version": "0.1.0",
             "type": "DeclarativeSource",
@@ -156,7 +156,12 @@ class TestStreamTesting:
                                         "headers": {"Authorization": "Bearer token"},
                                         "http_method": "GET",
                                         "body": None,
-                                    }
+                                    },
+                                    "response": {
+                                        "status": 200,
+                                        "headers": {"content-type": "application/json"},
+                                        "body": '{"data": [{"id": 1}]}',
+                                    },
                                 }
                             ]
                         }
@@ -165,18 +170,22 @@ class TestStreamTesting:
                 mock_read.return_value = mock_result
 
                 result = execute_stream_test_read(
-                    manifest, config, "test_stream", 5, include_raw_requests=True
+                    manifest, config, "test_stream", 5, include_raw_response_data=True
                 )
 
                 assert isinstance(result, StreamTestResult)
                 assert result.success
-                assert result.raw_requests is not None
-                assert len(result.raw_requests) == 1
-                assert result.raw_requests[0]["url"] == "https://api.example.com/test"
-                assert result.raw_requests[0]["http_method"] == "GET"
+                assert result.slices is not None
+                assert len(result.slices) == 1
+                assert len(result.slices[0]["pages"]) == 1
+                page = result.slices[0]["pages"][0]
+                assert page["request"]["url"] == "https://api.example.com/test"
+                assert page["request"]["http_method"] == "GET"
+                assert page["response"]["status"] == 200
+                assert page["response"]["body"] == '{"data": [{"id": 1}]}'
 
-    def test_stream_read_with_raw_responses_success(self):
-        """Test successful stream reading with include_raw_responses=True."""
+    def test_stream_read_without_raw_response_data(self):
+        """Test successful stream reading with include_raw_response_data=False (default)."""
         manifest = {
             "version": "0.1.0",
             "type": "DeclarativeSource",
@@ -195,11 +204,17 @@ class TestStreamTesting:
                         {
                             "pages": [
                                 {
+                                    "request": {
+                                        "url": "https://api.example.com/test",
+                                        "headers": {"Authorization": "Bearer token"},
+                                        "http_method": "GET",
+                                        "body": None,
+                                    },
                                     "response": {
                                         "status": 200,
                                         "headers": {"content-type": "application/json"},
                                         "body": '{"data": [{"id": 1}]}',
-                                    }
+                                    },
                                 }
                             ]
                         }
@@ -208,18 +223,15 @@ class TestStreamTesting:
                 mock_read.return_value = mock_result
 
                 result = execute_stream_test_read(
-                    manifest, config, "test_stream", 5, include_raw_responses=True
+                    manifest, config, "test_stream", 5, include_raw_response_data=False
                 )
 
                 assert isinstance(result, StreamTestResult)
                 assert result.success
-                assert result.raw_responses is not None
-                assert len(result.raw_responses) == 1
-                assert result.raw_responses[0]["status"] == 200
-                assert result.raw_responses[0]["body"] == '{"data": [{"id": 1}]}'
+                assert result.slices is None
 
     def test_stream_read_failure_with_debug_data(self):
-        """Test stream reading failure with debug data extraction (None defaults to True on failure)."""
+        """Test stream reading failure with debug data extraction when include_raw_response_data=True."""
         manifest = {
             "version": "0.1.0",
             "type": "DeclarativeSource",
@@ -252,17 +264,19 @@ class TestStreamTesting:
                 }
                 mock_read.return_value = mock_result
 
-                result = execute_stream_test_read(manifest, config, "test_stream", 5)
+                result = execute_stream_test_read(
+                    manifest, config, "test_stream", 5, include_raw_response_data=True
+                )
 
                 assert isinstance(result, StreamTestResult)
                 assert not result.success
                 assert len(result.errors) > 0
-                assert result.raw_requests is not None
-                assert result.raw_responses is not None
-                assert len(result.raw_requests) == 1
-                assert len(result.raw_responses) == 1
-                assert result.raw_requests[0]["url"] == "https://api.example.com/test"
-                assert result.raw_responses[0]["status"] == 500
+                assert result.slices is not None
+                assert len(result.slices) == 1
+                assert len(result.slices[0]["pages"]) == 1
+                page = result.slices[0]["pages"][0]
+                assert page["request"]["url"] == "https://api.example.com/test"
+                assert page["response"]["status"] == 500
 
     def test_stream_read_with_records_fallback(self):
         """Test stream reading with include_records=True when records field is not present."""
