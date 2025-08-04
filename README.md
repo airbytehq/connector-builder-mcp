@@ -28,10 +28,10 @@ If you are developing or testing locally, you will also want to install:
 
 **Install:**
 
-The Poe `sync` and `install` command are identical, giving a quick way to update your virtual environment or create one from scratch, if needed.
+The Poe `sync` and `install` commands are identical, giving a quick way to update your virtual environment or create one from scratch, if needed.
 
 ```bash
-These are identical:
+# These are identical:
 uv sync --all-extras
 poe install
 poe sync
