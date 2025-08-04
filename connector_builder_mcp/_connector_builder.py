@@ -174,6 +174,10 @@ def execute_stream_test_read(
     Note:
         Raw request and response data in slices is automatically sanitized using filter_config_secrets()
         to prevent accidental exposure of API keys and other sensitive information.
+
+        To keep a manageable context window, it is recommended to always include a 'max_records'
+        argument when running with include_records=True or include_raw_response_data=True. This
+        prevents overflow which can happen if the stream has millions of records.
     """
     logger.info(f"Testing stream read for stream: {stream_name}")
 
