@@ -161,8 +161,8 @@ def execute_stream_test_read(
     include_raw_response_data: Annotated[
         bool | None,
         Field(
-            description="If True, include raw HTTP request and response data in slices structure. "
-            "On success: None behaves like False. On failure: None behaves like True for debugging."
+            description="By default, raw request and response data will be returned only upon error. "
+            "Set to True or False, to always or never return the raw response data."
         ),
     ] = None,
 ) -> StreamTestResult:
