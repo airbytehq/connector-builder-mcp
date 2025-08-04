@@ -50,7 +50,7 @@ class StreamTestResult(BaseModel):
         default=None, description="Actual record data when include_records=True"
     )
     slices: list[dict[str, Any]] | None = Field(
-        default=None, description="Raw slices data when include_raw_response_data=True"
+        default=None, description="By default, raw request and response data will be returned only upon error. Set to True or False, to always or never return the raw response data."
     )
 
 
