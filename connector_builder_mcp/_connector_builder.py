@@ -5,6 +5,7 @@ manifest validation, stream testing, and configuration management.
 """
 
 import logging
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import requests
@@ -16,7 +17,7 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     read_stream,
     resolve_manifest,
 )
-from airbyte_cdk.models.airbyte_protocol import (
+from airbyte_cdk.models import (
     AirbyteStream,
     ConfiguredAirbyteCatalog,
     DestinationSyncMode,
@@ -25,6 +26,7 @@ from airbyte_cdk.models.airbyte_protocol import (
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import validate_manifest_structure
 
 logger = logging.getLogger(__name__)
@@ -146,6 +148,10 @@ def execute_stream_test_read(
         int,
         Field(description="Maximum number of records to read", ge=1, le=1000),
     ] = 10,
+    dotenv_path: Annotated[
+        Path | None,
+        Field(description="Optional path to .env file for secret hydration"),
+    ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
@@ -154,6 +160,7 @@ def execute_stream_test_read(
         config: Connector configuration
         stream_name: Name of the stream to test
         max_records: Maximum number of records to read
+        dotenv_path: Optional path to .env file for secret hydration
 
     Returns:
         Test result with success status and details
@@ -161,6 +168,7 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
 
     try:
+        config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest,
@@ -454,3 +462,4 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(execute_stream_test_read)
     app.tool(get_resolved_manifest)
     app.tool(get_connector_builder_docs)
+    register_secrets_tools(app)
