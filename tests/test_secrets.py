@@ -141,7 +141,7 @@ def test_populate_dotenv_missing_secrets_stubs_config_paths():
     with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
         result = populate_dotenv_missing_secrets_stubs(
             f.name,
-            config_paths=["credentials.password", "oauth.client_secret"],
+            config_paths="credentials.password,oauth.client_secret",
         )
 
         assert "Added 2 secret stub(s)" in result
@@ -208,7 +208,7 @@ def test_populate_dotenv_missing_secrets_stubs_combined_mode():
         result = populate_dotenv_missing_secrets_stubs(
             f.name,
             manifest=manifest,
-            config_paths=["credentials.password", "oauth.refresh_token"],
+            config_paths="credentials.password,oauth.refresh_token",
         )
 
         assert "Added 3 secret stub(s)" in result
