@@ -33,6 +33,9 @@ from pydantic import BaseModel, Field
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import filter_config_secrets, validate_manifest_structure
 
+_REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
+_MANIFEST_ONLY_LANGUAGE = "manifest-only"
+
 logger = logging.getLogger(__name__)
 
 
@@ -559,6 +562,89 @@ def _get_topic_specific_docs(topic: str) -> str:
         return f"# {topic} Documentation\n\nUnable to fetch detailed documentation from GitHub. Please refer to the full reference: {docs_url}\n\nError: {str(e)}"
 
 
+def _is_manifest_only_connector(connector_name: str) -> bool:
+    """Check if a connector is manifest-only by querying the registry.
+
+    Args:
+        connector_name: Name of the connector (e.g., 'source-faker')
+
+    Returns:
+        True if the connector is manifest-only, False otherwise or on error
+    """
+    try:
+        response = requests.get(_REGISTRY_URL, timeout=30)
+        response.raise_for_status()
+        registry_data = response.json()
+
+        for connector_list in [
+            registry_data.get("sources", []),
+            registry_data.get("destinations", []),
+        ]:
+            for connector in connector_list:
+                docker_repo = connector.get("dockerRepository", "")
+                repo_connector_name = docker_repo.replace("airbyte/", "")
+
+                if repo_connector_name == connector_name:
+                    language = connector.get("language")
+                    tags = connector.get("tags", [])
+
+                    return (
+                        language == _MANIFEST_ONLY_LANGUAGE
+                        or f"language:{_MANIFEST_ONLY_LANGUAGE}" in tags
+                    )
+
+        return False
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch registry data for {connector_name}: {e}")
+        return False
+
+
+def get_connector_manifest(
+    connector_name: Annotated[
+        str,
+        Field(description="Name of the connector (e.g., 'source-faker', 'source-github')"),
+    ],
+    version: Annotated[
+        str,
+        Field(
+            description="Version of the connector manifest to retrieve. If not provided, defaults to 'latest'"
+        ),
+    ] = "latest",
+) -> str:
+    """Get the raw connector manifest YAML from connectors.airbyte.com.
+
+    Args:
+        connector_name: Name of the connector (e.g., 'source-faker', 'source-github')
+        version: Version of the connector manifest to retrieve (defaults to 'latest')
+
+    Returns:
+        Raw YAML content of the connector manifest
+    """
+    logger.info(f"Getting connector manifest for {connector_name} version {version}")
+
+    cleaned_version = version.removeprefix("v")
+
+    is_manifest_only = _is_manifest_only_connector(connector_name)
+    file_type = "manifest.yaml" if is_manifest_only else "metadata.yaml"
+
+    logger.info(
+        f"Connector {connector_name} is {'manifest-only' if is_manifest_only else 'not manifest-only'}, fetching {file_type}"
+    )
+
+    manifest_url = f"https://connectors.airbyte.com/metadata/airbyte/{connector_name}/{cleaned_version}/{file_type}"
+
+    try:
+        response = requests.get(manifest_url, timeout=30)
+        response.raise_for_status()
+
+        return response.text
+
+    except Exception as e:
+        logger.error(f"Error fetching connector {file_type} for {connector_name}: {e}")
+        return f"# Error fetching connector {file_type}\n\nUnable to fetch {file_type} for connector '{connector_name}' version '{version}' from {manifest_url}\n\nError: {str(e)}"
+
+
 def register_connector_builder_tools(app: FastMCP) -> None:
     """Register connector builder tools with the FastMCP app.
 
@@ -569,4 +655,5 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(execute_stream_test_read)
     app.tool(get_resolved_manifest)
     app.tool(get_connector_builder_docs)
+    app.tool(get_connector_manifest)
     register_secrets_tools(app)

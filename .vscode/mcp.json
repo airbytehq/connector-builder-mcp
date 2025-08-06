@@ -1,0 +1,15 @@
+{
+	"servers": {
+		"connector-builder-mcp--dev": {
+			"type": "stdio",
+			"command": "uv",
+			"args": [
+				"run",
+				"--project",
+				".",
+				"connector-builder-mcp"
+			]
+		}
+	},
+	"inputs": []
+}
