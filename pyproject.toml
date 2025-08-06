@@ -13,6 +13,7 @@ dependencies = [
     "requests>=2.25.0",
     "python-dotenv>=1.0.0",
     "jsonschema>=4.0.0",
+    "pyyaml>=6.0.0",
 ]
 
 [dependency-groups]
@@ -26,11 +27,11 @@ dev = [
     "ruff>=0.12.4",
     "ty>=0.0.1a15",
     "mypy>=1.13.0",
-    "pyyaml>=6.0.0",
     "coverage>=7.0.0",
     "poethepoet>=0.29.0",
     "types-requests>=2.25.0",
     "types-jsonschema>=4.0.0",
+    "types-pyyaml>=6.0.0",
 ]
 
 [project.scripts]
