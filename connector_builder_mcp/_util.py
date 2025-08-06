@@ -14,37 +14,44 @@ def initialize_logging() -> None:
     )
 
 
-def filter_config_secrets(config: dict[str, Any]) -> dict[str, Any]:
+def filter_config_secrets(
+    config: dict[str, Any] | list[Any] | Any,
+) -> dict[str, Any] | list[Any] | Any:
     """Filter sensitive information from configuration for logging.
 
     Note: For config hydration with secrets, see _secrets.hydrate_config()
 
     Args:
-        config: Configuration dictionary that may contain secrets
+        config: Configuration dictionary, list, or other value that may contain secrets
 
     Returns:
-        Configuration dictionary with sensitive values masked
+        Configuration with sensitive values masked
     """
-    filtered = config.copy()
-    sensitive_keys = {
-        "password",
-        "token",
-        "key",
-        "secret",
-        "credential",
-        "api_key",
-        "access_token",
-        "refresh_token",
-        "client_secret",
-    }
+    if isinstance(config, dict):
+        filtered = config.copy()
+        sensitive_keys = {
+            "password",
+            "token",
+            "key",
+            "secret",
+            "credential",
+            "api_key",
+            "access_token",
+            "refresh_token",
+            "client_secret",
+        }
 
-    for key, value in filtered.items():
-        if isinstance(value, dict):
-            filtered[key] = filter_config_secrets(value)
-        elif any(sensitive in key.lower() for sensitive in sensitive_keys):
-            filtered[key] = "***REDACTED***"
+        for key, value in filtered.items():
+            if isinstance(value, dict | list):
+                filtered[key] = filter_config_secrets(value)
+            elif any(sensitive in key.lower() for sensitive in sensitive_keys):
+                filtered[key] = "***REDACTED***"
 
-    return filtered
+        return filtered
+    elif isinstance(config, list):
+        return [filter_config_secrets(item) for item in config]
+    else:
+        return config
 
 
 def validate_manifest_structure(manifest: dict[str, Any]) -> bool:
