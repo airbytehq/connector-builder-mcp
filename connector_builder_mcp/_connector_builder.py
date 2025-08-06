@@ -452,6 +452,44 @@ def _get_topic_specific_docs(topic: str) -> str:
         return f"# {topic} Documentation\n\nUnable to fetch detailed documentation from GitHub. Please refer to the full reference: {docs_url}\n\nError: {str(e)}"
 
 
+def get_connector_manifest(
+    connector_name: Annotated[
+        str,
+        Field(description="Name of the connector (e.g., 'source-faker', 'source-github')"),
+    ],
+    version: Annotated[
+        str,
+        Field(
+            description="Version of the connector manifest to retrieve. If not provided, defaults to 'latest'"
+        ),
+    ] = "latest",
+) -> str:
+    """Get the raw connector manifest YAML from connectors.airbyte.com.
+
+    Args:
+        connector_name: Name of the connector (e.g., 'source-faker', 'source-github')
+        version: Version of the connector manifest to retrieve (defaults to 'latest')
+
+    Returns:
+        Raw YAML content of the connector manifest
+    """
+    logger.info(f"Getting connector manifest for {connector_name} version {version}")
+
+    cleaned_version = version.removeprefix("v")
+
+    manifest_url = f"https://connectors.airbyte.com/metadata/airbyte/{connector_name}/{cleaned_version}/metadata.yaml"
+
+    try:
+        response = requests.get(manifest_url, timeout=30)
+        response.raise_for_status()
+
+        return response.text
+
+    except Exception as e:
+        logger.error(f"Error fetching connector manifest for {connector_name}: {e}")
+        return f"# Error fetching connector manifest\n\nUnable to fetch manifest for connector '{connector_name}' version '{version}' from {manifest_url}\n\nError: {str(e)}"
+
+
 def register_connector_builder_tools(app: FastMCP) -> None:
     """Register connector builder tools with the FastMCP app.
 
@@ -462,4 +500,5 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(execute_stream_test_read)
     app.tool(get_resolved_manifest)
     app.tool(get_connector_builder_docs)
+    app.tool(get_connector_manifest)
     register_secrets_tools(app)
