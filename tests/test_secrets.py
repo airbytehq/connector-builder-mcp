@@ -180,7 +180,7 @@ def test_populate_dotenv_missing_secrets_stubs_manifest_mode():
         }
 
         manifest_yaml = yaml.dump(manifest)
-        result = populate_dotenv_missing_secrets_stubs(f.name, manifest_input=manifest_yaml)
+        result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest_yaml)
 
         assert "Added 2 secret stub(s)" in result
         assert "api_token" in result
@@ -211,7 +211,7 @@ def test_populate_dotenv_missing_secrets_stubs_combined_mode():
         manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(
             f.name,
-            manifest_input=manifest_yaml,
+            manifest=manifest_yaml,
             config_paths="credentials.password,oauth.refresh_token",
         )
 
@@ -235,7 +235,7 @@ def test_populate_dotenv_missing_secrets_stubs_combined_mode():
 def test_populate_dotenv_missing_secrets_stubs_no_args():
     """Test error when no arguments provided."""
     result = populate_dotenv_missing_secrets_stubs("/path/to/.env")
-    assert "Error: Must provide either manifest_input or config_paths" in result
+    assert "Error: Must provide either manifest or config_paths" in result
 
 
 def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
@@ -250,7 +250,7 @@ def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
         }
 
         manifest_yaml = yaml.dump(manifest)
-        result = populate_dotenv_missing_secrets_stubs(f.name, manifest_input=manifest_yaml)
+        result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest_yaml)
         assert "No secrets found to add" in result
 
         Path(f.name).unlink()

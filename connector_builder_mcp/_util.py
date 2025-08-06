@@ -50,11 +50,11 @@ def filter_config_secrets(config: dict[str, Any]) -> dict[str, Any]:
     return filtered
 
 
-def parse_manifest_input(manifest_input: str) -> dict[str, Any]:
+def parse_manifest_input(manifest: str) -> dict[str, Any]:
     """Parse manifest input from YAML string or file path.
 
     Args:
-        manifest_input: Either a YAML string or a file path to a YAML file
+        manifest: Either a YAML string or a file path to a YAML file
 
     Returns:
         Parsed manifest as dictionary
@@ -63,11 +63,11 @@ def parse_manifest_input(manifest_input: str) -> dict[str, Any]:
         ValueError: If input cannot be parsed or file doesn't exist
         yaml.YAMLError: If YAML parsing fails
     """
-    if not isinstance(manifest_input, str):
-        raise ValueError(f"manifest_input must be a string, got {type(manifest_input)}")
+    if not isinstance(manifest, str):
+        raise ValueError(f"manifest must be a string, got {type(manifest)}")
 
     try:
-        path = Path(manifest_input)
+        path = Path(manifest)
         if path.exists() and path.is_file():
             with path.open("r", encoding="utf-8") as f:
                 result = yaml.safe_load(f)
@@ -76,11 +76,11 @@ def parse_manifest_input(manifest_input: str) -> dict[str, Any]:
                         f"YAML file content must be a dictionary/object, got {type(result)}"
                     )
                 return result
-    except (FileNotFoundError, PermissionError):
+    except (OSError, FileNotFoundError, PermissionError):
         pass
 
     try:
-        result = yaml.safe_load(manifest_input)
+        result = yaml.safe_load(manifest)
         if not isinstance(result, dict):
             raise ValueError(f"YAML content must be a dictionary/object, got {type(result)}")
         return result

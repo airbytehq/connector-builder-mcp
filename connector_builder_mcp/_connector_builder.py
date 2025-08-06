@@ -146,7 +146,7 @@ def _format_validation_error(error: ValidationError) -> str:
 
 
 def validate_manifest(
-    manifest_input: Annotated[
+    manifest: Annotated[
         str,
         Field(
             description="The connector manifest to validate. Can be raw YAML content or path to YAML file"
@@ -160,7 +160,7 @@ def validate_manifest(
     """Validate a connector manifest structure and configuration.
 
     Args:
-        manifest_input: The connector manifest to validate. Can be raw YAML content or path to YAML file
+        manifest: The connector manifest to validate. Can be raw YAML content or path to YAML file
         config: Optional configuration to use for validation
 
     Returns:
@@ -173,15 +173,15 @@ def validate_manifest(
     resolved_manifest = None
 
     try:
-        manifest = parse_manifest_input(manifest_input)
+        manifest_dict = parse_manifest_input(manifest)
 
-        if not validate_manifest_structure(manifest):
+        if not validate_manifest_structure(manifest_dict):
             errors.append("Manifest missing required fields: version, type, check, streams")
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         try:
             schema = _get_declarative_component_schema()
-            validate(manifest, schema)
+            validate(manifest_dict, schema)
             logger.info("JSON schema validation passed")
         except ValidationError as schema_error:
             detailed_error = _format_validation_error(schema_error)
@@ -194,7 +194,7 @@ def validate_manifest(
         if config is None:
             config = {}
 
-        config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
+        config_with_manifest = {**config, "__injected_declarative_manifest": manifest_dict}
 
         limits = get_limits(config_with_manifest)
         source = create_source(config_with_manifest, limits)
@@ -225,7 +225,7 @@ def validate_manifest(
 
 
 def execute_stream_test_read(
-    manifest_input: Annotated[
+    manifest: Annotated[
         str,
         Field(description="The connector manifest. Can be raw YAML content or path to YAML file"),
     ],
@@ -249,7 +249,7 @@ def execute_stream_test_read(
     """Execute reading from a connector stream.
 
     Args:
-        manifest_input: The connector manifest. Can be raw YAML content or path to YAML file
+        manifest: The connector manifest. Can be raw YAML content or path to YAML file
         config: Connector configuration
         stream_name: Name of the stream to test
         max_records: Maximum number of records to read
@@ -261,12 +261,12 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
 
     try:
-        manifest = parse_manifest_input(manifest_input)
+        manifest_dict = parse_manifest_input(manifest)
 
         config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
         config_with_manifest = {
             **config,
-            "__injected_declarative_manifest": manifest,
+            "__injected_declarative_manifest": manifest_dict,
             "__test_read_config": {
                 "max_records": max_records,
                 "max_pages_per_slice": 1,
@@ -307,7 +307,7 @@ def execute_stream_test_read(
 
 
 def get_resolved_manifest(
-    manifest_input: Annotated[
+    manifest: Annotated[
         str,
         Field(
             description="The connector manifest to resolve. Can be raw YAML content or path to YAML file"
@@ -321,7 +321,7 @@ def get_resolved_manifest(
     """Get the resolved connector manifest.
 
     Args:
-        manifest_input: The connector manifest to resolve. Can be raw YAML content or path to YAML file
+        manifest: The connector manifest to resolve. Can be raw YAML content or path to YAML file
         config: Optional configuration for resolution
 
     Returns:
@@ -330,12 +330,12 @@ def get_resolved_manifest(
     logger.info("Getting resolved manifest")
 
     try:
-        manifest = parse_manifest_input(manifest_input)
+        manifest_dict = parse_manifest_input(manifest)
 
         if config is None:
             config = {}
 
-        config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
+        config_with_manifest = {**config, "__injected_declarative_manifest": manifest_dict}
 
         limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
 
