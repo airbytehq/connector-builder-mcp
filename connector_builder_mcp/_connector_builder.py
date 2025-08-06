@@ -5,10 +5,12 @@ manifest validation, stream testing, and configuration management.
 """
 
 import logging
+import pkgutil
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import requests
+import yaml
 from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
@@ -24,6 +26,7 @@ from airbyte_cdk.models import (
     SyncMode,
 )
 from fastmcp import FastMCP
+from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 from pydantic import BaseModel, Field
 
@@ -73,6 +76,64 @@ def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
     )
 
 
+def _get_declarative_component_schema() -> dict[str, Any]:
+    """Load the declarative component schema from the CDK package."""
+    try:
+        raw_component_schema = pkgutil.get_data(
+            "airbyte_cdk", "sources/declarative/declarative_component_schema.yaml"
+        )
+        if raw_component_schema is not None:
+            declarative_component_schema = yaml.load(raw_component_schema, Loader=yaml.SafeLoader)
+            return declarative_component_schema  # type: ignore
+        else:
+            raise RuntimeError(
+                "Failed to read manifest component json schema required for validation"
+            )
+    except FileNotFoundError as e:
+        raise FileNotFoundError(
+            f"Failed to read manifest component json schema required for validation: {e}"
+        ) from e
+
+
+def _format_validation_error(error: ValidationError) -> str:
+    """Format a ValidationError with detailed field path and constraint information."""
+    field_path = ".".join(map(str, error.path)) if error.path else "root"
+
+    error_message = error.message
+
+    if field_path == "root":
+        detailed_error = f"JSON schema validation failed: {error_message}"
+    else:
+        detailed_error = f"JSON schema validation failed at field '{field_path}': {error_message}"
+
+    if hasattr(error, "instance") and error.instance is not None:
+        try:
+            instance_str = str(error.instance)
+            if len(instance_str) > 200:
+                instance_str = instance_str[:200] + "..."
+            detailed_error += f" (received: {instance_str})"
+        except Exception:
+            pass
+
+    if hasattr(error, "schema") and isinstance(error.schema, dict):
+        schema_info = []
+        if "type" in error.schema:
+            schema_info.append(f"expected type: {error.schema['type']}")
+        if "enum" in error.schema:
+            enum_values = error.schema["enum"]
+            if len(enum_values) <= 5:
+                schema_info.append(f"allowed values: {enum_values}")
+        if "required" in error.schema:
+            required_fields = error.schema["required"]
+            if len(required_fields) <= 10:
+                schema_info.append(f"required fields: {required_fields}")
+
+        if schema_info:
+            detailed_error += f" ({', '.join(schema_info)})"
+
+    return detailed_error
+
+
 def validate_manifest(
     manifest: Annotated[
         dict[str, Any],
@@ -103,6 +164,18 @@ def validate_manifest(
             errors.append("Manifest missing required fields: version, type, check, streams")
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
+        try:
+            schema = _get_declarative_component_schema()
+            validate(manifest, schema)
+            logger.info("JSON schema validation passed")
+        except ValidationError as schema_error:
+            detailed_error = _format_validation_error(schema_error)
+            logger.error(f"JSON schema validation failed: {detailed_error}")
+            errors.append(detailed_error)
+            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+        except Exception as schema_load_error:
+            logger.warning(f"Could not load schema for pre-validation: {schema_load_error}")
+
         if config is None:
             config = {}
 
@@ -122,8 +195,9 @@ def validate_manifest(
             errors.append("Failed to resolve manifest")
 
     except ValidationError as e:
-        logger.error(f"JSON schema validation error: {e}")
-        errors.append(f"JSON schema validation failed: {str(e)}")
+        logger.error(f"CDK validation error: {e}")
+        detailed_error = _format_validation_error(e)
+        errors.append(detailed_error)
     except Exception as e:
         logger.error(f"Error validating manifest: {e}")
         errors.append(f"Validation error: {str(e)}")
