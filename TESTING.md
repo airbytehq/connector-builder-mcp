@@ -149,6 +149,10 @@ EOF
 uv run python test_client.py
 ```
 
+### VS Code MCP Testing
+
+For VS Code users with the MCP extension, the repository includes a pre-configured setup in `.vscode/mcp.json`. Install the MCP extension and use the command palette to access connector builder tools directly in your editor.
+
 ## Testing Patterns
 
 ### Unit Testing

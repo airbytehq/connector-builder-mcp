@@ -99,6 +99,10 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 }
 ```
 
+### VS Code MCP Extension
+
+For VS Code users with the MCP extension, use the included configuration in `.vscode/mcp.json`.
+
 ## Contributing and Testing Guides
 
 - **[Contributing Guide](./CONTRIBUTING.md)** - Development setup, workflows, and contribution guidelines

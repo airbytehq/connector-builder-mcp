@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from connector_builder_mcp._util import parse_manifest_input
 
+
 logger = logging.getLogger(__name__)
 
 
