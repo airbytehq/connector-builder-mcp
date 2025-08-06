@@ -24,6 +24,7 @@ from airbyte_cdk.models import (
     SyncMode,
 )
 from fastmcp import FastMCP
+from jsonschema.exceptions import ValidationError
 from pydantic import BaseModel, Field
 
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
@@ -120,6 +121,9 @@ def validate_manifest(
         else:
             errors.append("Failed to resolve manifest")
 
+    except ValidationError as e:
+        logger.error(f"JSON schema validation error: {e}")
+        errors.append(f"JSON schema validation failed: {str(e)}")
     except Exception as e:
         logger.error(f"Error validating manifest: {e}")
         errors.append(f"Validation error: {str(e)}")
