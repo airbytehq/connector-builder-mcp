@@ -1,49 +1,43 @@
 # connector-builder-mcp
 
+*Helping robots build Airbyte connectors.*
+
 ## Overview
 
-The `connector-builder-mcp` repository provides a Model Context Protocol (MCP) server implementation for Airbyte connector building operations. This repository will eventually codify relevant parts of the `builder-ai` functionality, with a focus on **AI ownership** rather than AI assist.
+A Model Context Protocol (MCP) server for Airbyte connector building operations, enabling **AI ownership** of the complete connector development lifecycle - from manifest validation to automated testing and PR creation.
 
-### AI Ownership vs AI Assist
-
-This project emphasizes **end-to-end AI ownership**, including:
-
-- Autonomous connector building and testing
-- Automated PR creation and management
-- Complete workflow automation without human intervention
-
-This differs from AI assist tools that merely help human developers - instead, this enables AI agents to fully own the connector development process from start to finish.
-
-## MCP Implementation
-
-The MCP server follows the established PyAirbyte pattern with:
-
-- Main server module that initializes FastMCP
-- Separate tool modules for different functional areas
-- Comprehensive connector building capabilities exposed as MCP tools
-
-### Available Tools
+### Key Features
 
 - **Manifest Operations**: Validate and resolve connector manifests
 - **Stream Testing**: Test connector stream reading capabilities  
 - **Configuration Management**: Validate connector configurations
 - **Test Execution**: Run connector tests with proper limits and constraints
 
-## Getting Started
+## Quick Start
 
-To use the Builder MCP server, you'll need Python 3.10+ and [uv](https://docs.astral.sh/uv/) for package management.
+**Prerequisites:**
 
-For detailed development setup and contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+- [uv](https://docs.astral.sh/uv/) for package management (`brew install uv`)
+- Python 3.10+ (`uv python install 3.10`)
 
-## Installation
+If you are developing or testing locally, you will also want to install:
+
+- [PoeThePoet](https://poethepoet.natn.io) as a task manager (`uv tool install poethepoet`)
+
+*See the [Contributing Guide](CONTRIBUTING.md) or [Testing Guide](TESTING.md) for more information about working with the repo locally.*
+
+**Install:**
+
+The Poe `sync` and `install` commands are identical, giving a quick way to update your virtual environment or create one from scratch, if needed.
 
 ```bash
+# These are identical:
 uv sync --all-extras
+poe install
+poe sync
 ```
 
-## Manual Start
-
-Start the MCP server:
+**Run:**
 
 ```bash
 # You can use any of these to start the server manually:
@@ -53,28 +47,24 @@ poe mcp-serve-http
 poe mcp-serve-sse
 ```
 
-Or use with MCP clients by configuring the server in your MCP client configuration.
+## MCP Client Configuration
 
-### MCP Client Configuration
+To use with MCP clients like Claude Desktop, add the following configuration:
 
-To use the Builder MCP server with MCP clients like Claude Desktop, add the following configuration:
-
-#### Stable Version (Latest PyPI Release)
+### Stable Version (Latest PyPI Release)
 
 ```json
 {
   "mcpServers": {
     "connector-builder-mcp": {
       "command": "uvx",
-      "args": [
-        "connector-builder-mcp"
-      ]
+      "args": ["connector-builder-mcp"]
     }
   }
 }
 ```
 
-#### Development Version (Main Branch)
+### Development Version (Main Branch)
 
 ```json
 {
@@ -91,11 +81,7 @@ To use the Builder MCP server with MCP clients like Claude Desktop, add the foll
 }
 ```
 
-#### Repo Cloned Out Locally
-
-You can run from a locally cloned version of the repo using the below syntax.
-
-Remember to update the path to your actual repo location.
+### Local Development
 
 ```json
 {
@@ -112,6 +98,11 @@ Remember to update the path to your actual repo location.
   }
 }
 ```
+
+## Contributing and Testing Guides
+
+- **[Contributing Guide](./CONTRIBUTING.md)** - Development setup, workflows, and contribution guidelines
+- **[Testing Guide](./TESTING.md)** - Comprehensive testing instructions and best practices
 
 ### Using Poe Tasks
 
@@ -133,34 +124,3 @@ poe mcp-serve-sse   # Serve over SSE
 You can also run `poe --help` to see a full list of available Poe commands.
 
 If you ever want to see what a Poe task is doing (such as to run it directly or customize how it runs), check out the `poe_tasks.toml` file at the root of the repo.
-
-## Development
-
-This project uses [uv](https://docs.astral.sh/uv/) for package management and follows modern Python development practices.
-
-```bash
-# Install dependencies
-uv sync --all-extras
-
-# Run linting
-uv run ruff check .
-
-# Run formatting  
-uv run ruff format .
-
-# Run tests
-uv run pytest tests/ -v
-
-# Type checking
-uv run mypy connector_builder_mcp
-```
-
-Helping robots build Airbyte connectors.
-
-## Testing
-
-For comprehensive testing instructions, including FastMCP CLI tools and integration testing patterns, see the [Testing Guide](./TESTING.md).
-
-## Contributing
-
-See the [Contributing Guide](./CONTRIBUTING.md) for information on how to contribute.

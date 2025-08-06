@@ -4,7 +4,12 @@ Thank you for your interest in contributing to the Builder MCP project! This gui
 
 ## Development Setup
 
-This project uses [uv](https://docs.astral.sh/uv/) for Python package management. Make sure you have uv installed:
+This project uses [uv](https://docs.astral.sh/uv/) for Python package management and follows modern Python development practices.
+
+### Prerequisites
+
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) for package management
 
 ```bash
 # Install uv if you haven't already
@@ -14,55 +19,69 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ### Quick Start
 
 1. **Clone the repository**:
+
    ```bash
    git clone https://github.com/airbytehq/connector-builder-mcp.git
    cd connector-builder-mcp
    ```
 
 2. **Install dependencies**:
+
    ```bash
    uv sync --all-extras
+   # Or:
+   poe sync
    ```
 
 3. **Verify the installation**:
+
    ```bash
    uv run connector-builder-mcp --help
    ```
 
-## Development Workflow
+### Using Poe Tasks
 
-We use [Poe the Poet](https://poethepoet.natn.io/) for task automation. Install it with:
+For convenience, install [Poe the Poet](https://poethepoet.natn.io/) task runner:
 
 ```bash
+# Install Poe
 uv tool install poethepoet
+
+# View all available commands
+poe --help
 ```
 
-### Available Tasks
+Available Poe commands:
 
 ```bash
-# Install/sync dependencies
-poe install        # or: uv sync --all-extras
-poe sync          # alias for install
+# Development
+poe install         # Install dependencies
+poe sync            # Alias for install
 
 # Code quality
-poe format        # Format code with ruff
-poe lint          # Lint code with ruff  
-poe lint-fix      # Lint and auto-fix issues
-poe typecheck     # Type check with mypy
+poe format          # Format code with ruff
+poe lint            # Lint code with ruff  
+poe lint-fix        # Lint and auto-fix issues
+poe typecheck       # Type check with mypy
+poe check           # Run all checks (lint + typecheck + test)
 
 # Testing
-poe test          # Run tests with verbose output
-poe test-fast     # Run tests, stop on first failure
+poe test            # Run tests with verbose output
+poe test-fast       # Run tests, stop on first failure
 
 # MCP server operations
-poe server        # Start the MCP server
-poe inspect       # Inspect available MCP tools
+poe mcp-serve-local # Serve with STDIO transport
+poe mcp-serve-http  # Serve over HTTP
+poe mcp-serve-sse   # Serve over SSE
+poe inspect         # Inspect available MCP tools
 
 # Combined workflows
-poe check         # Run lint + typecheck + test
+poe check           # Run lint + typecheck + test
 ```
 
-### Manual Commands (without Poe)
+You can see what any Poe task does by checking the `poe_tasks.toml` file at the root of the repo.
+
+## Manual Commands (without Poe)
 
 If you prefer to run commands directly with uv:
 
@@ -178,7 +197,7 @@ This project emphasizes **AI ownership** rather than AI assistance. When contrib
 
 We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 feat: add new MCP tool for stream discovery
 fix: resolve manifest validation edge case
 docs: update contributing guidelines
@@ -190,19 +209,5 @@ test: add integration tests for connector builder
 - **Issues**: Report bugs and request features via GitHub Issues
 - **Discussions**: Use GitHub Discussions for questions and ideas
 - **Code Review**: All changes require review before merging
-
-## Project Structure
-
-```
-connector-builder-mcp/
-├── connector_builder_mcp/  # Main package
-│   ├── server.py         # FastMCP server entry point
-│   ├── _connector_builder.py  # Connector building tools
-│   └── _util.py          # Shared utilities
-├── tests/                # Test suite
-├── poe_tasks.toml        # Task automation config
-├── pyproject.toml        # Project configuration
-└── CONTRIBUTING.md       # This file
-```
 
 Thank you for contributing to Builder MCP! 🚀

@@ -5,6 +5,7 @@ This guide provides comprehensive instructions for testing the Builder MCP serve
 ## Overview
 
 The Builder MCP server provides tools for Airbyte connector building operations. This guide covers:
+
 - Running the test suite
 - Manual testing with FastMCP CLI tools
 - Integration testing patterns
@@ -17,21 +18,26 @@ The Builder MCP server provides tools for Airbyte connector building operations.
 - [uv](https://docs.astral.sh/uv/) for package management
 - FastMCP 2.0 (installed automatically with dependencies)
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed development setup instructions.
+
 ## Quick Start
 
 ### Install Dependencies
+
 ```bash
 poe sync
 # Equivalent to: uv sync --all-extras
 ```
 
 ### Run All Tests
+
 ```bash
 poe test
 # Equivalent to: uv run pytest tests/ -v
 ```
 
 ### Run Specific Test Categories
+
 ```bash
 # Run only integration tests
 uv run pytest tests/test_integration.py -v
@@ -65,12 +71,7 @@ poe inspect --help
 # Shows available options for the inspect command
 ```
 
-The inspection generates a comprehensive JSON report containing:
-- **Tools**: All available MCP tools with descriptions and input schemas
-- **Prompts**: Available prompt templates (currently 0)
-- **Resources**: Available resources (currently 0) 
-- **Templates**: Available templates (currently 0)
-- **Capabilities**: Server capabilities and features
+The inspection generates a comprehensive JSON report containing: **Tools**, **Prompts**, **Resources**, **Templates**, and **Capabilities**.
 
 #### Testing Specific Tools
 
