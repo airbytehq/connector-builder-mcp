@@ -11,6 +11,11 @@ from typing import Annotated, Any, Literal
 
 import requests
 import yaml
+from fastmcp import FastMCP
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
+from pydantic import BaseModel, Field
+
 from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
@@ -25,13 +30,9 @@ from airbyte_cdk.models import (
     DestinationSyncMode,
     SyncMode,
 )
-from fastmcp import FastMCP
-from jsonschema import validate
-from jsonschema.exceptions import ValidationError
-from pydantic import BaseModel, Field
-
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import filter_config_secrets, validate_manifest_structure
+
 
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
@@ -60,6 +61,9 @@ class StreamTestResult(BaseModel):
     )
     raw_api_responses: list[dict[str, Any]] | None = Field(
         default=None, description="Raw request/response data and metadata from CDK"
+    )
+    logs: list[dict[str, Any]] | None = Field(
+        default=None, description="Logs returned by the test read operation (if applicable)."
     )
 
 
@@ -102,10 +106,8 @@ def _get_declarative_component_schema() -> dict[str, Any]:
         if raw_component_schema is not None:
             _DECLARATIVE_COMPONENT_SCHEMA = yaml.load(raw_component_schema, Loader=yaml.SafeLoader)
             return _DECLARATIVE_COMPONENT_SCHEMA  # type: ignore
-        else:
-            raise RuntimeError(
-                "Failed to read manifest component json schema required for validation"
-            )
+
+        raise RuntimeError("Failed to read manifest component json schema required for validation")
     except FileNotFoundError as e:
         raise FileNotFoundError(
             f"Failed to read manifest component json schema required for validation: {e}"
@@ -239,6 +241,7 @@ def execute_stream_test_read(
         str,
         Field(description="Name of the stream to test"),
     ],
+    *,
     max_records: Annotated[
         int,
         Field(description="Maximum number of records to read", ge=1, le=1000),
@@ -248,9 +251,13 @@ def execute_stream_test_read(
         Field(description="Include actual record data from the stream read"),
     ] = True,
     include_raw_responses_data: Annotated[
-        bool,
-        Field(description="Include raw API responses and request/response metadata"),
-    ] = False,
+        bool | None,
+        Field(
+            description="Include raw API responses and request/response metadata. "
+            "Defaults to 'None', which means raw data is included only if an error occurs. "
+            "If set to 'False', raw data is not included even on errors."
+        ),
+    ] = None,
     dotenv_path: Annotated[
         Path | None,
         Field(description="Optional path to .env file for secret hydration"),
@@ -288,48 +295,69 @@ def execute_stream_test_read(
             limits=limits,
         )
 
-        if result.type.value == "RECORD" and result.record and result.record.data:
-            stream_data = result.record.data
-            slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-
-            records_data = []
-            for slice_obj in slices:
-                if isinstance(slice_obj, dict) and "pages" in slice_obj:
-                    for page in slice_obj["pages"]:
-                        if isinstance(page, dict) and "records" in page:
-                            records_data.extend(page["records"])
-
-            raw_responses_data = None
-            if slices and include_raw_responses_data:
-                filtered_slices = filter_config_secrets(slices.copy())
-                if isinstance(filtered_slices, list):
-                    raw_responses_data = filtered_slices
+        if not (result.type.value == "RECORD" and result.record and result.record.data):
+            error_msg = "Failed to read from stream"
+            if hasattr(result, "trace") and result.trace:
+                error_msg = result.trace.error.message
 
             return StreamTestResult(
-                success=True,
-                message=f"Successfully read {len(records_data)} records from stream {stream_name}",
-                records_read=len(records_data),
-                records=records_data if include_records_data else None,
-                raw_api_responses=raw_responses_data,
+                success=False,
+                message=error_msg,
+                errors=[error_msg],
             )
 
-        error_msg = "Failed to read from stream"
-        if hasattr(result, "trace") and result.trace:
-            error_msg = result.trace.error.message
+        stream_data = result.record.data
+        slices = stream_data.get("slices", None)
+        if not slices:
+            logs = stream_data.pop("logs", [])
+            return StreamTestResult(
+                success=False,
+                message=f"No API output returned for stream '{stream_name}'.",
+                errors=[
+                    f"No API output returned for stream '{stream_name}'.",
+                    f"Result object: {stream_data!s}",
+                ],
+                logs=logs,
+            )
+
+        slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
+        slices = filter_config_secrets(slices)
+
+        records_data = []
+        for slice_obj in slices:
+            if isinstance(slice_obj, dict) and "pages" in slice_obj:
+                for page in slice_obj["pages"]:
+                    if isinstance(page, dict) and "records" in page:
+                        records_data.extend(page.pop("records"))
+
+        raw_responses_data = None
+        # Always include raw data when explicitly requested (True)
+        if include_raw_responses_data is True and slices and isinstance(slices, list):
+            raw_responses_data = slices
 
         return StreamTestResult(
-            success=False,
-            message=error_msg,
-            errors=[error_msg],
+            success=True,
+            message=f"Successfully read {len(records_data)} records from stream {stream_name}",
+            records_read=len(records_data),
+            records=records_data if include_records_data else None,
+            raw_api_responses=raw_responses_data,
         )
 
     except Exception as e:
         logger.error(f"Error testing stream read: {e}")
         error_msg = f"Stream test error: {str(e)}"
+
+        # Include raw data on errors when not explicitly disabled (None or True)
+        raw_responses_data = None
+        if include_raw_responses_data is not False:
+            # Try to extract some context from the error if possible
+            raw_responses_data = [{"error": error_msg, "context": "Failed to read stream"}]
+
         return StreamTestResult(
             success=False,
             message=error_msg,
             errors=[error_msg],
+            raw_api_responses=raw_responses_data,
         )
 
 
