@@ -11,11 +11,6 @@ from typing import Annotated, Any, Literal
 
 import requests
 import yaml
-from fastmcp import FastMCP
-from jsonschema import validate
-from jsonschema.exceptions import ValidationError
-from pydantic import BaseModel, Field
-
 from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
@@ -30,9 +25,13 @@ from airbyte_cdk.models import (
     DestinationSyncMode,
     SyncMode,
 )
+from fastmcp import FastMCP
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
+from pydantic import BaseModel, Field
+
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
-
 
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
