@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import yaml
+
 from connector_builder_mcp._secrets import (
     SecretsFileInfo,
     hydrate_config,
@@ -177,8 +179,6 @@ def test_populate_dotenv_missing_secrets_stubs_manifest_mode():
             }
         }
 
-        import yaml
-
         manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(f.name, manifest_input=manifest_yaml)
 
@@ -207,8 +207,6 @@ def test_populate_dotenv_missing_secrets_stubs_combined_mode():
                 }
             }
         }
-
-        import yaml
 
         manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(
@@ -250,8 +248,6 @@ def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
                 }
             }
         }
-
-        import yaml
 
         manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(f.name, manifest_input=manifest_yaml)
