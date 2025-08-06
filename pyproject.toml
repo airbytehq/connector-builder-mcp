@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.7.0,<3.0",
     "requests>=2.25.0",
     "python-dotenv>=1.0.0",
+    "jsonschema>=4.0.0",
 ]
 
 [dependency-groups]
@@ -29,6 +30,7 @@ dev = [
     "coverage>=7.0.0",
     "poethepoet>=0.29.0",
     "types-requests>=2.25.0",
+    "types-jsonschema>=4.0.0",
 ]
 
 [project.scripts]
