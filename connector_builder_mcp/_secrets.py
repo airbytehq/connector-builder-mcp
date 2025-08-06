@@ -13,6 +13,8 @@ from dotenv import dotenv_values, set_key
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+from connector_builder_mcp._util import parse_manifest_input
+
 logger = logging.getLogger(__name__)
 
 
@@ -131,8 +133,8 @@ def list_dotenv_secrets(
 
 def populate_dotenv_missing_secrets_stubs(
     dotenv_path: Annotated[str, Field(description="Path to the .env file to add secrets to")],
-    manifest: Annotated[
-        dict[str, Any] | None, Field(description="Connector manifest to analyze for secrets")
+    manifest_input: Annotated[
+        str | None, Field(description="Connector manifest to analyze for secrets. Can be raw YAML content or path to YAML file")
     ] = None,
     config_paths: Annotated[
         str | None,
@@ -146,7 +148,7 @@ def populate_dotenv_missing_secrets_stubs(
     """Add secret stubs to the specified dotenv file for the user to fill in.
 
     Supports two modes:
-    1. Manifest-based: Pass manifest to auto-detect secrets from connection_specification
+    1. Manifest-based: Pass manifest_input to auto-detect secrets from connection_specification
     2. Path-based: Pass config_paths list like 'credentials.password,oauth.client_secret'
 
     If both are provided, both sets of secrets will be added.
@@ -155,8 +157,8 @@ def populate_dotenv_missing_secrets_stubs(
         Message about the operation result
     """
     config_paths_list = config_paths.split(",") if config_paths else []
-    if not any([manifest, config_paths_list]):
-        return "Error: Must provide either manifest or config_paths"
+    if not any([manifest_input, config_paths_list]):
+        return "Error: Must provide either manifest_input or config_paths"
 
     try:
         if allow_create:
@@ -167,7 +169,8 @@ def populate_dotenv_missing_secrets_stubs(
 
         secrets_to_add = []
 
-        if manifest:
+        if manifest_input:
+            manifest = parse_manifest_input(manifest_input)
             secrets_to_add.extend(_extract_secrets_names_from_manifest(manifest))
 
         if config_paths_list:

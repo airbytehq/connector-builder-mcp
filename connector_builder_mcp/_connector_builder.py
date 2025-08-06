@@ -31,7 +31,7 @@ from jsonschema.exceptions import ValidationError
 from pydantic import BaseModel, Field
 
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
-from connector_builder_mcp._util import validate_manifest_structure
+from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
 
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
@@ -146,9 +146,9 @@ def _format_validation_error(error: ValidationError) -> str:
 
 
 def validate_manifest(
-    manifest: Annotated[
-        dict[str, Any],
-        Field(description="The connector manifest to validate"),
+    manifest_input: Annotated[
+        str,
+        Field(description="The connector manifest to validate. Can be raw YAML content or path to YAML file"),
     ],
     config: Annotated[
         dict[str, Any] | None,
@@ -158,7 +158,7 @@ def validate_manifest(
     """Validate a connector manifest structure and configuration.
 
     Args:
-        manifest: The connector manifest dictionary to validate
+        manifest_input: The connector manifest to validate. Can be raw YAML content or path to YAML file
         config: Optional configuration to use for validation
 
     Returns:
@@ -171,6 +171,8 @@ def validate_manifest(
     resolved_manifest = None
 
     try:
+        manifest = parse_manifest_input(manifest_input)
+
         if not validate_manifest_structure(manifest):
             errors.append("Manifest missing required fields: version, type, check, streams")
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
@@ -221,9 +223,9 @@ def validate_manifest(
 
 
 def execute_stream_test_read(
-    manifest: Annotated[
-        dict[str, Any],
-        Field(description="The connector manifest"),
+    manifest_input: Annotated[
+        str,
+        Field(description="The connector manifest. Can be raw YAML content or path to YAML file"),
     ],
     config: Annotated[
         dict[str, Any],
@@ -245,7 +247,7 @@ def execute_stream_test_read(
     """Execute reading from a connector stream.
 
     Args:
-        manifest: The connector manifest
+        manifest_input: The connector manifest. Can be raw YAML content or path to YAML file
         config: Connector configuration
         stream_name: Name of the stream to test
         max_records: Maximum number of records to read
@@ -257,6 +259,8 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
 
     try:
+        manifest = parse_manifest_input(manifest_input)
+
         config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
         config_with_manifest = {
             **config,
@@ -301,9 +305,9 @@ def execute_stream_test_read(
 
 
 def get_resolved_manifest(
-    manifest: Annotated[
-        dict[str, Any],
-        Field(description="The connector manifest to resolve"),
+    manifest_input: Annotated[
+        str,
+        Field(description="The connector manifest to resolve. Can be raw YAML content or path to YAML file"),
     ],
     config: Annotated[
         dict[str, Any] | None,
@@ -313,7 +317,7 @@ def get_resolved_manifest(
     """Get the resolved connector manifest.
 
     Args:
-        manifest: The connector manifest to resolve
+        manifest_input: The connector manifest to resolve. Can be raw YAML content or path to YAML file
         config: Optional configuration for resolution
 
     Returns:
@@ -322,6 +326,8 @@ def get_resolved_manifest(
     logger.info("Getting resolved manifest")
 
     try:
+        manifest = parse_manifest_input(manifest_input)
+
         if config is None:
             config = {}
 
