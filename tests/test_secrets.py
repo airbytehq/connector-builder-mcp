@@ -178,6 +178,7 @@ def test_populate_dotenv_missing_secrets_stubs_manifest_mode():
         }
 
         import yaml
+
         manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(f.name, manifest_input=manifest_yaml)
 
@@ -208,6 +209,7 @@ def test_populate_dotenv_missing_secrets_stubs_combined_mode():
         }
 
         import yaml
+
         manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(
             f.name,
@@ -250,6 +252,7 @@ def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
         }
 
         import yaml
+
         manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(f.name, manifest_input=manifest_yaml)
         assert "No secrets found to add" in result

@@ -69,10 +69,12 @@ def parse_manifest_input(manifest_input: str) -> dict[str, Any]:
     try:
         path = Path(manifest_input)
         if path.exists() and path.is_file():
-            with path.open('r', encoding='utf-8') as f:
+            with path.open("r", encoding="utf-8") as f:
                 result = yaml.safe_load(f)
                 if not isinstance(result, dict):
-                    raise ValueError(f"YAML file content must be a dictionary/object, got {type(result)}")
+                    raise ValueError(
+                        f"YAML file content must be a dictionary/object, got {type(result)}"
+                    )
                 return result
     except OSError:
         pass

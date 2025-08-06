@@ -148,7 +148,9 @@ def _format_validation_error(error: ValidationError) -> str:
 def validate_manifest(
     manifest_input: Annotated[
         str,
-        Field(description="The connector manifest to validate. Can be raw YAML content or path to YAML file"),
+        Field(
+            description="The connector manifest to validate. Can be raw YAML content or path to YAML file"
+        ),
     ],
     config: Annotated[
         dict[str, Any] | None,
@@ -307,7 +309,9 @@ def execute_stream_test_read(
 def get_resolved_manifest(
     manifest_input: Annotated[
         str,
-        Field(description="The connector manifest to resolve. Can be raw YAML content or path to YAML file"),
+        Field(
+            description="The connector manifest to resolve. Can be raw YAML content or path to YAML file"
+        ),
     ],
     config: Annotated[
         dict[str, Any] | None,

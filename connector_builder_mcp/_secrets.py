@@ -134,7 +134,10 @@ def list_dotenv_secrets(
 def populate_dotenv_missing_secrets_stubs(
     dotenv_path: Annotated[str, Field(description="Path to the .env file to add secrets to")],
     manifest_input: Annotated[
-        str | None, Field(description="Connector manifest to analyze for secrets. Can be raw YAML content or path to YAML file")
+        str | None,
+        Field(
+            description="Connector manifest to analyze for secrets. Can be raw YAML content or path to YAML file"
+        ),
     ] = None,
     config_paths: Annotated[
         str | None,
