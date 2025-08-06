@@ -76,7 +76,7 @@ def parse_manifest_input(manifest_input: str) -> dict[str, Any]:
                         f"YAML file content must be a dictionary/object, got {type(result)}"
                     )
                 return result
-    except OSError:
+    except (FileNotFoundError, PermissionError):
         pass
 
     try:
