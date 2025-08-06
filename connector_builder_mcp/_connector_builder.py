@@ -11,6 +11,11 @@ from typing import Annotated, Any, Literal
 
 import requests
 import yaml
+from fastmcp import FastMCP
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
+from pydantic import BaseModel, Field
+
 from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
@@ -25,13 +30,9 @@ from airbyte_cdk.models import (
     DestinationSyncMode,
     SyncMode,
 )
-from fastmcp import FastMCP
-from jsonschema import validate
-from jsonschema.exceptions import ValidationError
-from pydantic import BaseModel, Field
-
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import filter_config_secrets, validate_manifest_structure
+
 
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
@@ -58,7 +59,7 @@ class StreamTestResult(BaseModel):
     records: list[dict[str, Any]] | None = Field(
         default=None, description="Actual record data from the stream"
     )
-    slices: list[dict[str, Any]] | None = Field(
+    raw_api_responses: list[dict[str, Any]] | None = Field(
         default=None, description="Raw request/response data and metadata from CDK"
     )
 
@@ -243,6 +244,14 @@ def execute_stream_test_read(
         int,
         Field(description="Maximum number of records to read", ge=1, le=1000),
     ] = 10,
+    include_records_data: Annotated[
+        bool,
+        Field(description="Include actual record data from the stream read"),
+    ] = True,
+    include_raw_responses_data: Annotated[
+        bool,
+        Field(description="Include raw API responses and request/response metadata"),
+    ] = False,
     dotenv_path: Annotated[
         Path | None,
         Field(description="Optional path to .env file for secret hydration"),
@@ -291,14 +300,18 @@ def execute_stream_test_read(
                         if isinstance(page, dict) and "records" in page:
                             records_data.extend(page["records"])
 
-            slices_data = filter_config_secrets(slices.copy()) if slices else None
+            raw_responses_data = None
+            if slices and include_raw_responses_data:
+                filtered_slices = filter_config_secrets(slices.copy())
+                if isinstance(filtered_slices, list):
+                    raw_responses_data = filtered_slices
 
             return StreamTestResult(
                 success=True,
                 message=f"Successfully read {len(records_data)} records from stream {stream_name}",
                 records_read=len(records_data),
-                records=records_data,
-                slices=slices_data,
+                records=records_data if include_records_data else None,
+                raw_api_responses=raw_responses_data,
             )
 
         error_msg = "Failed to read from stream"
