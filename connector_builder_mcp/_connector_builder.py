@@ -313,6 +313,7 @@ def execute_stream_test_read(
             description="By default, raw request and response data will be returned only upon error. "
             "Set to True or False, to always or never return the raw response data."
         ),
+    ] = None,
     dotenv_path: Annotated[
         Path | None,
         Field(description="Optional path to .env file for secret hydration"),
