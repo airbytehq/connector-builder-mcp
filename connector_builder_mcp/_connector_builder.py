@@ -76,15 +76,23 @@ def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
     )
 
 
+_DECLARATIVE_COMPONENT_SCHEMA: dict[str, Any] | None = None
+
+
 def _get_declarative_component_schema() -> dict[str, Any]:
-    """Load the declarative component schema from the CDK package."""
+    """Load the declarative component schema from the CDK package (cached)."""
+    global _DECLARATIVE_COMPONENT_SCHEMA
+
+    if _DECLARATIVE_COMPONENT_SCHEMA is not None:
+        return _DECLARATIVE_COMPONENT_SCHEMA
+
     try:
         raw_component_schema = pkgutil.get_data(
             "airbyte_cdk", "sources/declarative/declarative_component_schema.yaml"
         )
         if raw_component_schema is not None:
-            declarative_component_schema = yaml.load(raw_component_schema, Loader=yaml.SafeLoader)
-            return declarative_component_schema  # type: ignore
+            _DECLARATIVE_COMPONENT_SCHEMA = yaml.load(raw_component_schema, Loader=yaml.SafeLoader)
+            return _DECLARATIVE_COMPONENT_SCHEMA  # type: ignore
         else:
             raise RuntimeError(
                 "Failed to read manifest component json schema required for validation"
