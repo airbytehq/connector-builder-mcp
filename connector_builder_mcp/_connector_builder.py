@@ -53,74 +53,11 @@ class StreamTestResult(BaseModel):
     records_read: int = 0
     errors: list[str] = []
     records: list[dict[str, Any]] | None = Field(
-        default=None, description="Actual record data when include_records=True"
+        default=None, description="Actual record data from the stream"
     )
     slices: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="By default, raw request and response data will be returned only upon error. "
-        "Set to True or False, to always or never return the raw response data.",
+        default=None, description="Raw request/response data and metadata from CDK"
     )
-
-
-def _without_records(slices: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remove records from slices structure while preserving other data.
-
-    Args:
-        slices: List of slice objects from CDK output
-
-    Returns:
-        Slices with records removed from pages
-    """
-    result = []
-    for slice_obj in slices:
-        if not isinstance(slice_obj, dict):
-            result.append(slice_obj)
-            continue
-
-        slice_copy = slice_obj.copy()
-        if "pages" in slice_copy and isinstance(slice_copy["pages"], list):
-            pages_copy = []
-            for page in slice_copy["pages"]:
-                if isinstance(page, dict):
-                    page_copy = page.copy()
-                    page_copy.pop("records", None)
-                    pages_copy.append(page_copy)
-                else:
-                    pages_copy.append(page)
-            slice_copy["pages"] = pages_copy
-        result.append(slice_copy)
-    return result
-
-
-def _without_raw_requests_and_responses(slices: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remove raw request and response data from slices structure.
-
-    Args:
-        slices: List of slice objects from CDK output
-
-    Returns:
-        Slices with request and response data removed from pages
-    """
-    result = []
-    for slice_obj in slices:
-        if not isinstance(slice_obj, dict):
-            result.append(slice_obj)
-            continue
-
-        slice_copy = slice_obj.copy()
-        if "pages" in slice_copy and isinstance(slice_copy["pages"], list):
-            pages_copy = []
-            for page in slice_copy["pages"]:
-                if isinstance(page, dict):
-                    page_copy = page.copy()
-                    page_copy.pop("request", None)
-                    page_copy.pop("response", None)
-                    pages_copy.append(page_copy)
-                else:
-                    pages_copy.append(page)
-            slice_copy["pages"] = pages_copy
-        result.append(slice_copy)
-    return result
 
 
 def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
@@ -303,17 +240,6 @@ def execute_stream_test_read(
         int,
         Field(description="Maximum number of records to read", ge=1, le=1000),
     ] = 10,
-    include_records: Annotated[
-        bool,
-        Field(description="If True, include actual record data in the response"),
-    ] = False,
-    include_raw_response_data: Annotated[
-        bool | None,
-        Field(
-            description="By default, raw request and response data will be returned only upon error. "
-            "Set to True or False, to always or never return the raw response data."
-        ),
-    ] = None,
     dotenv_path: Annotated[
         Path | None,
         Field(description="Optional path to .env file for secret hydration"),
@@ -321,16 +247,8 @@ def execute_stream_test_read(
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
-    Returns:
-        Test result with success status and details, optionally including record and HTTP data
-
-    Note:
-        Raw request and response data in slices is automatically sanitized using filter_config_secrets()
-        to prevent accidental exposure of API keys and other sensitive information.
-
-        To keep a manageable context window, it is recommended to always include a 'max_records'
-        argument when running with include_records=True or include_raw_response_data=True. This
-        prevents overflow which can happen if the stream has millions of records.
+    Returns both record data and raw request/response metadata from the stream test.
+    Raw data is automatically sanitized to prevent exposure of secrets.
     """
     logger.info(f"Testing stream read for stream: {stream_name}")
 
@@ -359,41 +277,23 @@ def execute_stream_test_read(
             limits=limits,
         )
 
-        if result.type.value == "RECORD":
-            records_data = None
-            slices_data: list[dict[str, Any]] | None = None
+        if result.type.value == "RECORD" and result.record and result.record.data:
+            stream_data = result.record.data
+            slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
 
-            if result.record and result.record.data:
-                try:
-                    stream_data = result.record.data
-                    slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
+            records_data = []
+            for slice_obj in slices:
+                if isinstance(slice_obj, dict) and "pages" in slice_obj:
+                    for page in slice_obj["pages"]:
+                        if isinstance(page, dict) and "records" in page:
+                            records_data.extend(page["records"])
 
-                    if include_records:
-                        records_data = []
-                        for slice_obj in slices:
-                            if isinstance(slice_obj, dict) and "pages" in slice_obj:
-                                for page in slice_obj["pages"]:
-                                    if isinstance(page, dict) and "records" in page:
-                                        records_data.extend(page["records"])
-
-                    if slices:
-                        slices_data = slices.copy()
-
-                        if not include_records:
-                            slices_data = _without_records(slices_data)
-
-                        if include_raw_response_data is False:
-                            slices_data = _without_raw_requests_and_responses(slices_data)
-
-                        slices_data = filter_config_secrets(slices_data)  # type: ignore[assignment]
-
-                except Exception as e:
-                    logger.warning(f"Failed to extract data: {e}")
+            slices_data = filter_config_secrets(slices.copy()) if slices else None
 
             return StreamTestResult(
                 success=True,
-                message=f"Successfully read from stream {stream_name}",
-                records_read=max_records,
+                message=f"Successfully read {len(records_data)} records from stream {stream_name}",
+                records_read=len(records_data),
                 records=records_data,
                 slices=slices_data,
             )
@@ -402,62 +302,19 @@ def execute_stream_test_read(
         if hasattr(result, "trace") and result.trace:
             error_msg = result.trace.error.message
 
-        slices_data = None
-
-        if include_raw_response_data is not False:
-            if result.record and result.record.data:
-                try:
-                    stream_data = result.record.data
-                    slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-                    if slices:
-                        slices_data = slices.copy()
-
-                        if not include_records:
-                            slices_data = _without_records(slices_data)
-
-                        if include_raw_response_data is False:
-                            slices_data = _without_raw_requests_and_responses(slices_data)
-
-                        slices_data = filter_config_secrets(slices_data)  # type: ignore[assignment]
-                except Exception as e:
-                    logger.warning(f"Failed to extract debug data: {e}")
-
         return StreamTestResult(
             success=False,
             message=error_msg,
             errors=[error_msg],
-            slices=slices_data,
         )
 
     except Exception as e:
         logger.error(f"Error testing stream read: {e}")
         error_msg = f"Stream test error: {str(e)}"
-
-        slices_data = None
-
-        if include_raw_response_data is not False:
-            try:
-                if "result" in locals() and result.record and result.record.data:
-                    stream_data = result.record.data
-                    slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-                    if slices:
-                        slices_data = slices.copy()
-
-                        if not include_records:
-                            slices_data = _without_records(slices_data)
-
-                        if include_raw_response_data is False:
-                            slices_data = _without_raw_requests_and_responses(slices_data)
-
-                        slices_data = filter_config_secrets(slices_data)  # type: ignore[assignment]
-            except Exception:
-                pass
-
         return StreamTestResult(
             success=False,
             message=error_msg,
             errors=[error_msg],
-            slices=slices_data,
         )
 
 

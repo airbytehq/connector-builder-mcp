@@ -74,7 +74,7 @@ class TestManifestIntegration:
         assert result.message is not None
         if result.success:
             assert result.records_read > 0
-            assert "Successfully read from stream" in result.message
+            assert "Successfully read" in result.message and "records from stream" in result.message
 
 
 class TestConnectorBuilderDocs:
