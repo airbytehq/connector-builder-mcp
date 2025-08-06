@@ -66,7 +66,8 @@ def parse_manifest_input(manifest: str) -> dict[str, Any]:
     if not isinstance(manifest, str):
         raise ValueError(f"manifest must be a string, got {type(manifest)}")
 
-    try:
+    if len(manifest.splitlines()) == 1:
+        # If the manifest is a single line, treat it as a file path
         path = Path(manifest)
         if path.exists() and path.is_file():
             with path.open("r", encoding="utf-8") as f:
@@ -76,16 +77,21 @@ def parse_manifest_input(manifest: str) -> dict[str, Any]:
                         f"YAML file content must be a dictionary/object, got {type(result)}"
                     )
                 return result
-    except (OSError, FileNotFoundError, PermissionError):
-        pass
 
     try:
+        # Otherwise, treat it as a YAML string
         result = yaml.safe_load(manifest)
         if not isinstance(result, dict):
-            raise ValueError(f"YAML content must be a dictionary/object, got {type(result)}")
-        return result
+            raise ValueError(  # noqa: TRY004
+                f"Error when parsing YAML string. Expected to parse a dictionary/object, got {type(result)}."
+                f" Manifest content: {manifest[:100]}..."  # Show first 100 chars
+            )
+
     except yaml.YAMLError as e:
         raise ValueError(f"Invalid YAML string: {e}") from e
+    else:
+        # No exceptions, return parsed result
+        return result
 
 
 def validate_manifest_structure(manifest: dict[str, Any]) -> bool:

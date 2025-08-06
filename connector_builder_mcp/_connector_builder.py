@@ -11,6 +11,11 @@ from typing import Annotated, Any, Literal
 
 import requests
 import yaml
+from fastmcp import FastMCP
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
+from pydantic import BaseModel, Field
+
 from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
@@ -25,13 +30,9 @@ from airbyte_cdk.models import (
     DestinationSyncMode,
     SyncMode,
 )
-from fastmcp import FastMCP
-from jsonschema import validate
-from jsonschema.exceptions import ValidationError
-from pydantic import BaseModel, Field
-
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
+
 
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
@@ -148,20 +149,11 @@ def _format_validation_error(error: ValidationError) -> str:
 def validate_manifest(
     manifest: Annotated[
         str,
-        Field(
-            description="The connector manifest to validate. Can be raw YAML content or path to YAML file"
-        ),
+        Field(description="The connector manifest to validate. "
+              "Can be raw a YAML string or path to YAML file"),
     ],
-    config: Annotated[
-        dict[str, Any] | None,
-        Field(description="Optional connector configuration for validation"),
-    ] = None,
 ) -> ManifestValidationResult:
     """Validate a connector manifest structure and configuration.
-
-    Args:
-        manifest: The connector manifest to validate. Can be raw YAML content or path to YAML file
-        config: Optional configuration to use for validation
 
     Returns:
         Validation result with success status and any errors/warnings
@@ -191,10 +183,7 @@ def validate_manifest(
         except Exception as schema_load_error:
             logger.warning(f"Could not load schema for pre-validation: {schema_load_error}")
 
-        if config is None:
-            config = {}
-
-        config_with_manifest = {**config, "__injected_declarative_manifest": manifest_dict}
+        config_with_manifest = {"__injected_declarative_manifest": manifest_dict}
 
         limits = get_limits(config_with_manifest)
         source = create_source(config_with_manifest, limits)
@@ -227,7 +216,7 @@ def validate_manifest(
 def execute_stream_test_read(
     manifest: Annotated[
         str,
-        Field(description="The connector manifest. Can be raw YAML content or path to YAML file"),
+        Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
     ],
     config: Annotated[
         dict[str, Any],
@@ -247,13 +236,6 @@ def execute_stream_test_read(
     ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
-
-    Args:
-        manifest: The connector manifest. Can be raw YAML content or path to YAML file
-        config: Connector configuration
-        stream_name: Name of the stream to test
-        max_records: Maximum number of records to read
-        dotenv_path: Optional path to .env file for secret hydration
 
     Returns:
         Test result with success status and details
@@ -377,10 +359,10 @@ def get_connector_builder_docs(
     """
     logger.info(f"Getting connector builder docs for topic: {topic}")
 
-    if topic is None:
-        return _get_high_level_overview()
-    else:
+    if topic:
         return _get_topic_specific_docs(topic)
+
+    return _get_high_level_overview()
 
 
 def _get_topic_mapping() -> dict[str, tuple[str, str]]:
