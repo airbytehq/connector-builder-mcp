@@ -19,6 +19,8 @@ def filter_config_secrets(
 ) -> dict[str, Any] | list[Any] | Any:
     """Filter sensitive information from configuration for logging.
 
+    Note: For config hydration with secrets, see _secrets.hydrate_config()
+
     Args:
         config: Configuration dictionary, list, or other value that may contain secrets
 
