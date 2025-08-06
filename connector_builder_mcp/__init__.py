@@ -9,5 +9,6 @@ fully control the connector development workflow including testing and PR creati
 
 from connector_builder_mcp import server
 
+
 __all__ = ["server"]
 __version__ = "0.1.0"
