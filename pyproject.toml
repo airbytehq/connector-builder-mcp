@@ -1,6 +1,6 @@
 [project]
 name = "airbyte-connector-builder-mcp"
-version = "0.1.0"
+dynamic = ["version"]
 description = "MCP server for Airbyte connector building operations with AI ownership focus"
 authors = [{name = "Airbyte", email = "contact@airbyte.io"}]
 readme = "README.md"
@@ -42,8 +42,16 @@ connector-builder-mcp = "connector_builder_mcp.server:main"
 airbyte-connector-builder-mcp = "connector_builder_mcp.server:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
+
+[tool.uv-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "pep440"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
 
 [tool.hatch.build.targets.wheel]
 packages = ["connector_builder_mcp"]
