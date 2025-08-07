@@ -1,6 +1,6 @@
 [project]
-name = "connector-builder-mcp"
-version = "0.1.0"
+name = "airbyte-connector-builder-mcp"
+dynamic = ["version"]
 description = "MCP server for Airbyte connector building operations with AI ownership focus"
 authors = [{name = "Airbyte", email = "contact@airbyte.io"}]
 readme = "README.md"
@@ -35,11 +35,26 @@ dev = [
 ]
 
 [project.scripts]
+# Main CLI:
 connector-builder-mcp = "connector_builder_mcp.server:main"
 
+# CLI alias to support `uvx airbyte-connector-builder-mcp --help` and similar:
+airbyte-connector-builder-mcp = "connector_builder_mcp.server:main"
+
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
+
+[tool.uv-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "pep440"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.wheel]
+packages = ["connector_builder_mcp"]
 
 [tool.mypy]
 python_version = "3.10"
