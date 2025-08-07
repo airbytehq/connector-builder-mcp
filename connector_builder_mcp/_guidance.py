@@ -105,13 +105,14 @@ TOPIC_MAPPING: dict[str, tuple[str, str]] = {
 """Curated topics mapping with relative paths and descriptions."""
 
 NEWLINE = "\n"
-OVERVIEW_PROMPT = f"""# Connector Builder Documentation
+OVERVIEW_PROMPT = f"""# Connector Builder Overview
 
-1. Use the manifest YAML JSON schema for high-level guidelines
-2. Use the validate manifest tool to confirm JSON schema is correct
-3. Start with one stream or (better) a stream template that maps to a single stream
-4. Make sure you have working authentication and data retrieval before moving onto pagination and other components
-5. When all is confirmed working on the first stream, you can add additional streams. It is generally safest to add one stream at a time, and test each one before moving to the next
+1. It is generally advisable to only attempt to add one stream at a time.
+2. Validate each stream's auth, pagination, and data retrieval before moving to the next.
+3. Use the validate manifest tool to confirm JSON schema is correct.
+4. Once the stream you are working on is confirmed to be working, you can add additional streams.
+5. You have a smoke test tool which can be used to confirm all streams are working at the same time.
+6. Call this docs tool again for info on specific topics, as needed.
 
 ## Dealing with Users' Connector Credentials
 
@@ -127,15 +128,27 @@ OVERVIEW_PROMPT = f"""# Connector Builder Documentation
 
 1. Generally, it makes sense to add pagination _after_ you have a working stream that retrieves
    data.
-2. It will be helpful to opt-in to raw responses data, to see how the API handles pagination.
-3. Pagination generally should not be considered 'complete' until records returned is greater than
-   page_size x 2, and that you can sync to the end of the stream to determine a total records count.
-4. When intentionally streaming to the end of a stream, its important to disable the option to
+2. It will often be helpful to opt-in to raw responses data with a row limit of page_size x 2.
+   This should provide you with the raw headers and responses data needed to understand how
+   pagination works, for instance: how page 1 should hand off to page 2.
+3. Pagination generally should not be considered 'complete' until you can sync to the end of the
+   stream and determine a total records count.
+4. Record counts are generally suspect if they are an exact multiple of page_size or of 10, as
+   either of these may indicate that the pagination logic is not working correctly.
+5. When intentionally streaming to the end of a stream, its important to disable the option to
    return records and raw responses. Otherwise, you risk overloading the LLM with too much data.
+
+## Smoke Testing
+
+1. Use the smoke test tool to confirm that your connector is working.
+2. Be suspect of record counts that are an exact multiple of 10 or of the page_size, as this may
+   indicate that the pagination logic is not working correctly.
 
 ## Limitations
 
 - Note that we don't yet support custom Python components (for security reasons).
+
+## Detailed Topics List
 
 For detailed docs on specific components, call this function again with one of these topics:
 

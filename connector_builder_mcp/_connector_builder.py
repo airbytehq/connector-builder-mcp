@@ -6,6 +6,7 @@ manifest validation, stream testing, and configuration management.
 
 import logging
 import pkgutil
+import time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -30,7 +31,7 @@ from airbyte_cdk.models import (
     DestinationSyncMode,
     SyncMode,
 )
-from connector_builder_mcp._docs import OVERVIEW_PROMPT, TOPIC_MAPPING
+from connector_builder_mcp._guidance import OVERVIEW_PROMPT, TOPIC_MAPPING
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import (
     filter_config_secrets,
@@ -69,6 +70,34 @@ class StreamTestResult(BaseModel):
     )
     logs: list[dict[str, Any]] | None = Field(
         default=None, description="Logs returned by the test read operation (if applicable)."
+    )
+
+
+class StreamSmokeTest(BaseModel):
+    """Result of a single stream smoke test."""
+
+    stream_name: str
+    success: bool
+    records_count: int = 0
+    max_records_limit: int
+    errors: list[str] = []
+    logs: list[dict[str, Any]] | None = Field(
+        default=None, description="Logs from the stream test operation (if applicable)."
+    )
+    time_elapsed_seconds: float
+
+
+class MultiStreamSmokeTest(BaseModel):
+    """Result of multi-stream smoke test operation."""
+
+    success: bool
+    message: str
+    total_streams_tested: int = 0
+    total_streams_successful: int = 0
+    total_records_count: int = 0
+    total_time_elapsed_seconds: float
+    stream_results: dict[str, StreamSmokeTest] = Field(
+        description="Dictionary mapping stream names to their individual smoke test results"
     )
 
 
@@ -363,6 +392,179 @@ def execute_stream_test_read(
         )
 
 
+def execute_record_counts_smoke_test(
+    manifest: Annotated[
+        str,
+        Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
+    ],
+    config: Annotated[
+        dict[str, Any],
+        Field(description="Connector configuration"),
+    ],
+    streams: Annotated[
+        str | None,
+        Field(
+            description="Optional CSV-delimited list of streams to test."
+            "If not provided, tests all streams in the manifest."
+        ),
+    ] = None,
+    *,
+    max_records: Annotated[
+        int,
+        Field(description="Maximum number of records to read per stream", ge=1, le=50000),
+    ] = 10000,
+    dotenv_path: Annotated[
+        Path | None,
+        Field(description="Optional path to .env file for secret hydration"),
+    ] = None,
+) -> MultiStreamSmokeTest:
+    """Execute a smoke test to count records from all streams in the connector.
+
+    This function tests all available streams by reading records up to the specified limit
+    and returns comprehensive statistics including record counts, errors, and timing information.
+
+    Args:
+        manifest: The connector manifest (YAML string or file path)
+        config: Connector configuration
+        max_records: Maximum number of records to read per stream (default: 10000)
+        dotenv_path: Optional path to .env file for secret hydration
+
+    Returns:
+        MultiStreamSmokeTest result with per-stream statistics and overall summary
+    """
+    logger.info("Starting multi-stream smoke test")
+    start_time = time.time()
+    total_streams_tested = 0
+    total_streams_successful = 0
+    total_records_count = 0
+    stream_results: dict[str, StreamSmokeTest] = {}
+
+    manifest_dict = parse_manifest_input(manifest)
+
+    # Hydrate config with secrets if dotenv_path is provided
+    config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+    config_with_manifest = {
+        **config,
+        "__injected_declarative_manifest": manifest_dict,
+        "__test_read_config": {
+            "max_records": max_records,
+            "max_pages_per_slice": 10,
+            "max_slices": 10,
+            "max_streams": 100,
+        },
+    }
+
+    limits = get_limits(config_with_manifest)
+    source = create_source(config_with_manifest, limits)
+
+    stream_names: list[str]
+    if isinstance(streams, str):
+        stream_names = [s.strip() for s in streams.split(",") if s.strip()]
+    elif isinstance(streams, list):
+        stream_names = [s.strip() for s in streams]
+    else:
+        # Test each stream individually
+        stream_names = [
+            stream_config.get("name")
+            for stream_config in manifest_dict.get("streams", [])
+            if stream_config.get("name")  # Filter out None values
+        ]
+        if not stream_names:
+            return MultiStreamSmokeTest(
+                success=False,
+                message="No streams found in manifest",
+                stream_results={},
+                total_time_elapsed_seconds=time.time() - start_time,
+            )
+
+    for stream_name in stream_names:  # noqa: PLR1702
+        stream_start_time = time.time()
+        logger.info(f"Testing stream: {stream_name}")
+
+        try:
+            catalog = _get_dummy_catalog(stream_name)
+            result = read_stream(
+                source=source,
+                config=config_with_manifest,
+                configured_catalog=catalog,
+                state=[],
+                limits=limits,
+            )
+
+            stream_elapsed = time.time() - stream_start_time
+
+            if result.type.value == "RECORD" and result.record and result.record.data:
+                stream_data = result.record.data
+                slices = stream_data.get("slices", [])
+                logs = stream_data.get("logs", [])
+
+                records_count = 0
+                if slices:
+                    for slice_obj in slices:
+                        if isinstance(slice_obj, dict) and "pages" in slice_obj:
+                            for page in slice_obj["pages"]:
+                                if isinstance(page, dict) and "records" in page:
+                                    records_count += len(page["records"])
+
+                stream_results[stream_name] = StreamSmokeTest(
+                    stream_name=stream_name,
+                    success=True,
+                    records_count=records_count,
+                    max_records_limit=max_records,
+                    logs=logs,
+                    time_elapsed_seconds=stream_elapsed,
+                )
+                total_records_count += records_count
+                total_streams_successful += 1
+
+            else:
+                error_msg = "Failed to read from stream"
+                if hasattr(result, "trace") and result.trace and result.trace.error:
+                    error_msg = result.trace.error.message or error_msg
+
+                stream_results[stream_name] = StreamSmokeTest(
+                    stream_name=stream_name,
+                    success=False,
+                    records_count=0,
+                    max_records_limit=max_records,
+                    errors=[error_msg],
+                    time_elapsed_seconds=stream_elapsed,
+                )
+
+        except Exception as e:
+            stream_elapsed = time.time() - stream_start_time
+            error_msg = f"Error testing stream {stream_name}: {e!s}"
+            logger.warning(error_msg)
+
+            stream_results[stream_name] = StreamSmokeTest(
+                stream_name=stream_name,
+                success=False,
+                records_count=0,
+                max_records_limit=max_records,
+                errors=[error_msg],
+                time_elapsed_seconds=stream_elapsed,
+            )
+
+    total_time = time.time() - start_time
+    total_streams_tested = len(stream_results)
+
+    success = total_streams_successful > 0
+    if success:
+        message = f"Smoke test completed: {total_streams_successful}/{total_streams_tested} streams successful, {total_records_count} total records"
+    else:
+        message = f"Smoke test failed: No streams were successfully tested out of {total_streams_tested} streams"
+
+    return MultiStreamSmokeTest(
+        success=success,
+        message=message,
+        total_streams_tested=total_streams_tested,
+        total_streams_successful=total_streams_successful,
+        total_records_count=total_records_count,
+        total_time_elapsed_seconds=total_time,
+        stream_results=stream_results,
+    )
+
+
 def get_resolved_manifest(
     manifest: Annotated[
         str,
@@ -561,6 +763,7 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     """
     app.tool(validate_manifest)
     app.tool(execute_stream_test_read)
+    app.tool(execute_record_counts_smoke_test)
     app.tool(get_resolved_manifest)
     app.tool(get_connector_builder_docs)
     app.tool(get_connector_manifest)
