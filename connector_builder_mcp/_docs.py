@@ -123,6 +123,16 @@ OVERVIEW_PROMPT = f"""# Connector Builder Documentation
    the tools without parsing the secrets yourself.
 5. Secrets should not be sent directly to or through the LLM.
 
+## Handling Pagination
+
+1. Generally, it makes sense to add pagination _after_ you have a working stream that retrieves
+   data.
+2. It will be helpful to opt-in to raw responses data, to see how the API handles pagination.
+3. Pagination generally should not be considered 'complete' until records returned is greater than
+   page_size x 2, and that you can sync to the end of the stream to determine a total records count.
+4. When intentionally streaming to the end of a stream, its important to disable the option to
+   return records and raw responses. Otherwise, you risk overloading the LLM with too much data.
+
 ## Limitations
 
 - Note that we don't yet support custom Python components (for security reasons).
