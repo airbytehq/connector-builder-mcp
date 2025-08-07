@@ -161,8 +161,10 @@ def _format_validation_error(error: ValidationError) -> str:
 def validate_manifest(
     manifest: Annotated[
         str,
-        Field(description="The connector manifest to validate. "
-              "Can be raw a YAML string or path to YAML file"),
+        Field(
+            description="The connector manifest to validate. "
+            "Can be raw a YAML string or path to YAML file"
+        ),
     ],
 ) -> ManifestValidationResult:
     """Validate a connector manifest structure and configuration.
