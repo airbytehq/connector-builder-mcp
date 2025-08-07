@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 import requests
-from connector_builder_mcp._guidance import OVERVIEW_PROMPT, TOPIC_MAPPING
 
 from connector_builder_mcp._connector_builder import (
     StreamTestResult,
@@ -15,6 +14,7 @@ from connector_builder_mcp._connector_builder import (
     get_resolved_manifest,
     validate_manifest,
 )
+from connector_builder_mcp._guidance import TOPIC_MAPPING
 
 
 @pytest.fixture
