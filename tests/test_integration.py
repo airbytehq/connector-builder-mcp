@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 import requests
-import yaml
 
 from connector_builder_mcp._connector_builder import (
     StreamTestResult,
@@ -22,22 +21,20 @@ from connector_builder_mcp._docs import OVERVIEW_PROMPT, TOPIC_MAPPING
 def rick_and_morty_manifest():
     """Load the Rick and Morty API manifest for testing."""
     manifest_path = Path(__file__).parent / "resources" / "rick_and_morty_manifest.yaml"
-    with manifest_path.open() as f:
-        return yaml.safe_load(f)
+    return str(manifest_path)
 
 
 @pytest.fixture
 def simple_api_manifest():
     """Load the simple API manifest for testing."""
     manifest_path = Path(__file__).parent / "resources" / "simple_api_manifest.yaml"
-    with manifest_path.open() as f:
-        return yaml.safe_load(f)
+    return str(manifest_path)
 
 
 @pytest.fixture
 def invalid_manifest():
     """Invalid manifest for error testing."""
-    return {"invalid": "manifest", "missing": "required_fields"}
+    return "invalid: manifest\nmissing: required_fields"
 
 
 @pytest.fixture
@@ -51,7 +48,7 @@ class TestManifestIntegration:
 
     def test_validate_rick_and_morty_manifest(self, rick_and_morty_manifest, empty_config):
         """Test validation of Rick and Morty API manifest."""
-        result = validate_manifest(rick_and_morty_manifest, empty_config)
+        result = validate_manifest(rick_and_morty_manifest)
 
         assert result.is_valid
         assert len(result.errors) == 0
@@ -133,9 +130,8 @@ class TestHighLevelMCPWorkflows:
     ):
         """Test validation of different manifest scenarios."""
         manifest = request.getfixturevalue(manifest_fixture)
-        config = {} if manifest_fixture == "invalid_manifest" else empty_config
 
-        result = validate_manifest(manifest, config)
+        result = validate_manifest(manifest)
         assert result.is_valid == expected_valid
 
         if expected_valid:
@@ -146,7 +142,7 @@ class TestHighLevelMCPWorkflows:
 
     def test_complete_connector_workflow(self, rick_and_morty_manifest, empty_config):
         """Test complete workflow: validate -> resolve -> test stream read."""
-        validation_result = validate_manifest(rick_and_morty_manifest, empty_config)
+        validation_result = validate_manifest(rick_and_morty_manifest)
         assert validation_result.is_valid
         assert validation_result.resolved_manifest is not None
 
@@ -169,64 +165,66 @@ class TestHighLevelMCPWorkflows:
 
     def test_manifest_with_authentication_config(self):
         """Test manifest validation with authentication configuration."""
-        auth_manifest = self._create_auth_manifest()
-        config_with_auth = {"api_token": "test_token_123"}
+        auth_manifest_yaml = self._create_auth_manifest_yaml()
 
-        result = validate_manifest(auth_manifest, config_with_auth)
+        result = validate_manifest(auth_manifest_yaml)
         assert hasattr(result, "is_valid")
         assert hasattr(result, "errors")
         assert isinstance(result.errors, list)
 
-    def _create_auth_manifest(self):
+    def _create_auth_manifest_yaml(self):
         """Helper to create a manifest with authentication configuration."""
-        return {
-            "version": "4.6.2",
-            "type": "DeclarativeSource",
-            "check": {"type": "CheckStream", "stream_names": ["test"]},
-            "streams": [
-                {
-                    "type": "DeclarativeStream",
-                    "name": "test",
-                    "primary_key": ["id"],
-                    "retriever": {
-                        "type": "SimpleRetriever",
-                        "requester": {
-                            "type": "HttpRequester",
-                            "url_base": "https://api.example.com",
-                            "path": "/test",
-                            "http_method": "GET",
-                            "authenticator": {
-                                "type": "BearerAuthenticator",
-                                "api_token": "{{ config['api_token'] }}",
-                            },
-                        },
-                        "record_selector": {
-                            "type": "RecordSelector",
-                            "extractor": {"type": "DpathExtractor", "field_path": []},
-                        },
-                    },
-                    "schema_loader": {
-                        "type": "InlineSchemaLoader",
-                        "schema": {
-                            "$schema": "http://json-schema.org/draft-07/schema#",
-                            "type": "object",
-                            "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
-                        },
-                    },
-                }
-            ],
-            "spec": {
-                "type": "Spec",
-                "connection_specification": {
-                    "$schema": "http://json-schema.org/draft-07/schema#",
-                    "title": "Test API Source Spec",
-                    "type": "object",
-                    "additionalProperties": True,
-                    "properties": {"api_token": {"type": "string", "airbyte_secret": True}},
-                    "required": ["api_token"],
-                },
-            },
-        }
+        return """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test
+streams:
+  - type: DeclarativeStream
+    name: test
+    primary_key:
+      - id
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://api.example.com"
+        path: "/test"
+        http_method: GET
+        authenticator:
+          type: BearerAuthenticator
+          api_token: "{{ config['api_token'] }}"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: []
+    schema_loader:
+      type: InlineSchemaLoader
+      schema:
+        $schema: http://json-schema.org/draft-07/schema#
+        type: object
+        properties:
+          id:
+            type: integer
+          name:
+            type: string
+spec:
+  type: Spec
+  connection_specification:
+    $schema: http://json-schema.org/draft-07/schema#
+    title: Test API Source Spec
+    type: object
+    additionalProperties: true
+    properties:
+      api_token:
+        type: string
+        airbyte_secret: true
+    required:
+      - api_token
+"""
 
     @pytest.mark.requires_creds
     def test_performance_multiple_tool_calls(self, rick_and_morty_manifest, empty_config):
@@ -234,7 +232,7 @@ class TestHighLevelMCPWorkflows:
         start_time = time.time()
 
         for _ in range(5):
-            validate_manifest(rick_and_morty_manifest, empty_config)
+            validate_manifest(rick_and_morty_manifest)
             get_resolved_manifest(rick_and_morty_manifest, empty_config)
 
         end_time = time.time()
@@ -244,7 +242,7 @@ class TestHighLevelMCPWorkflows:
 
     def test_simple_api_manifest_workflow(self, simple_api_manifest, empty_config):
         """Test workflow with simple API manifest."""
-        validation_result = validate_manifest(simple_api_manifest, empty_config)
+        validation_result = validate_manifest(simple_api_manifest)
         assert validation_result.is_valid
 
         resolved_manifest = get_resolved_manifest(simple_api_manifest, empty_config)
@@ -259,7 +257,7 @@ class TestMCPServerIntegration:
         """Test concurrent execution of multiple tools."""
 
         def run_validation():
-            return validate_manifest(rick_and_morty_manifest, empty_config)
+            return validate_manifest(rick_and_morty_manifest)
 
         def run_resolution():
             return get_resolved_manifest(rick_and_morty_manifest, empty_config)

@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import yaml
+
 from connector_builder_mcp._secrets import (
     SecretsFileInfo,
     hydrate_config,
@@ -177,7 +179,8 @@ def test_populate_dotenv_missing_secrets_stubs_manifest_mode():
             }
         }
 
-        result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest)
+        manifest_yaml = yaml.dump(manifest)
+        result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest_yaml)
 
         assert "Added 2 secret stub(s)" in result
         assert "api_token" in result
@@ -205,9 +208,10 @@ def test_populate_dotenv_missing_secrets_stubs_combined_mode():
             }
         }
 
+        manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(
             f.name,
-            manifest=manifest,
+            manifest=manifest_yaml,
             config_paths="credentials.password,oauth.refresh_token",
         )
 
@@ -245,7 +249,8 @@ def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
             }
         }
 
-        result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest)
+        manifest_yaml = yaml.dump(manifest)
+        result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest_yaml)
         assert "No secrets found to add" in result
 
         Path(f.name).unlink()

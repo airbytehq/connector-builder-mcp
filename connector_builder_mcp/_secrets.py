@@ -13,6 +13,8 @@ from dotenv import dotenv_values, set_key
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+from connector_builder_mcp._util import parse_manifest_input
+
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +135,10 @@ def list_dotenv_secrets(
 def populate_dotenv_missing_secrets_stubs(
     dotenv_path: Annotated[str, Field(description="Path to the .env file to add secrets to")],
     manifest: Annotated[
-        dict[str, Any] | None, Field(description="Connector manifest to analyze for secrets")
+        str | None,
+        Field(
+            description="Connector manifest to analyze for secrets. Can be raw YAML content or path to YAML file"
+        ),
     ] = None,
     config_paths: Annotated[
         str | None,
@@ -169,7 +174,8 @@ def populate_dotenv_missing_secrets_stubs(
         secrets_to_add = []
 
         if manifest:
-            secrets_to_add.extend(_extract_secrets_names_from_manifest(manifest))
+            manifest_dict = parse_manifest_input(manifest)
+            secrets_to_add.extend(_extract_secrets_names_from_manifest(manifest_dict))
 
         if config_paths_list:
             for path in config_paths_list:

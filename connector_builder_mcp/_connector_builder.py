@@ -32,7 +32,11 @@ from airbyte_cdk.models import (
 )
 from connector_builder_mcp._docs import OVERVIEW_PROMPT, TOPIC_MAPPING
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
-from connector_builder_mcp._util import filter_config_secrets, validate_manifest_structure
+from connector_builder_mcp._util import (
+    filter_config_secrets,
+    parse_manifest_input,
+    validate_manifest_structure,
+)
 
 
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
@@ -156,19 +160,14 @@ def _format_validation_error(error: ValidationError) -> str:
 
 def validate_manifest(
     manifest: Annotated[
-        dict[str, Any],
-        Field(description="The connector manifest to validate"),
+        str,
+        Field(
+            description="The connector manifest to validate. "
+            "Can be raw a YAML string or path to YAML file"
+        ),
     ],
-    config: Annotated[
-        dict[str, Any] | None,
-        Field(description="Optional connector configuration for validation"),
-    ] = None,
 ) -> ManifestValidationResult:
     """Validate a connector manifest structure and configuration.
-
-    Args:
-        manifest: The connector manifest dictionary to validate
-        config: Optional configuration to use for validation
 
     Returns:
         Validation result with success status and any errors/warnings
@@ -180,13 +179,15 @@ def validate_manifest(
     resolved_manifest = None
 
     try:
-        if not validate_manifest_structure(manifest):
+        manifest_dict = parse_manifest_input(manifest)
+
+        if not validate_manifest_structure(manifest_dict):
             errors.append("Manifest missing required fields: version, type, check, streams")
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         try:
             schema = _get_declarative_component_schema()
-            validate(manifest, schema)
+            validate(manifest_dict, schema)
             logger.info("JSON schema validation passed")
         except ValidationError as schema_error:
             detailed_error = _format_validation_error(schema_error)
@@ -196,10 +197,7 @@ def validate_manifest(
         except Exception as schema_load_error:
             logger.warning(f"Could not load schema for pre-validation: {schema_load_error}")
 
-        if config is None:
-            config = {}
-
-        config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
+        config_with_manifest = {"__injected_declarative_manifest": manifest_dict}
 
         limits = get_limits(config_with_manifest)
         source = create_source(config_with_manifest, limits)
@@ -231,8 +229,8 @@ def validate_manifest(
 
 def execute_stream_test_read(
     manifest: Annotated[
-        dict[str, Any],
-        Field(description="The connector manifest"),
+        str,
+        Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
     ],
     config: Annotated[
         dict[str, Any],
@@ -266,16 +264,19 @@ def execute_stream_test_read(
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
-    Returns both record data and raw request/response metadata from the stream test.
-    Raw data is automatically sanitized to prevent exposure of secrets.
+    Return record data and/or raw request/response metadata from the stream test.
+    We attempt to automatically sanitize raw data to prevent exposure of secrets.
+    We do not attempt to sanitize record data, as it is expected to be user-defined.
     """
     logger.info(f"Testing stream read for stream: {stream_name}")
 
     try:
+        manifest_dict = parse_manifest_input(manifest)
+
         config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
         config_with_manifest = {
             **config,
-            "__injected_declarative_manifest": manifest,
+            "__injected_declarative_manifest": manifest_dict,
             "__test_read_config": {
                 "max_records": max_records,
                 "max_pages_per_slice": 1,
@@ -364,8 +365,10 @@ def execute_stream_test_read(
 
 def get_resolved_manifest(
     manifest: Annotated[
-        dict[str, Any],
-        Field(description="The connector manifest to resolve"),
+        str,
+        Field(
+            description="The connector manifest to resolve. Can be raw YAML content or path to YAML file"
+        ),
     ],
     config: Annotated[
         dict[str, Any] | None,
@@ -375,7 +378,7 @@ def get_resolved_manifest(
     """Get the resolved connector manifest.
 
     Args:
-        manifest: The connector manifest to resolve
+        manifest: The connector manifest to resolve. Can be raw YAML content or path to YAML file
         config: Optional configuration for resolution
 
     Returns:
@@ -384,10 +387,12 @@ def get_resolved_manifest(
     logger.info("Getting resolved manifest")
 
     try:
+        manifest_dict = parse_manifest_input(manifest)
+
         if config is None:
             config = {}
 
-        config_with_manifest = {**config, "__injected_declarative_manifest": manifest}
+        config_with_manifest = {**config, "__injected_declarative_manifest": manifest_dict}
 
         limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
 

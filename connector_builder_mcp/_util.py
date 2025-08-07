@@ -2,7 +2,10 @@
 
 import logging
 import sys
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 def initialize_logging() -> None:
@@ -52,6 +55,50 @@ def filter_config_secrets(
         return [filter_config_secrets(item) for item in config]
     else:
         return config
+
+
+def parse_manifest_input(manifest: str) -> dict[str, Any]:
+    """Parse manifest input from YAML string or file path.
+
+    Args:
+        manifest: Either a YAML string or a file path to a YAML file
+
+    Returns:
+        Parsed manifest as dictionary
+
+    Raises:
+        ValueError: If input cannot be parsed or file doesn't exist
+        yaml.YAMLError: If YAML parsing fails
+    """
+    if not isinstance(manifest, str):
+        raise ValueError(f"manifest must be a string, got {type(manifest)}")
+
+    if len(manifest.splitlines()) == 1:
+        # If the manifest is a single line, treat it as a file path
+        path = Path(manifest)
+        if path.exists() and path.is_file():
+            with path.open("r", encoding="utf-8") as f:
+                result = yaml.safe_load(f)
+                if not isinstance(result, dict):
+                    raise ValueError(
+                        f"YAML file content must be a dictionary/object, got {type(result)}"
+                    )
+                return result
+
+    try:
+        # Otherwise, treat it as a YAML string
+        result = yaml.safe_load(manifest)
+        if not isinstance(result, dict):
+            raise ValueError(  # noqa: TRY004
+                f"Error when parsing YAML string. Expected to parse a dictionary/object, got {type(result)}."
+                f" Manifest content: {manifest[:100]}..."  # Show first 100 chars
+            )
+
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid YAML string: {e}") from e
+    else:
+        # No exceptions, return parsed result
+        return result
 
 
 def validate_manifest_structure(manifest: dict[str, Any]) -> bool:
