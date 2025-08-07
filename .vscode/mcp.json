@@ -8,7 +8,13 @@
 				"--project",
 				".",
 				"connector-builder-mcp"
-			]
+			],
+		    "dev": {
+				"watch": "connector_builder_mcp/**/*.py",
+				"debug": {
+					"type": "debugpy"
+				}
+			}
 		}
 	},
 	"inputs": []
