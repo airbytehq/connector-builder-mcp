@@ -27,6 +27,10 @@ jobs:
             test
             poe
 
+          # TODO: Add 'publish' slash command when we have time to properly map the PR number to git
+          #       refs in that workflow:
+          # publish
+
           # Notes regarding static-args:
           # - Slash commands can be invoked from both issues and comments.
           # - If the slash command is invoked from an issue, we intentionally pass 'null' as the PR number.
