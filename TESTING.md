@@ -178,7 +178,7 @@ def test_complete_workflow():
     assert validation.is_valid
     
     # 2. Resolve manifest
-    resolved = get_resolved_manifest(manifest, config)
+    resolved = execute_dynamic_manifest_resolution_test(manifest, config)
     assert isinstance(resolved, dict)
     
     # 3. Test stream reading
