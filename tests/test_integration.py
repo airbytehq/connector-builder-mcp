@@ -90,7 +90,7 @@ class TestConnectorBuilderDocs:
         """Test that all topic URLs in the mapping are accessible."""
         if topic in ["stream-templates-yaml", "dynamic-streams-yaml"]:
             pytest.skip(f"Skipping {topic} - URL points to non-existent branch")
-            
+
         relative_path, _ = TOPIC_MAPPING[topic]
         raw_github_url = (
             f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{relative_path}"
@@ -149,7 +149,9 @@ class TestHighLevelMCPWorkflows:
         assert validation_result.is_valid
         assert validation_result.resolved_manifest is not None
 
-        resolved_manifest = execute_dynamic_manifest_resolution_test(rick_and_morty_manifest, empty_config)
+        resolved_manifest = execute_dynamic_manifest_resolution_test(
+            rick_and_morty_manifest, empty_config
+        )
         assert isinstance(resolved_manifest, dict)
         assert "streams" in resolved_manifest
 
@@ -248,7 +250,9 @@ spec:
         validation_result = validate_manifest(simple_api_manifest)
         assert validation_result.is_valid
 
-        resolved_manifest = execute_dynamic_manifest_resolution_test(simple_api_manifest, empty_config)
+        resolved_manifest = execute_dynamic_manifest_resolution_test(
+            simple_api_manifest, empty_config
+        )
         assert isinstance(resolved_manifest, dict)
         assert "streams" in resolved_manifest
 
