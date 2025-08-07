@@ -1,6 +1,6 @@
 {
 	"servers": {
-		"connector-builder-mcp--dev": {
+		"connector-builder-mcp--local-dev": {
 			"type": "stdio",
 			"command": "uv",
 			"args": [
