@@ -48,7 +48,7 @@ class TestManifestIntegration:
 
     def test_validate_rick_and_morty_manifest(self, rick_and_morty_manifest, empty_config):
         """Test validation of Rick and Morty API manifest."""
-        result = validate_manifest(rick_and_morty_manifest, empty_config)
+        result = validate_manifest(rick_and_morty_manifest)
 
         assert result.is_valid
         assert len(result.errors) == 0
@@ -131,9 +131,8 @@ class TestHighLevelMCPWorkflows:
     ):
         """Test validation of different manifest scenarios."""
         manifest = request.getfixturevalue(manifest_fixture)
-        config = {} if manifest_fixture == "invalid_manifest" else empty_config
 
-        result = validate_manifest(manifest, config)
+        result = validate_manifest(manifest)
         assert result.is_valid == expected_valid
 
         if expected_valid:
@@ -144,7 +143,7 @@ class TestHighLevelMCPWorkflows:
 
     def test_complete_connector_workflow(self, rick_and_morty_manifest, empty_config):
         """Test complete workflow: validate -> resolve -> test stream read."""
-        validation_result = validate_manifest(rick_and_morty_manifest, empty_config)
+        validation_result = validate_manifest(rick_and_morty_manifest)
         assert validation_result.is_valid
         assert validation_result.resolved_manifest is not None
 
@@ -168,9 +167,8 @@ class TestHighLevelMCPWorkflows:
     def test_manifest_with_authentication_config(self):
         """Test manifest validation with authentication configuration."""
         auth_manifest_yaml = self._create_auth_manifest_yaml()
-        config_with_auth = {"api_token": "test_token_123"}
 
-        result = validate_manifest(auth_manifest_yaml, config_with_auth)
+        result = validate_manifest(auth_manifest_yaml)
         assert hasattr(result, "is_valid")
         assert hasattr(result, "errors")
         assert isinstance(result.errors, list)
@@ -235,7 +233,7 @@ spec:
         start_time = time.time()
 
         for _ in range(5):
-            validate_manifest(rick_and_morty_manifest, empty_config)
+            validate_manifest(rick_and_morty_manifest)
             get_resolved_manifest(rick_and_morty_manifest, empty_config)
 
         end_time = time.time()
@@ -245,7 +243,7 @@ spec:
 
     def test_simple_api_manifest_workflow(self, simple_api_manifest, empty_config):
         """Test workflow with simple API manifest."""
-        validation_result = validate_manifest(simple_api_manifest, empty_config)
+        validation_result = validate_manifest(simple_api_manifest)
         assert validation_result.is_valid
 
         resolved_manifest = get_resolved_manifest(simple_api_manifest, empty_config)
@@ -260,7 +258,7 @@ class TestMCPServerIntegration:
         """Test concurrent execution of multiple tools."""
 
         def run_validation():
-            return validate_manifest(rick_and_morty_manifest, empty_config)
+            return validate_manifest(rick_and_morty_manifest)
 
         def run_resolution():
             return get_resolved_manifest(rick_and_morty_manifest, empty_config)
