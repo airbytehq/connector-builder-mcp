@@ -10,12 +10,12 @@ import yaml
 
 from connector_builder_mcp._connector_builder import (
     StreamTestResult,
-    _get_topic_mapping,
     execute_stream_test_read,
     get_connector_builder_docs,
     get_resolved_manifest,
     validate_manifest,
 )
+from connector_builder_mcp._docs import OVERVIEW_PROMPT, TOPIC_MAPPING
 
 
 @pytest.fixture
@@ -88,11 +88,10 @@ class TestConnectorBuilderDocs:
         assert "Use the manifest YAML JSON schema" in result
         assert "For detailed documentation on specific components" in result
 
-    @pytest.mark.parametrize("topic", list(_get_topic_mapping().keys()))
+    @pytest.mark.parametrize("topic", list(TOPIC_MAPPING.keys()))
     def test_topic_urls_are_accessible(self, topic):
         """Test that all topic URLs in the mapping are accessible."""
-        topic_mapping = _get_topic_mapping()
-        relative_path, description = topic_mapping[topic]
+        relative_path, _ = TOPIC_MAPPING[topic]
         raw_github_url = (
             f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{relative_path}"
         )

@@ -1,0 +1,134 @@
+
+
+TOPIC_MAPPING: dict[str, tuple[str, str]] = {
+    "overview": (
+        "docs/platform/connector-development/connector-builder-ui/overview.md",
+        "Connector Builder overview and introduction",
+    ),
+    "tutorial": (
+        "docs/platform/connector-development/connector-builder-ui/tutorial.mdx",
+        "Step-by-step tutorial for building connectors",
+    ),
+    "authentication": (
+        "docs/platform/connector-development/connector-builder-ui/authentication.md",
+        "Authentication configuration",
+    ),
+    "incremental-sync": (
+        "docs/platform/connector-development/connector-builder-ui/incremental-sync.md",
+        "Setting up incremental data synchronization",
+    ),
+    "pagination": (
+        "docs/platform/connector-development/connector-builder-ui/pagination.md",
+        "Handling paginated API responses",
+    ),
+    "partitioning": (
+        "docs/platform/connector-development/connector-builder-ui/partitioning.md",
+        "Configuring partition routing for complex APIs",
+    ),
+    "record-processing": (
+        "docs/platform/connector-development/connector-builder-ui/record-processing.mdx",
+        "Processing and transforming records",
+    ),
+    "error-handling": (
+        "docs/platform/connector-development/connector-builder-ui/error-handling.md",
+        "Handling API errors and retries",
+    ),
+    "ai-assist": (
+        "docs/platform/connector-development/connector-builder-ui/ai-assist.md",
+        "Using AI assistance in the Connector Builder",
+    ),
+    "stream-templates": (
+        "docs/platform/connector-development/connector-builder-ui/stream-templates.md",
+        "Using stream templates for faster development",
+    ),
+    "custom-components": (
+        "docs/platform/connector-development/connector-builder-ui/custom-components.md",
+        "Working with custom components",
+    ),
+    "async-streams": (
+        "docs/platform/connector-development/connector-builder-ui/async-streams.md",
+        "Configuring asynchronous streams",
+    ),
+    "yaml-overview": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/yaml-overview.md",
+        "Understanding the YAML file structure",
+    ),
+    "reference": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/reference.md",
+        "Complete YAML reference documentation",
+    ),
+    "yaml-incremental-syncs": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/incremental-syncs.md",
+        "Incremental sync configuration in YAML",
+    ),
+    "yaml-pagination": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/pagination.md",
+        "Pagination configuration options",
+    ),
+    "yaml-partition-router": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/partition-router.md",
+        "Partition routing in YAML manifests",
+    ),
+    "yaml-record-selector": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/record-selector.md",
+        "Record selection and transformation",
+    ),
+    "yaml-error-handling": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/error-handling.md",
+        "Error handling configuration",
+    ),
+    "yaml-authentication": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/authentication.md",
+        "Authentication methods in YAML",
+    ),
+    "requester": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/requester.md",
+        "HTTP requester configuration",
+    ),
+    "request-options": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/request-options.md",
+        "Request parameter configuration",
+    ),
+    "rate-limit-api-budget": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/rate-limit-api-budget.md",
+        "Rate limiting and API budget management",
+    ),
+    "file-syncing": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/file-syncing.md",
+        "File synchronization configuration",
+    ),
+    "property-chunking": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/property-chunking.md",
+        "Property chunking for large datasets",
+    ),
+}
+"""Curated topics mapping with relative paths and descriptions."""
+
+NEWLINE = "\n"
+OVERVIEW_PROMPT = f"""# Connector Builder Documentation
+
+1. Use the manifest YAML JSON schema for high-level guidelines
+2. Use the validate manifest tool to confirm JSON schema is correct
+3. Start with one stream or (better) a stream template that maps to a single stream
+4. Make sure you have working authentication and data retrieval before moving onto pagination and other components
+5. When all is confirmed working on the first stream, you can add additional streams. It is generally safest to add one stream at a time, and test each one before moving to the next
+
+## Dealing with Users' Connector Credentials
+
+1. Ask for secrets to be populated up front, before you begin development. (You may need to
+   first confirm which secrets are required by the source API.)
+2. Generally, you will ask your user to create a .env file and then provide you its path.
+3. You can use the dotenv tools to generate a form for your user, which the user can populate.
+4. All of the tools you will use already support receiving a .env file path, so you can pass it to
+   the tools without parsing the secrets yourself.
+5. Secrets should not be sent directly to or through the LLM.
+
+## Limitations
+
+- Note that we don't yet support custom Python components (for security reasons).
+
+For detailed docs on specific components, call this function again with one of these topics:
+
+- {NEWLINE.join(f"- `{key}` - {desc}" for key, (_, desc) in TOPIC_MAPPING.items())}
+
+"""
