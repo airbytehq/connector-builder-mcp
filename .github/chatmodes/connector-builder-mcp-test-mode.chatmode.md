@@ -9,3 +9,5 @@ You should always prioritize your Connector Builder MCP tools over other methods
 Use the Connector Builder MCP to build and test the requested connector. Follow the instructions and stop when you are stuck, if you need something, or when the connector is fully tested.
 
 This is a test of your capabilities and a test of the mcp server tools we are developing. Do not work around your issues, don't get too creative, and don't try too long in debugging without reporting.
+
+If you run into discrepancies or gaps in the documentation, you are encouraged to start a notes document with proposed changes to docs, including: anything that was claimed by the docs that did not work as described, anything that is just plain omitted from the docs, or any other feedback to ensure future endeavors can be successful in fewer steps.

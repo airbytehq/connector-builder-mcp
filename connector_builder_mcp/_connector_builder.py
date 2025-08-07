@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Connector builder MCP tools.
 
 This module provides MCP tools for connector building operations, including
@@ -21,9 +22,9 @@ from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
     create_source,
+    full_resolve_manifest,
     get_limits,
     read_stream,
-    resolve_manifest,
 )
 from airbyte_cdk.models import (
     AirbyteStream,
@@ -40,8 +41,11 @@ from connector_builder_mcp._util import (
 )
 
 
+_MANIFEST_SCHEMA_URL: str = "https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
+_HTTP_OK = 200
+_HTTP_UNAUTHORIZED = 401
 
 logger = logging.getLogger(__name__)
 
@@ -565,11 +569,12 @@ def execute_record_counts_smoke_test(
     )
 
 
-def get_resolved_manifest(
+def execute_dynamic_manifest_resolution_test(
     manifest: Annotated[
         str,
         Field(
-            description="The connector manifest to resolve. Can be raw YAML content or path to YAML file"
+            description="The connector manifest with dynamic elements to resolve. "
+            "Can be raw YAML content or path to YAML file"
         ),
     ],
     config: Annotated[
@@ -577,11 +582,18 @@ def get_resolved_manifest(
         Field(description="Optional connector configuration"),
     ] = None,
 ) -> dict[str, Any] | Literal["Failed to resolve manifest"]:
-    """Get the resolved connector manifest.
+    """Get the resolved connector manifest, expanded with detected dynamic streams and schemas.
+
+    This tool is helpful for discovering dynamic streams and schemas. This should not replace the
+    original manifest, but it can provide helpful information to understand how the manifest will
+    be resolved and what streams will be available at runtime.
 
     Args:
         manifest: The connector manifest to resolve. Can be raw YAML content or path to YAML file
         config: Optional configuration for resolution
+
+    TODO:
+    - Research: Is there any reason to ever get the non-fully resolved manifest?
 
     Returns:
         Resolved manifest or error message
@@ -594,12 +606,18 @@ def get_resolved_manifest(
         if config is None:
             config = {}
 
-        config_with_manifest = {**config, "__injected_declarative_manifest": manifest_dict}
+        config_with_manifest = {
+            **config,
+            "__injected_declarative_manifest": manifest_dict,
+        }
 
         limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
 
         source = create_source(config_with_manifest, limits)
-        result = resolve_manifest(source)
+        result = full_resolve_manifest(
+            source,
+            limits,
+        )
 
         if (
             result.type.value == "RECORD"
@@ -610,8 +628,8 @@ def get_resolved_manifest(
             if isinstance(manifest_data, dict):
                 return manifest_data
             return {}
-        else:
-            return "Failed to resolve manifest"
+
+        return "Failed to resolve manifest"
 
     except Exception as e:
         logger.error(f"Error resolving manifest: {e}")
@@ -643,33 +661,31 @@ def _get_topic_specific_docs(topic: str) -> str:
     """Get detailed documentation for a specific topic using raw GitHub URLs."""
     logger.info(f"Fetching detailed docs for topic: {topic}")
 
-    topic_mapping = TOPIC_MAPPING
+    if topic not in TOPIC_MAPPING:
+        return f"# {topic} Documentation\n\nTopic '{topic}' not found. Please check the available topics list from the overview.\n\nAvailable topics: {', '.join(TOPIC_MAPPING.keys())}"
 
-    if topic not in topic_mapping:
-        return f"# {topic} Documentation\n\nTopic '{topic}' not found. Please check the available topics list from the overview.\n\nAvailable topics: {', '.join(topic_mapping.keys())}"
-
-    relative_path, _ = topic_mapping[topic]
-    raw_github_url = f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{relative_path}"
+    full_url: str
+    topic_path, _ = TOPIC_MAPPING[topic]
+    if "https://" in topic_path:
+        full_url = topic_path
+    else:
+        full_url = f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{topic_path}"
 
     try:
-        response = requests.get(raw_github_url, timeout=30)
+        response = requests.get(full_url, timeout=30)
         response.raise_for_status()
 
         markdown_content = response.text
-        return f"# {topic} Documentation\n\n{markdown_content}"
+        return f"# '{topic}' Documentation\n\n{markdown_content}"
 
     except Exception as e:
-        logger.error(f"Error fetching documentation for topic {topic}: {e}")
+        logger.error(f"Error fetching documentation for topic '{topic}': {e}")
 
-        if relative_path.endswith(".md"):
-            docs_path = relative_path[:-3]
-        elif relative_path.endswith(".mdx"):
-            docs_path = relative_path[:-4]
-        else:
-            docs_path = relative_path
-        docs_url = f"https://docs.airbyte.com/{docs_path}"
-
-        return f"# {topic} Documentation\n\nUnable to fetch detailed documentation from GitHub. Please refer to the full reference: {docs_url}\n\nError: {str(e)}"
+        return (
+            f"Unable to fetch detailed documentation for topic '{topic}' "
+            f"using path '{topic_path}' and full URL '{full_url}'."
+            f"\n\nError: {e!s}"
+        )
 
 
 def _is_manifest_only_connector(connector_name: str) -> bool:
@@ -703,10 +719,12 @@ def _is_manifest_only_connector(connector_name: str) -> bool:
                         or f"language:{_MANIFEST_ONLY_LANGUAGE}" in tags
                     )
 
-        return False
-
     except Exception as e:
         logger.warning(f"Failed to fetch registry data for {connector_name}: {e}")
+        return False
+    else:
+        # No exception and no match found.
+        logger.info(f"Connector {connector_name} was not found in the registry.")
         return False
 
 
@@ -755,6 +773,38 @@ def get_connector_manifest(
         return f"# Error fetching connector {file_type}\n\nUnable to fetch {file_type} for connector '{connector_name}' version '{version}' from {manifest_url}\n\nError: {str(e)}"
 
 
+# @mcp.tool() // Deferred
+def get_manifest_yaml_json_schema() -> str:
+    """Retrieve the connector manifest JSON schema from the Airbyte repository.
+
+    This tool fetches the official JSON schema used to validate connector manifests.
+    The schema defines the structure, required fields, and validation rules for
+    connector YAML configurations.
+
+    Returns:
+        Response containing the schema in YAML format
+    """
+    # URL to the manifest schema in the Airbyte Python CDK repository
+
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "connector-schema-tool",
+    }
+
+    response = requests.get(
+        _MANIFEST_SCHEMA_URL,
+        headers=headers,
+        timeout=30,
+    )
+    if response.status_code == _HTTP_OK:
+        return response.text
+
+    response.raise_for_status()  # Raise HTTPError for bad responses
+    raise RuntimeError(
+        "Something went wrong. Expected success or exception but neither occurred."
+    )  # pragma: no cover # This line should not be reached
+
+
 def register_connector_builder_tools(app: FastMCP) -> None:
     """Register connector builder tools with the FastMCP app.
 
@@ -764,7 +814,8 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(validate_manifest)
     app.tool(execute_stream_test_read)
     app.tool(execute_record_counts_smoke_test)
-    app.tool(get_resolved_manifest)
+    app.tool(execute_dynamic_manifest_resolution_test)
+    app.tool(get_manifest_yaml_json_schema)
     app.tool(get_connector_builder_docs)
     app.tool(get_connector_manifest)
     register_secrets_tools(app)

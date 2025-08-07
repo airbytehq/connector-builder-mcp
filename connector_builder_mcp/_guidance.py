@@ -1,4 +1,8 @@
+# Copyright (c) 2025 Airbyte, Inc., all rights reserved.
+"""Guidance and configuration for the Connector Builder MCP.
 
+This module provides constants, error definitions, and topic mappings for the Connector Builder MCP.
+"""
 
 TOPIC_MAPPING: dict[str, tuple[str, str]] = {
     "overview": (
@@ -100,6 +104,14 @@ TOPIC_MAPPING: dict[str, tuple[str, str]] = {
     "property-chunking": (
         "docs/platform/connector-development/config-based/understanding-the-yaml-file/property-chunking.md",
         "Property chunking for large datasets",
+    ),
+    "stream-templates-yaml": (
+        "https://raw.githubusercontent.com/airbytehq/airbyte/refs/heads/devin/1754521580-stream-templates-docs/docs/platform/connector-development/config-based/understanding-the-yaml-file/stream-templates.md",
+        "Using stream templates in YAML manifests",
+    ),
+    "dynamic-streams-yaml": (
+        "https://raw.githubusercontent.com/airbytehq/airbyte/refs/heads/devin/1754521580-stream-templates-docs/docs/platform/connector-development/config-based/understanding-the-yaml-file/dynamic-streams.md",
+        "Dynamic stream configuration in YAML manifests",
     ),
 }
 """Curated topics mapping with relative paths and descriptions."""
