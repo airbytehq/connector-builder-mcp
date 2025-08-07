@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Connector builder MCP tools.
 
 This module provides MCP tools for connector building operations, including
@@ -6,6 +7,7 @@ manifest validation, stream testing, and configuration management.
 
 import logging
 import pkgutil
+import time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -20,6 +22,7 @@ from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
     create_source,
+    full_resolve_manifest,
     get_limits,
     read_stream,
     resolve_manifest,
@@ -31,6 +34,7 @@ from airbyte_cdk.models import (
     SyncMode,
 )
 
+from connector_builder_mcp._guidance import OVERVIEW_PROMPT, TOPIC_MAPPING
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import (
     filter_config_secrets,
@@ -39,8 +43,11 @@ from connector_builder_mcp._util import (
 )
 
 
+_MANIFEST_SCHEMA_URL: str = "https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
+_HTTP_OK = 200
+_HTTP_UNAUTHORIZED = 401
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +76,34 @@ class StreamTestResult(BaseModel):
     )
     logs: list[dict[str, Any]] | None = Field(
         default=None, description="Logs returned by the test read operation (if applicable)."
+    )
+
+
+class StreamSmokeTest(BaseModel):
+    """Result of a single stream smoke test."""
+
+    stream_name: str
+    success: bool
+    records_count: int = 0
+    max_records_limit: int
+    errors: list[str] = []
+    logs: list[dict[str, Any]] | None = Field(
+        default=None, description="Logs from the stream test operation (if applicable)."
+    )
+    time_elapsed_seconds: float
+
+
+class MultiStreamSmokeTest(BaseModel):
+    """Result of multi-stream smoke test operation."""
+
+    success: bool
+    message: str
+    total_streams_tested: int = 0
+    total_streams_successful: int = 0
+    total_records_count: int = 0
+    total_time_elapsed_seconds: float
+    stream_results: dict[str, StreamSmokeTest] = Field(
+        description="Dictionary mapping stream names to their individual smoke test results"
     )
 
 
@@ -363,11 +398,185 @@ def execute_stream_test_read(
         )
 
 
-def get_resolved_manifest(
+def execute_record_counts_smoke_test(
+    manifest: Annotated[
+        str,
+        Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
+    ],
+    config: Annotated[
+        dict[str, Any],
+        Field(description="Connector configuration"),
+    ],
+    streams: Annotated[
+        str | None,
+        Field(
+            description="Optional CSV-delimited list of streams to test."
+            "If not provided, tests all streams in the manifest."
+        ),
+    ] = None,
+    *,
+    max_records: Annotated[
+        int,
+        Field(description="Maximum number of records to read per stream", ge=1, le=50000),
+    ] = 10000,
+    dotenv_path: Annotated[
+        Path | None,
+        Field(description="Optional path to .env file for secret hydration"),
+    ] = None,
+) -> MultiStreamSmokeTest:
+    """Execute a smoke test to count records from all streams in the connector.
+
+    This function tests all available streams by reading records up to the specified limit
+    and returns comprehensive statistics including record counts, errors, and timing information.
+
+    Args:
+        manifest: The connector manifest (YAML string or file path)
+        config: Connector configuration
+        max_records: Maximum number of records to read per stream (default: 10000)
+        dotenv_path: Optional path to .env file for secret hydration
+
+    Returns:
+        MultiStreamSmokeTest result with per-stream statistics and overall summary
+    """
+    logger.info("Starting multi-stream smoke test")
+    start_time = time.time()
+    total_streams_tested = 0
+    total_streams_successful = 0
+    total_records_count = 0
+    stream_results: dict[str, StreamSmokeTest] = {}
+
+    manifest_dict = parse_manifest_input(manifest)
+
+    # Hydrate config with secrets if dotenv_path is provided
+    config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+    config_with_manifest = {
+        **config,
+        "__injected_declarative_manifest": manifest_dict,
+        "__test_read_config": {
+            "max_records": max_records,
+            "max_pages_per_slice": 10,
+            "max_slices": 10,
+            "max_streams": 100,
+        },
+    }
+
+    limits = get_limits(config_with_manifest)
+    source = create_source(config_with_manifest, limits)
+
+    stream_names: list[str]
+    if isinstance(streams, str):
+        stream_names = [s.strip() for s in streams.split(",") if s.strip()]
+    elif isinstance(streams, list):
+        stream_names = [s.strip() for s in streams]
+    else:
+        # Test each stream individually
+        stream_names = [
+            stream_config.get("name")
+            for stream_config in manifest_dict.get("streams", [])
+            if stream_config.get("name")  # Filter out None values
+        ]
+        if not stream_names:
+            return MultiStreamSmokeTest(
+                success=False,
+                message="No streams found in manifest",
+                stream_results={},
+                total_time_elapsed_seconds=time.time() - start_time,
+            )
+
+    for stream_name in stream_names:  # noqa: PLR1702
+        stream_start_time = time.time()
+        logger.info(f"Testing stream: {stream_name}")
+
+        try:
+            catalog = _get_dummy_catalog(stream_name)
+            result = read_stream(
+                source=source,
+                config=config_with_manifest,
+                configured_catalog=catalog,
+                state=[],
+                limits=limits,
+            )
+
+            stream_elapsed = time.time() - stream_start_time
+
+            if result.type.value == "RECORD" and result.record and result.record.data:
+                stream_data = result.record.data
+                slices = stream_data.get("slices", [])
+                logs = stream_data.get("logs", [])
+
+                records_count = 0
+                if slices:
+                    for slice_obj in slices:
+                        if isinstance(slice_obj, dict) and "pages" in slice_obj:
+                            for page in slice_obj["pages"]:
+                                if isinstance(page, dict) and "records" in page:
+                                    records_count += len(page["records"])
+
+                stream_results[stream_name] = StreamSmokeTest(
+                    stream_name=stream_name,
+                    success=True,
+                    records_count=records_count,
+                    max_records_limit=max_records,
+                    logs=logs,
+                    time_elapsed_seconds=stream_elapsed,
+                )
+                total_records_count += records_count
+                total_streams_successful += 1
+
+            else:
+                error_msg = "Failed to read from stream"
+                if hasattr(result, "trace") and result.trace and result.trace.error:
+                    error_msg = result.trace.error.message or error_msg
+
+                stream_results[stream_name] = StreamSmokeTest(
+                    stream_name=stream_name,
+                    success=False,
+                    records_count=0,
+                    max_records_limit=max_records,
+                    errors=[error_msg],
+                    time_elapsed_seconds=stream_elapsed,
+                )
+
+        except Exception as e:
+            stream_elapsed = time.time() - stream_start_time
+            error_msg = f"Error testing stream {stream_name}: {e!s}"
+            logger.warning(error_msg)
+
+            stream_results[stream_name] = StreamSmokeTest(
+                stream_name=stream_name,
+                success=False,
+                records_count=0,
+                max_records_limit=max_records,
+                errors=[error_msg],
+                time_elapsed_seconds=stream_elapsed,
+            )
+
+    total_time = time.time() - start_time
+    total_streams_tested = len(stream_results)
+
+    success = total_streams_successful > 0
+    if success:
+        message = f"Smoke test completed: {total_streams_successful}/{total_streams_tested} streams successful, {total_records_count} total records"
+    else:
+        message = f"Smoke test failed: No streams were successfully tested out of {total_streams_tested} streams"
+
+    return MultiStreamSmokeTest(
+        success=success,
+        message=message,
+        total_streams_tested=total_streams_tested,
+        total_streams_successful=total_streams_successful,
+        total_records_count=total_records_count,
+        total_time_elapsed_seconds=total_time,
+        stream_results=stream_results,
+    )
+
+
+def execute_dynamic_manifest_resolution_test(
     manifest: Annotated[
         str,
         Field(
-            description="The connector manifest to resolve. Can be raw YAML content or path to YAML file"
+            description="The connector manifest with dynamic elements to resolve. "
+            "Can be raw YAML content or path to YAML file"
         ),
     ],
     config: Annotated[
@@ -375,11 +584,18 @@ def get_resolved_manifest(
         Field(description="Optional connector configuration"),
     ] = None,
 ) -> dict[str, Any] | Literal["Failed to resolve manifest"]:
-    """Get the resolved connector manifest.
+    """Get the resolved connector manifest, expanded with detected dynamic streams and schemas.
+
+    This tool is helpful for discovering dynamic streams and schemas. This should not replace the
+    original manifest, but it can provide helpful information to understand how the manifest will
+    be resolved and what streams will be available at runtime.
 
     Args:
         manifest: The connector manifest to resolve. Can be raw YAML content or path to YAML file
         config: Optional configuration for resolution
+
+    TODO:
+    - Research: Is there any reason to ever get the non-fully resolved manifest?
 
     Returns:
         Resolved manifest or error message
@@ -392,12 +608,18 @@ def get_resolved_manifest(
         if config is None:
             config = {}
 
-        config_with_manifest = {**config, "__injected_declarative_manifest": manifest_dict}
+        config_with_manifest = {
+            **config,
+            "__injected_declarative_manifest": manifest_dict,
+        }
 
         limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
 
         source = create_source(config_with_manifest, limits)
-        result = resolve_manifest(source)
+        result = full_resolve_manifest(
+            source,
+            limits,
+        )
 
         if (
             result.type.value == "RECORD"
@@ -408,8 +630,8 @@ def get_resolved_manifest(
             if isinstance(manifest_data, dict):
                 return manifest_data
             return {}
-        else:
-            return "Failed to resolve manifest"
+
+        return "Failed to resolve manifest"
 
     except Exception as e:
         logger.error(f"Error resolving manifest: {e}")
@@ -434,178 +656,38 @@ def get_connector_builder_docs(
     """
     logger.info(f"Getting connector builder docs for topic: {topic}")
 
-    if topic:
-        return _get_topic_specific_docs(topic)
-
-    return _get_high_level_overview()
-
-
-def _get_topic_mapping() -> dict[str, tuple[str, str]]:
-    """Get the topic mapping with relative paths and descriptions."""
-    return {
-        "overview": (
-            "docs/platform/connector-development/connector-builder-ui/overview.md",
-            "Connector Builder overview and introduction",
-        ),
-        "tutorial": (
-            "docs/platform/connector-development/connector-builder-ui/tutorial.mdx",
-            "Step-by-step tutorial for building connectors",
-        ),
-        "authentication": (
-            "docs/platform/connector-development/connector-builder-ui/authentication.md",
-            "Authentication configuration",
-        ),
-        "incremental-sync": (
-            "docs/platform/connector-development/connector-builder-ui/incremental-sync.md",
-            "Setting up incremental data synchronization",
-        ),
-        "pagination": (
-            "docs/platform/connector-development/connector-builder-ui/pagination.md",
-            "Handling paginated API responses",
-        ),
-        "partitioning": (
-            "docs/platform/connector-development/connector-builder-ui/partitioning.md",
-            "Configuring partition routing for complex APIs",
-        ),
-        "record-processing": (
-            "docs/platform/connector-development/connector-builder-ui/record-processing.mdx",
-            "Processing and transforming records",
-        ),
-        "error-handling": (
-            "docs/platform/connector-development/connector-builder-ui/error-handling.md",
-            "Handling API errors and retries",
-        ),
-        "ai-assist": (
-            "docs/platform/connector-development/connector-builder-ui/ai-assist.md",
-            "Using AI assistance in the Connector Builder",
-        ),
-        "stream-templates": (
-            "docs/platform/connector-development/connector-builder-ui/stream-templates.md",
-            "Using stream templates for faster development",
-        ),
-        "custom-components": (
-            "docs/platform/connector-development/connector-builder-ui/custom-components.md",
-            "Working with custom components",
-        ),
-        "async-streams": (
-            "docs/platform/connector-development/connector-builder-ui/async-streams.md",
-            "Configuring asynchronous streams",
-        ),
-        "yaml-overview": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/yaml-overview.md",
-            "Understanding the YAML file structure",
-        ),
-        "reference": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/reference.md",
-            "Complete YAML reference documentation",
-        ),
-        "yaml-incremental-syncs": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/incremental-syncs.md",
-            "Incremental sync configuration in YAML",
-        ),
-        "yaml-pagination": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/pagination.md",
-            "Pagination configuration options",
-        ),
-        "yaml-partition-router": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/partition-router.md",
-            "Partition routing in YAML manifests",
-        ),
-        "yaml-record-selector": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/record-selector.md",
-            "Record selection and transformation",
-        ),
-        "yaml-error-handling": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/error-handling.md",
-            "Error handling configuration",
-        ),
-        "yaml-authentication": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/authentication.md",
-            "Authentication methods in YAML",
-        ),
-        "requester": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/requester.md",
-            "HTTP requester configuration",
-        ),
-        "request-options": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/request-options.md",
-            "Request parameter configuration",
-        ),
-        "rate-limit-api-budget": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/rate-limit-api-budget.md",
-            "Rate limiting and API budget management",
-        ),
-        "file-syncing": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/file-syncing.md",
-            "File synchronization configuration",
-        ),
-        "property-chunking": (
-            "docs/platform/connector-development/config-based/understanding-the-yaml-file/property-chunking.md",
-            "Property chunking for large datasets",
-        ),
-    }
-
-
-def _get_high_level_overview() -> str:
-    """Return high-level connector building process and available topics."""
-    topic_mapping = _get_topic_mapping()
-
-    topic_list = []
-    for topic_key, (_, description) in topic_mapping.items():
-        topic_list.append(f"- {topic_key} - {description}")
-
-    topics_section = "\n".join(topic_list)
-
-    overview = f"""# Connector Builder Documentation
-
-1. Use the manifest YAML JSON schema for high-level guidelines
-2. Use the validate manifest tool to confirm JSON schema is correct
-3. Start with one stream or (better) a stream template that maps to a single stream
-4. Make sure you have working authentication and data retrieval before moving onto pagination and other components
-5. When all is confirmed working on the first stream, you can add additional streams. It is generally safest to add one stream at a time, and test each one before moving to the next
-
-We use the Declarative YAML Connector convention for building connectors. Note that we don't yet support custom Python components.
-
-For detailed documentation on specific components, request one of these topics:
-
-{topics_section}
-
-For detailed information on any topic, call this function again with the topic name.
-"""
-    return overview
+    return OVERVIEW_PROMPT if not topic else _get_topic_specific_docs(topic)
 
 
 def _get_topic_specific_docs(topic: str) -> str:
     """Get detailed documentation for a specific topic using raw GitHub URLs."""
     logger.info(f"Fetching detailed docs for topic: {topic}")
 
-    topic_mapping = _get_topic_mapping()
+    if topic not in TOPIC_MAPPING:
+        return f"# {topic} Documentation\n\nTopic '{topic}' not found. Please check the available topics list from the overview.\n\nAvailable topics: {', '.join(TOPIC_MAPPING.keys())}"
 
-    if topic not in topic_mapping:
-        return f"# {topic} Documentation\n\nTopic '{topic}' not found. Please check the available topics list from the overview.\n\nAvailable topics: {', '.join(topic_mapping.keys())}"
-
-    relative_path, description = topic_mapping[topic]
-    raw_github_url = f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{relative_path}"
+    full_url: str
+    topic_path, _ = TOPIC_MAPPING[topic]
+    if "https://" in topic_path:
+        full_url = topic_path
+    else:
+        full_url = f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{topic_path}"
 
     try:
-        response = requests.get(raw_github_url, timeout=30)
+        response = requests.get(full_url, timeout=30)
         response.raise_for_status()
 
         markdown_content = response.text
-        return f"# {topic} Documentation\n\n{markdown_content}"
+        return f"# '{topic}' Documentation\n\n{markdown_content}"
 
     except Exception as e:
-        logger.error(f"Error fetching documentation for topic {topic}: {e}")
+        logger.error(f"Error fetching documentation for topic '{topic}': {e}")
 
-        if relative_path.endswith(".md"):
-            docs_path = relative_path[:-3]
-        elif relative_path.endswith(".mdx"):
-            docs_path = relative_path[:-4]
-        else:
-            docs_path = relative_path
-        docs_url = f"https://docs.airbyte.com/{docs_path}"
-
-        return f"# {topic} Documentation\n\nUnable to fetch detailed documentation from GitHub. Please refer to the full reference: {docs_url}\n\nError: {str(e)}"
+        return (
+            f"Unable to fetch detailed documentation for topic '{topic}' "
+            f"using path '{topic_path}' and full URL '{full_url}'."
+            f"\n\nError: {e!s}"
+        )
 
 
 def _is_manifest_only_connector(connector_name: str) -> bool:
@@ -639,10 +721,12 @@ def _is_manifest_only_connector(connector_name: str) -> bool:
                         or f"language:{_MANIFEST_ONLY_LANGUAGE}" in tags
                     )
 
-        return False
-
     except Exception as e:
         logger.warning(f"Failed to fetch registry data for {connector_name}: {e}")
+        return False
+    else:
+        # No exception and no match found.
+        logger.info(f"Connector {connector_name} was not found in the registry.")
         return False
 
 
@@ -691,6 +775,38 @@ def get_connector_manifest(
         return f"# Error fetching connector {file_type}\n\nUnable to fetch {file_type} for connector '{connector_name}' version '{version}' from {manifest_url}\n\nError: {str(e)}"
 
 
+# @mcp.tool() // Deferred
+def get_manifest_yaml_json_schema() -> str:
+    """Retrieve the connector manifest JSON schema from the Airbyte repository.
+
+    This tool fetches the official JSON schema used to validate connector manifests.
+    The schema defines the structure, required fields, and validation rules for
+    connector YAML configurations.
+
+    Returns:
+        Response containing the schema in YAML format
+    """
+    # URL to the manifest schema in the Airbyte Python CDK repository
+
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "connector-schema-tool",
+    }
+
+    response = requests.get(
+        _MANIFEST_SCHEMA_URL,
+        headers=headers,
+        timeout=30,
+    )
+    if response.status_code == _HTTP_OK:
+        return response.text
+
+    response.raise_for_status()  # Raise HTTPError for bad responses
+    raise RuntimeError(
+        "Something went wrong. Expected success or exception but neither occurred."
+    )  # pragma: no cover # This line should not be reached
+
+
 def register_connector_builder_tools(app: FastMCP) -> None:
     """Register connector builder tools with the FastMCP app.
 
@@ -699,7 +815,9 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     """
     app.tool(validate_manifest)
     app.tool(execute_stream_test_read)
-    app.tool(get_resolved_manifest)
+    app.tool(execute_record_counts_smoke_test)
+    app.tool(execute_dynamic_manifest_resolution_test)
+    app.tool(get_manifest_yaml_json_schema)
     app.tool(get_connector_builder_docs)
     app.tool(get_connector_manifest)
     register_secrets_tools(app)
