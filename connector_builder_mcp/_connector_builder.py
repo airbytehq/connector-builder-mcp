@@ -25,6 +25,7 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     full_resolve_manifest,
     get_limits,
     read_stream,
+    resolve_manifest,
 )
 from airbyte_cdk.models import (
     AirbyteStream,
