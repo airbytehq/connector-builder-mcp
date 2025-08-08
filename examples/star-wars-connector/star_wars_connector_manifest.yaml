@@ -38,8 +38,8 @@ streams:
           field_name: "page"
         pagination_strategy:
           type: CursorPagination
-          cursor_value: "{{ response.next }}"
-          stop_condition: "{{ not response.next }}"
+          cursor_value: "{{ response.next | default('') }}"
+          stop_condition: "{{ not (response.next | default('')) }}"
     schema_loader:
       type: InlineSchemaLoader
       schema:
@@ -114,8 +114,8 @@ streams:
           field_name: "page"
         pagination_strategy:
           type: CursorPagination
-          cursor_value: "{{ response.next }}"
-          stop_condition: "{{ not response.next }}"
+          cursor_value: "{{ response.next | default('') }}"
+          stop_condition: "{{ not (response.next | default('')) }}"
     schema_loader:
       type: InlineSchemaLoader
       schema:
@@ -182,8 +182,8 @@ streams:
           field_name: "page"
         pagination_strategy:
           type: CursorPagination
-          cursor_value: "{{ response.next }}"
-          stop_condition: "{{ not response.next }}"
+          cursor_value: "{{ response.next | default('') }}"
+          stop_condition: "{{ not (response.next | default('')) }}"
     schema_loader:
       type: InlineSchemaLoader
       schema:
@@ -257,8 +257,8 @@ streams:
           field_name: "page"
         pagination_strategy:
           type: CursorPagination
-          cursor_value: "{{ response.next }}"
-          stop_condition: "{{ not response.next }}"
+          cursor_value: "{{ response.next | default('') }}"
+          stop_condition: "{{ not (response.next | default('')) }}"
     schema_loader:
       type: InlineSchemaLoader
       schema:
@@ -327,8 +327,8 @@ streams:
           field_name: "page"
         pagination_strategy:
           type: CursorPagination
-          cursor_value: "{{ response.next }}"
-          stop_condition: "{{ not response.next }}"
+          cursor_value: "{{ response.next | default('') }}"
+          stop_condition: "{{ not (response.next | default('')) }}"
     schema_loader:
       type: InlineSchemaLoader
       schema:
@@ -399,8 +399,8 @@ streams:
           field_name: "page"
         pagination_strategy:
           type: CursorPagination
-          cursor_value: "{{ response.next }}"
-          stop_condition: "{{ not response.next }}"
+          cursor_value: "{{ response.next | default('') }}"
+          stop_condition: "{{ not (response.next | default('')) }}"
     schema_loader:
       type: InlineSchemaLoader
       schema:
