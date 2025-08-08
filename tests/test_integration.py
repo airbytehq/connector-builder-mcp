@@ -81,9 +81,9 @@ class TestConnectorBuilderDocs:
         """Test that overview is returned when no topic is specified."""
         result = get_connector_builder_docs()
 
-        assert "# Connector Builder Overview" in result
-        assert "Use the validate manifest tool to confirm JSON schema is correct" in result
-        assert "For detailed docs on specific components" in result
+        assert "# Connector Builder Documentation" in result
+        assert "get_connector_builder_checklist()" in result
+        assert "For detailed guidance on specific components and features" in result
 
     @pytest.mark.parametrize("topic", list(TOPIC_MAPPING.keys()))
     def test_topic_urls_are_accessible(self, topic):
