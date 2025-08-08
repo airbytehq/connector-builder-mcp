@@ -117,53 +117,15 @@ TOPIC_MAPPING: dict[str, tuple[str, str]] = {
 """Curated topics mapping with relative paths and descriptions."""
 
 NEWLINE = "\n"
-OVERVIEW_PROMPT = f"""# Connector Builder Overview
+OVERVIEW_PROMPT = f"""# Connector Builder Documentation
 
-1. It is generally advisable to only attempt to add one stream at a time.
-2. Validate each stream's auth, pagination, and data retrieval before moving to the next.
-3. Use the validate manifest tool to confirm JSON schema is correct.
-4. Once the stream you are working on is confirmed to be working, you can add additional streams.
-5. You have a smoke test tool which can be used to confirm all streams are working at the same time.
-6. Call this docs tool again for info on specific topics, as needed.
+**Important**: Before starting development, call the `get_connector_builder_checklist()` tool first to get the comprehensive development checklist.
 
-## Dealing with Users' Connector Credentials
+The checklist provides step-by-step guidance for building connectors and helps avoid common pitfalls like pagination issues and incomplete validation.
 
-1. Ask for secrets to be populated up front, before you begin development. (You may need to
-   first confirm which secrets are required by the source API.)
-2. Generally, you will ask your user to create a .env file and then provide you its path.
-3. You can use the dotenv tools to generate a form for your user, which the user can populate.
-4. All of the tools you will use already support receiving a .env file path, so you can pass it to
-   the tools without parsing the secrets yourself.
-5. Secrets should not be sent directly to or through the LLM.
 
-## Handling Pagination
+For detailed guidance on specific components and features, you can request documentation for any of these topics:
 
-1. Generally, it makes sense to add pagination _after_ you have a working stream that retrieves
-   data.
-2. It will often be helpful to opt-in to raw responses data with a row limit of page_size x 2.
-   This should provide you with the raw headers and responses data needed to understand how
-   pagination works, for instance: how page 1 should hand off to page 2.
-3. Pagination generally should not be considered 'complete' until you can sync to the end of the
-   stream and determine a total records count.
-4. Record counts are generally suspect if they are an exact multiple of page_size or of 10, as
-   either of these may indicate that the pagination logic is not working correctly.
-5. When intentionally streaming to the end of a stream, its important to disable the option to
-   return records and raw responses. Otherwise, you risk overloading the LLM with too much data.
-
-## Smoke Testing
-
-1. Use the smoke test tool to confirm that your connector is working.
-2. Be suspect of record counts that are an exact multiple of 10 or of the page_size, as this may
-   indicate that the pagination logic is not working correctly.
-
-## Limitations
-
-- Note that we don't yet support custom Python components (for security reasons).
-
-## Detailed Topics List
-
-For detailed docs on specific components, call this function again with one of these topics:
-
-- {NEWLINE.join(f"- `{key}` - {desc}" for key, (_, desc) in TOPIC_MAPPING.items())}
+{NEWLINE.join(f"- `{key}` - {desc}" for key, (_, desc) in TOPIC_MAPPING.items())}
 
 """
