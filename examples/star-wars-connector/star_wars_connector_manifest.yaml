@@ -1,0 +1,464 @@
+version: "0.79.1"
+
+type: DeclarativeSource
+
+check:
+  type: CheckStream
+  stream_names:
+    - people
+    - planets
+    - films
+    - species
+    - vehicles
+    - starships
+
+streams:
+  - type: DeclarativeStream
+    name: people
+    primary_key:
+      - url
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://swapi.py4e.com/api/"
+        path: "people/"
+        http_method: "GET"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - "results"
+      paginator:
+        type: DefaultPaginator
+        page_token_option:
+          type: RequestOption
+          inject_into: request_parameter
+          field_name: "page"
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.next }}"
+          stop_condition: "{{ not response.next }}"
+    schema_loader:
+      type: InlineSchemaLoader
+      schema:
+        $schema: http://json-schema.org/draft-07/schema#
+        type: object
+        properties:
+          name:
+            type: string
+          height:
+            type: string
+          mass:
+            type: string
+          hair_color:
+            type: string
+          skin_color:
+            type: string
+          eye_color:
+            type: string
+          birth_year:
+            type: string
+          gender:
+            type: string
+          homeworld:
+            type: string
+          films:
+            type: array
+            items:
+              type: string
+          species:
+            type: array
+            items:
+              type: string
+          vehicles:
+            type: array
+            items:
+              type: string
+          starships:
+            type: array
+            items:
+              type: string
+          created:
+            type: string
+            format: date-time
+          edited:
+            type: string
+            format: date-time
+          url:
+            type: string
+
+  - type: DeclarativeStream
+    name: planets
+    primary_key:
+      - url
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://swapi.py4e.com/api/"
+        path: "planets/"
+        http_method: "GET"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - "results"
+      paginator:
+        type: DefaultPaginator
+        page_token_option:
+          type: RequestOption
+          inject_into: request_parameter
+          field_name: "page"
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.next }}"
+          stop_condition: "{{ not response.next }}"
+    schema_loader:
+      type: InlineSchemaLoader
+      schema:
+        $schema: http://json-schema.org/draft-07/schema#
+        type: object
+        properties:
+          name:
+            type: string
+          rotation_period:
+            type: string
+          orbital_period:
+            type: string
+          diameter:
+            type: string
+          climate:
+            type: string
+          gravity:
+            type: string
+          terrain:
+            type: string
+          surface_water:
+            type: string
+          population:
+            type: string
+          residents:
+            type: array
+            items:
+              type: string
+          films:
+            type: array
+            items:
+              type: string
+          created:
+            type: string
+            format: date-time
+          edited:
+            type: string
+            format: date-time
+          url:
+            type: string
+
+  - type: DeclarativeStream
+    name: films
+    primary_key:
+      - url
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://swapi.py4e.com/api/"
+        path: "films/"
+        http_method: "GET"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - "results"
+      paginator:
+        type: DefaultPaginator
+        page_token_option:
+          type: RequestOption
+          inject_into: request_parameter
+          field_name: "page"
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.next }}"
+          stop_condition: "{{ not response.next }}"
+    schema_loader:
+      type: InlineSchemaLoader
+      schema:
+        $schema: http://json-schema.org/draft-07/schema#
+        type: object
+        properties:
+          title:
+            type: string
+          episode_id:
+            type: integer
+          opening_crawl:
+            type: string
+          director:
+            type: string
+          producer:
+            type: string
+          release_date:
+            type: string
+            format: date
+          characters:
+            type: array
+            items:
+              type: string
+          planets:
+            type: array
+            items:
+              type: string
+          starships:
+            type: array
+            items:
+              type: string
+          vehicles:
+            type: array
+            items:
+              type: string
+          species:
+            type: array
+            items:
+              type: string
+          created:
+            type: string
+            format: date-time
+          edited:
+            type: string
+            format: date-time
+          url:
+            type: string
+
+  - type: DeclarativeStream
+    name: species
+    primary_key:
+      - url
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://swapi.py4e.com/api/"
+        path: "species/"
+        http_method: "GET"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - "results"
+      paginator:
+        type: DefaultPaginator
+        page_token_option:
+          type: RequestOption
+          inject_into: request_parameter
+          field_name: "page"
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.next }}"
+          stop_condition: "{{ not response.next }}"
+    schema_loader:
+      type: InlineSchemaLoader
+      schema:
+        $schema: http://json-schema.org/draft-07/schema#
+        type: object
+        properties:
+          name:
+            type: string
+          classification:
+            type: string
+          designation:
+            type: string
+          average_height:
+            type: string
+          skin_colors:
+            type: string
+          hair_colors:
+            type: string
+          eye_colors:
+            type: string
+          average_lifespan:
+            type: string
+          homeworld:
+            type: string
+          language:
+            type: string
+          people:
+            type: array
+            items:
+              type: string
+          films:
+            type: array
+            items:
+              type: string
+          created:
+            type: string
+            format: date-time
+          edited:
+            type: string
+            format: date-time
+          url:
+            type: string
+
+  - type: DeclarativeStream
+    name: vehicles
+    primary_key:
+      - url
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://swapi.py4e.com/api/"
+        path: "vehicles/"
+        http_method: "GET"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - "results"
+      paginator:
+        type: DefaultPaginator
+        page_token_option:
+          type: RequestOption
+          inject_into: request_parameter
+          field_name: "page"
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.next }}"
+          stop_condition: "{{ not response.next }}"
+    schema_loader:
+      type: InlineSchemaLoader
+      schema:
+        $schema: http://json-schema.org/draft-07/schema#
+        type: object
+        properties:
+          name:
+            type: string
+          model:
+            type: string
+          manufacturer:
+            type: string
+          cost_in_credits:
+            type: string
+          length:
+            type: string
+          max_atmosphering_speed:
+            type: string
+          crew:
+            type: string
+          passengers:
+            type: string
+          cargo_capacity:
+            type: string
+          consumables:
+            type: string
+          vehicle_class:
+            type: string
+          pilots:
+            type: array
+            items:
+              type: string
+          films:
+            type: array
+            items:
+              type: string
+          created:
+            type: string
+            format: date-time
+          edited:
+            type: string
+            format: date-time
+          url:
+            type: string
+
+  - type: DeclarativeStream
+    name: starships
+    primary_key:
+      - url
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://swapi.py4e.com/api/"
+        path: "starships/"
+        http_method: "GET"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - "results"
+      paginator:
+        type: DefaultPaginator
+        page_token_option:
+          type: RequestOption
+          inject_into: request_parameter
+          field_name: "page"
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.next }}"
+          stop_condition: "{{ not response.next }}"
+    schema_loader:
+      type: InlineSchemaLoader
+      schema:
+        $schema: http://json-schema.org/draft-07/schema#
+        type: object
+        properties:
+          name:
+            type: string
+          model:
+            type: string
+          manufacturer:
+            type: string
+          cost_in_credits:
+            type: string
+          length:
+            type: string
+          max_atmosphering_speed:
+            type: string
+          crew:
+            type: string
+          passengers:
+            type: string
+          cargo_capacity:
+            type: string
+          consumables:
+            type: string
+          hyperdrive_rating:
+            type: string
+          MGLT:
+            type: string
+          starship_class:
+            type: string
+          pilots:
+            type: array
+            items:
+              type: string
+          films:
+            type: array
+            items:
+              type: string
+          created:
+            type: string
+            format: date-time
+          edited:
+            type: string
+            format: date-time
+          url:
+            type: string
+
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    $schema: http://json-schema.org/draft-07/schema#
+    required: []
+    properties: {}
+    additionalProperties: true
+
+metadata:
+  autoImportSchema:
+    people: false
