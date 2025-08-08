@@ -34,7 +34,7 @@ from airbyte_cdk.models import (
     SyncMode,
 )
 
-from connector_builder_mcp._guidance import TOPIC_MAPPING
+from connector_builder_mcp._guidance import TOPIC_MAPPING, CONNECTOR_BUILDER_CHECKLIST
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import (
     filter_config_secrets,
@@ -648,9 +648,7 @@ def get_connector_builder_checklist() -> str:
         Complete development checklist in markdown format
     """
     logger.info("Getting connector builder development checklist")
-
-    with open("/home/ubuntu/connector_builder_checklist.md") as f:
-        return f.read()
+    return CONNECTOR_BUILDER_CHECKLIST
 
 
 def get_connector_builder_docs(
