@@ -798,7 +798,7 @@ def get_connector_manifest(
         logger.error(f"Error fetching connector manifest for {connector_name}: {e}")
         return (
             f"# Error fetching manifest for connector '{connector_name}' version "
-            "'{version}' from {manifest_url}\n\nError: {str(e)}"
+            f"'{version}' from {manifest_url}\n\nError: {str(e)}"
         )
 
 
