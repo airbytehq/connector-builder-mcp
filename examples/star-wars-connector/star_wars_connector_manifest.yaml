@@ -32,10 +32,6 @@ streams:
             - "results"
       paginator:
         type: DefaultPaginator
-        page_token_option:
-          type: RequestOption
-          inject_into: request_parameter
-          field_name: "page"
         pagination_strategy:
           type: CursorPagination
           cursor_value: "{{ response.next | default('') }}"
@@ -108,10 +104,6 @@ streams:
             - "results"
       paginator:
         type: DefaultPaginator
-        page_token_option:
-          type: RequestOption
-          inject_into: request_parameter
-          field_name: "page"
         pagination_strategy:
           type: CursorPagination
           cursor_value: "{{ response.next | default('') }}"
@@ -176,10 +168,6 @@ streams:
             - "results"
       paginator:
         type: DefaultPaginator
-        page_token_option:
-          type: RequestOption
-          inject_into: request_parameter
-          field_name: "page"
         pagination_strategy:
           type: CursorPagination
           cursor_value: "{{ response.next | default('') }}"
@@ -251,10 +239,6 @@ streams:
             - "results"
       paginator:
         type: DefaultPaginator
-        page_token_option:
-          type: RequestOption
-          inject_into: request_parameter
-          field_name: "page"
         pagination_strategy:
           type: CursorPagination
           cursor_value: "{{ response.next | default('') }}"
@@ -321,10 +305,6 @@ streams:
             - "results"
       paginator:
         type: DefaultPaginator
-        page_token_option:
-          type: RequestOption
-          inject_into: request_parameter
-          field_name: "page"
         pagination_strategy:
           type: CursorPagination
           cursor_value: "{{ response.next | default('') }}"
@@ -393,10 +373,6 @@ streams:
             - "results"
       paginator:
         type: DefaultPaginator
-        page_token_option:
-          type: RequestOption
-          inject_into: request_parameter
-          field_name: "page"
         pagination_strategy:
           type: CursorPagination
           cursor_value: "{{ response.next | default('') }}"
