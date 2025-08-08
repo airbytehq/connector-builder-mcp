@@ -34,7 +34,7 @@ from airbyte_cdk.models import (
     SyncMode,
 )
 
-from connector_builder_mcp._guidance import OVERVIEW_PROMPT, TOPIC_MAPPING
+from connector_builder_mcp._guidance import TOPIC_MAPPING
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import (
     filter_config_secrets,
@@ -640,16 +640,16 @@ def execute_dynamic_manifest_resolution_test(
 
 def get_connector_builder_checklist() -> str:
     """Get the comprehensive development checklist for building declarative source connectors.
-    
+
     This checklist provides a step-by-step guide for building connectors using the Connector Builder MCP Server,
     with emphasis on proper validation, pagination testing, and avoiding common pitfalls.
-    
+
     Returns:
         Complete development checklist in markdown format
     """
     logger.info("Getting connector builder development checklist")
-    
-    with open("/home/ubuntu/connector_builder_checklist.md", "r") as f:
+
+    with open("/home/ubuntu/connector_builder_checklist.md") as f:
         return f.read()
 
 
@@ -682,7 +682,7 @@ The checklist provides step-by-step guidance for building connectors and helps a
 For detailed guidance on specific components and features, you can request documentation for any of these topics:
 
 """ + "\n".join(f"- **{topic}**: {desc}" for topic, (_, desc) in TOPIC_MAPPING.items())
-    
+
     return _get_topic_specific_docs(topic)
 
 
