@@ -34,7 +34,7 @@ from airbyte_cdk.models import (
     SyncMode,
 )
 
-from connector_builder_mcp._guidance import TOPIC_MAPPING, CONNECTOR_BUILDER_CHECKLIST
+from connector_builder_mcp._guidance import CONNECTOR_BUILDER_CHECKLIST, TOPIC_MAPPING
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import (
     filter_config_secrets,
