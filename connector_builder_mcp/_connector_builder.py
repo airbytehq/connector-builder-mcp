@@ -839,9 +839,7 @@ def get_manifest_yaml_json_schema() -> str:
 def find_connectors_by_class_name(class_names: str) -> list[str]:
     """Find connectors that use ALL specified class names/components.
 
-    This tool searches for connectors that implement specific declarative component classes,
-    not high-level feature descriptions. It expects exact class names as they appear in
-    connector manifests and the CDK.
+    This tool searches for connectors that implement specific declarative component classes.
 
     Examples of valid class names:
     - DynamicDeclarativeStream (for dynamic stream discovery)
