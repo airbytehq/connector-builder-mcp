@@ -854,9 +854,9 @@ def find_connectors_by_feature(features: str) -> list[str]:
     if not csv_path.exists():
         raise FileNotFoundError(f"Feature index file not found: {csv_path}")
 
-    feature_to_connectors = {}
+    feature_to_connectors: dict[str, set[str]] = {}
 
-    with open(csv_path, "r", encoding="utf-8") as f:
+    with open(csv_path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             feature = row["FeatureUsage"]
@@ -879,7 +879,7 @@ def find_connectors_by_feature(features: str) -> list[str]:
         else:
             result_connectors = result_connectors.intersection(connectors_with_feature)
 
-    return sorted(list(result_connectors)) if result_connectors else []
+    return sorted(result_connectors) if result_connectors else []
 
 
 def register_connector_builder_tools(app: FastMCP) -> None:
