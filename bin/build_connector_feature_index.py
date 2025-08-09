@@ -132,43 +132,14 @@ def extract_class_names_from_manifest(manifest_path: Path) -> set[str]:
         class_names = extract_class_names_from_yaml(yaml_content)
 
         filtered_class_names = set()
-        false_positives = {
-            "GET",
-            "POST",
-            "PUT",
-            "DELETE",
-            "PATCH",  # HTTP methods
-            "JSON",
-            "XML",
-            "CSV",
-            "API",
-            "URL",
-            "ID",
-            "UUID",  # Common acronyms
-            "UTC",
-            "GMT",
-            "ISO",
-            "HTTP",
-            "HTTPS",
-            "SSL",
-            "TLS",  # Technical terms
-            "DEFAULT",
-            "NULL",
-            "TRUE",
-            "FALSE",  # Constants
-            "VERSION",
-            "TYPE",
-            "NAME",
-            "VALUE",
-            "KEY",  # Generic terms
-        }
 
         for class_name in class_names:
             if (
-                class_name not in false_positives
-                and len(class_name) > 2
+                len(class_name) > 2
+                and not class_name.isupper()  # Exclude ALLCAPS
+                and not class_name.islower()  # Exclude alllower
                 and any(c.islower() for c in class_name)
-            ):
+            ):  # Require at least one lowercase
                 filtered_class_names.add(class_name)
 
         return filtered_class_names
