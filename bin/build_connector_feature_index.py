@@ -228,9 +228,7 @@ def print_summary(index: dict[str, list[str]]) -> None:
     print("=" * 60)
 
     total_classes = len(index)
-    total_connectors = len(
-        {connector for connectors in index.values() for connector in connectors}
-    )
+    total_connectors = len({connector for connectors in index.values() for connector in connectors})
 
     print(f"Total unique class names found: {total_classes}")
     print(f"Total connectors processed: {total_connectors}")
