@@ -256,7 +256,9 @@ def main():
             print(f"\nBuilding index from {len(manifest_files)} manifest files...")
             index = build_connector_index(manifest_files)
 
-            output_path = Path("generated/connector-feature-index.csv")
+            output_path = Path(
+                "connector_builder_mcp/resources/generated/connector-feature-index.csv"
+            )
             save_index(index, output_path)
 
             print_summary(index)
