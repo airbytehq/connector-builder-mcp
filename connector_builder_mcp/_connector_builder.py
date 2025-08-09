@@ -758,7 +758,7 @@ def _is_manifest_only_connector(connector_name: str) -> bool:
 def get_connector_manifest(
     connector_name: Annotated[
         str,
-        Field(description="Name of the connector (e.g., 'source-faker', 'source-github')"),
+        Field(description="Name of the connector (e.g., 'source-stripe')"),
     ],
     version: Annotated[
         str,
@@ -770,7 +770,7 @@ def get_connector_manifest(
     """Get the raw connector manifest YAML from connectors.airbyte.com.
 
     Args:
-        connector_name: Name of the connector (e.g., 'source-faker', 'source-github')
+        connector_name: Name of the connector (e.g., 'source-stripe')
         version: Version of the connector manifest to retrieve (defaults to 'latest')
 
     Returns:
@@ -779,15 +779,15 @@ def get_connector_manifest(
     logger.info(f"Getting connector manifest for {connector_name} version {version}")
 
     cleaned_version = version.removeprefix("v")
-
     is_manifest_only = _is_manifest_only_connector(connector_name)
-    file_type = "manifest.yaml" if is_manifest_only else "metadata.yaml"
 
     logger.info(
-        f"Connector {connector_name} is {'manifest-only' if is_manifest_only else 'not manifest-only'}, fetching {file_type}"
+        f"Connector {connector_name} is {'manifest-only' if is_manifest_only else 'not manifest-only'}."
     )
+    if not is_manifest_only:
+        return "ERROR: This connector is not manifest-only."
 
-    manifest_url = f"https://connectors.airbyte.com/metadata/airbyte/{connector_name}/{cleaned_version}/{file_type}"
+    manifest_url = f"https://connectors.airbyte.com/metadata/airbyte/{connector_name}/{cleaned_version}/manifest.yaml"
 
     try:
         response = requests.get(manifest_url, timeout=30)
@@ -796,8 +796,11 @@ def get_connector_manifest(
         return response.text
 
     except Exception as e:
-        logger.error(f"Error fetching connector {file_type} for {connector_name}: {e}")
-        return f"# Error fetching connector {file_type}\n\nUnable to fetch {file_type} for connector '{connector_name}' version '{version}' from {manifest_url}\n\nError: {str(e)}"
+        logger.error(f"Error fetching connector manifest for {connector_name}: {e}")
+        return (
+            f"# Error fetching manifest for connector '{connector_name}' version "
+            f"'{version}' from {manifest_url}\n\nError: {str(e)}"
+        )
 
 
 # @mcp.tool() // Deferred
