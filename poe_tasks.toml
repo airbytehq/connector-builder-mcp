@@ -1,5 +1,6 @@
 [tool.poe.tasks]
 # Development tasks
+build = { cmd = "bin/build_connector_feature_index.py", help = "Build connector feature index from Airbyte manifests" }
 install = { cmd = "uv sync --all-extras", help = "Install and sync project dependencies." }
 sync = { cmd = "uv sync --all-extras", help = "Sync project dependencies. (Alias for install.)" }
 format = { cmd = "uv run ruff format .", help = "Format code with ruff" }

@@ -5,6 +5,7 @@ This module provides MCP tools for connector building operations, including
 manifest validation, stream testing, and configuration management.
 """
 
+import csv
 import logging
 import pkgutil
 import time
@@ -835,6 +836,55 @@ def get_manifest_yaml_json_schema() -> str:
     )  # pragma: no cover # This line should not be reached
 
 
+def find_connectors_by_feature(features: str) -> list[str]:
+    """Find connectors that use ALL specified features.
+
+    Args:
+        features: Comma-separated string of feature names to search for
+
+    Returns:
+        List of connector names that use ALL specified features
+    """
+    if not features.strip():
+        return []
+
+    feature_list = [f.strip() for f in features.split(",") if f.strip()]
+    if not feature_list:
+        return []
+
+    csv_path = Path(__file__).parent / "resources" / "generated" / "connector-feature-index.csv"
+
+    if not csv_path.exists():
+        raise FileNotFoundError(f"Feature index file not found: {csv_path}")
+
+    feature_to_connectors: dict[str, set[str]] = {}
+
+    with open(csv_path, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            feature = row["FeatureUsage"]
+            connector = row["ConnectorName"]
+
+            if feature not in feature_to_connectors:
+                feature_to_connectors[feature] = set()
+            feature_to_connectors[feature].add(connector)
+
+    result_connectors = None
+
+    for feature in feature_list:
+        if feature not in feature_to_connectors:
+            return []
+
+        connectors_with_feature = feature_to_connectors[feature]
+
+        if result_connectors is None:
+            result_connectors = connectors_with_feature.copy()
+        else:
+            result_connectors = result_connectors.intersection(connectors_with_feature)
+
+    return sorted(result_connectors) if result_connectors else []
+
+
 def register_connector_builder_tools(app: FastMCP) -> None:
     """Register connector builder tools with the FastMCP app.
 
@@ -849,4 +899,5 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(get_connector_builder_checklist)
     app.tool(get_connector_builder_docs)
     app.tool(get_connector_manifest)
+    app.tool(find_connectors_by_feature)
     register_secrets_tools(app)
