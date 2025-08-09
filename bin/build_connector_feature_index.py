@@ -270,7 +270,7 @@ def main():
             print(f"\nBuilding index from {len(manifest_files)} manifest files...")
             index = build_connector_index(manifest_files)
 
-            output_path = Path("connector_component_index.json")
+            output_path = Path("generated/connector-feature-index.json")
             save_index(index, output_path)
 
             print_summary(index)

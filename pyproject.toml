@@ -70,3 +70,6 @@ markers = [
 
 [tool.deptry]
 ignore = ["DEP002"]
+
+[tool.poe.tasks]
+build = "bin/build_connector_feature_index.py"
