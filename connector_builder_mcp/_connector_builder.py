@@ -836,7 +836,7 @@ def get_manifest_yaml_json_schema() -> str:
     )  # pragma: no cover # This line should not be reached
 
 
-def find_connectors_by_feature(features: str) -> list[str]:
+def find_connectors_by_class_name(class_names: str) -> list[str]:
     """Find connectors that use ALL specified class names/components.
 
     This tool searches for connectors that implement specific declarative component classes,
@@ -851,18 +851,18 @@ def find_connectors_by_feature(features: str) -> list[str]:
     - ApiKeyAuthenticator (for API key authentication)
 
     Args:
-        features: Comma-separated string of exact class names to search for.
-                 Use class names like "DynamicDeclarativeStream", not feature 
-                 descriptions like "dynamic streams" or "pagination".
+        class_names: Comma-separated string of exact class names to search for.
+                    Use class names like "DynamicDeclarativeStream", not feature
+                    descriptions like "dynamic streams" or "pagination".
 
     Returns:
         List of connector names that use ALL specified class names
     """
-    if not features.strip():
+    if not class_names.strip():
         return []
 
-    feature_list = [f.strip() for f in features.split(",") if f.strip()]
-    if not feature_list:
+    class_name_list = [f.strip() for f in class_names.split(",") if f.strip()]
+    if not class_name_list:
         return []
 
     csv_path = Path(__file__).parent / "resources" / "generated" / "connector-feature-index.csv"
@@ -884,16 +884,16 @@ def find_connectors_by_feature(features: str) -> list[str]:
 
     result_connectors = None
 
-    for feature in feature_list:
-        if feature not in feature_to_connectors:
+    for class_name in class_name_list:
+        if class_name not in feature_to_connectors:
             return []
 
-        connectors_with_feature = feature_to_connectors[feature]
+        connectors_with_class = feature_to_connectors[class_name]
 
         if result_connectors is None:
-            result_connectors = connectors_with_feature.copy()
+            result_connectors = connectors_with_class.copy()
         else:
-            result_connectors = result_connectors.intersection(connectors_with_feature)
+            result_connectors = result_connectors.intersection(connectors_with_class)
 
     return sorted(result_connectors) if result_connectors else []
 
@@ -912,5 +912,5 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(get_connector_builder_checklist)
     app.tool(get_connector_builder_docs)
     app.tool(get_connector_manifest)
-    app.tool(find_connectors_by_feature)
+    app.tool(find_connectors_by_class_name)
     register_secrets_tools(app)
