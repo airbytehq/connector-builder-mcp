@@ -10,7 +10,7 @@ This script:
 The resulting index can be used to find connectors using specific features or components.
 """
 
-import json
+import csv
 import re
 import subprocess
 import tempfile
@@ -164,7 +164,11 @@ def extract_class_names_from_manifest(manifest_path: Path) -> set[str]:
         }
 
         for class_name in class_names:
-            if class_name not in false_positives and len(class_name) > 2:
+            if (
+                class_name not in false_positives
+                and len(class_name) > 2
+                and any(c.islower() for c in class_name)
+            ):
                 filtered_class_names.add(class_name)
 
         return filtered_class_names
@@ -174,16 +178,16 @@ def extract_class_names_from_manifest(manifest_path: Path) -> set[str]:
         return set()
 
 
-def build_connector_index(manifest_files: list[Path]) -> dict[str, list[str]]:
-    """Build an index mapping class names to connectors that use them.
+def build_connector_index(manifest_files: list[Path]) -> list[tuple[str, str]]:
+    """Build an index of feature usage by connectors.
 
     Args:
         manifest_files: List of paths to manifest.yaml files
 
     Returns:
-        Dictionary mapping class names to list of connector names
+        List of tuples (feature_name, connector_name) sorted by feature then connector
     """
-    class_to_connectors = defaultdict(list)
+    class_to_connectors = defaultdict(set)
 
     for manifest_path in manifest_files:
         connector_name = manifest_path.parent.name
@@ -193,59 +197,72 @@ def build_connector_index(manifest_files: list[Path]) -> dict[str, list[str]]:
         class_names = extract_class_names_from_manifest(manifest_path)
 
         for class_name in class_names:
-            class_to_connectors[class_name].append(connector_name)
+            class_to_connectors[class_name].add(connector_name)
 
-    result = {}
+    # Convert to list of tuples and sort
+    result = []
     for class_name, connectors in class_to_connectors.items():
-        result[class_name] = sorted(set(connectors))  # Remove duplicates and sort
+        for connector in sorted(connectors):
+            result.append((class_name, connector))
+
+    result.sort(key=lambda x: (x[0], x[1]))
 
     return result
 
 
-def save_index(index: dict[str, list[str]], output_path: Path) -> None:
-    """Save the connector index to a JSON file.
+def save_index(index: list[tuple[str, str]], output_path: Path) -> None:
+    """Save the connector index to a CSV file.
 
     Args:
-        index: Dictionary mapping class names to connector lists
+        index: List of tuples (feature_name, connector_name)
         output_path: Path where to save the index file
     """
-    sorted_index = dict(sorted(index.items()))
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(sorted_index, f, indent=2, sort_keys=True)
+    with open(output_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["FeatureUsage", "ConnectorName"])  # Header row
+        writer.writerows(index)
 
     print(f"Index saved to {output_path}")
 
 
-def print_summary(index: dict[str, list[str]]) -> None:
+def print_summary(index: list[tuple[str, str]]) -> None:
     """Print a summary of the generated index.
 
     Args:
-        index: Dictionary mapping class names to connector lists
+        index: List of tuples (feature_name, connector_name)
     """
     print("\n" + "=" * 60)
     print("CONNECTOR COMPONENT INDEX SUMMARY")
     print("=" * 60)
 
-    total_classes = len(index)
-    total_connectors = len({connector for connectors in index.values() for connector in connectors})
+    # Count unique features and connectors
+    features = {feature for feature, _ in index}
+    connectors = {connector for _, connector in index}
 
-    print(f"Total unique class names found: {total_classes}")
-    print(f"Total connectors processed: {total_connectors}")
+    print(f"Total unique class names found: {len(features)}")
+    print(f"Total connectors processed: {len(connectors)}")
+    print(f"Total feature-connector pairs: {len(index)}")
+
+    feature_counts = defaultdict(int)
+    for feature, _ in index:
+        feature_counts[feature] += 1
 
     print("\nTop 10 most commonly used class names:")
-    sorted_by_usage = sorted(index.items(), key=lambda x: len(x[1]), reverse=True)
+    sorted_by_usage = sorted(feature_counts.items(), key=lambda x: x[1], reverse=True)
 
-    for i, (class_name, connectors) in enumerate(sorted_by_usage[:10], 1):
-        print(f"{i:2d}. {class_name:<25} ({len(connectors):3d} connectors)")
+    for i, (class_name, count) in enumerate(sorted_by_usage[:10], 1):
+        print(f"{i:2d}. {class_name:<25} ({count:3d} connectors)")
 
     print("\nExample class name mappings:")
-    for class_name, connectors in list(sorted_by_usage[:3]):
+    for class_name, _ in sorted_by_usage[:3]:
+        connectors_for_feature = [
+            connector for feature, connector in index if feature == class_name
+        ]
         print(f"\n{class_name}:")
-        for connector in connectors[:5]:  # Show first 5 connectors
+        for connector in connectors_for_feature[:5]:  # Show first 5 connectors
             print(f"  - {connector}")
-        if len(connectors) > 5:
-            print(f"  ... and {len(connectors) - 5} more")
+        if len(connectors_for_feature) > 5:
+            print(f"  ... and {len(connectors_for_feature) - 5} more")
 
 
 def main():
@@ -268,7 +285,7 @@ def main():
             print(f"\nBuilding index from {len(manifest_files)} manifest files...")
             index = build_connector_index(manifest_files)
 
-            output_path = Path("generated/connector-feature-index.json")
+            output_path = Path("generated/connector-feature-index.csv")
             save_index(index, output_path)
 
             print_summary(index)
