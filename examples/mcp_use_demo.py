@@ -1,3 +1,12 @@
+
+# /// script
+# dependencies = [
+#   "mcp-use>=1.0.0",
+#   "langchain-openai>=0.1.0",
+#   "python-dotenv>=1.0.0",
+# ]
+# ///
+
 """
 Demo script showing how to use mcp-use as a wrapper for connector-builder-mcp.
 
