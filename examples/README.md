@@ -1,6 +1,6 @@
 # Connector Builder MCP Agent Examples
 
-This directory contains example scripts demonstrating how to wrap the connector-builder-mcp and pyairbyte-mcp servers using different AI agent frameworks for automated connector building.
+This directory contains example scripts demonstrating how to wrap the connector-builder-mcp and pyairbyte-mcp servers using different approaches for automated connector building.
 
 ## Available Examples
 
@@ -25,6 +25,8 @@ uv run examples/upsonic_example.py
 - `pydantic>=2.0.0`
 - `httpx>=0.25.0`
 
+**Note:** This example demonstrates the intended workflow but requires the Upsonic framework to be available for full execution.
+
 ### 2. AutoGen Multi-Agent Example (`autogen_example.py`)
 
 Demonstrates using Microsoft AutoGen's multi-agent framework for sophisticated connector building workflows.
@@ -47,6 +49,67 @@ uv run examples/autogen_example.py
 - `pydantic>=2.0.0`
 - `httpx>=0.25.0`
 - `openai>=1.0.0`
+
+**Note:** This example demonstrates the intended workflow but requires the AutoGen framework to be available for full execution.
+
+### 3. Basic MCP Integration Example (`basic_mcp_example.py`)
+
+Demonstrates the core MCP integration workflow without external AI frameworks.
+
+**Features:**
+- Direct MCP workflow demonstration
+- Mock responses for testing
+- Simple dependency management
+- Educational workflow example
+
+**Usage:**
+```bash
+uv run examples/basic_mcp_example.py
+```
+
+**Dependencies:** Automatically managed via uv inline dependencies
+- `httpx>=0.25.0`
+- `pydantic>=2.0.0`
+
+### 4. Working MCP Example (`working_mcp_example.py`)
+
+Demonstrates MCP integration with simulated tool responses for testing purposes.
+
+**Features:**
+- Simulated MCP tool responses
+- Complete workflow demonstration
+- Error handling examples
+- Result persistence
+
+**Usage:**
+```bash
+uv run examples/working_mcp_example.py
+```
+
+**Dependencies:** Automatically managed via uv inline dependencies
+- `httpx>=0.25.0`
+- `pydantic>=2.0.0`
+
+### 5. Real MCP Integration Example (`real_mcp_integration_example.py`)
+
+Demonstrates actual MCP server integration using subprocess calls to real MCP tools.
+
+**Features:**
+- Real MCP tool calls via subprocess
+- Actual server integration testing
+- Live validation and testing
+- Comprehensive error handling
+
+**Usage:**
+```bash
+uv run examples/real_mcp_integration_example.py
+```
+
+**Dependencies:** Automatically managed via uv inline dependencies
+- `httpx>=0.25.0`
+- `pydantic>=2.0.0`
+
+**Note:** This example requires both MCP servers to be running and accessible via `mcp-cli`.
 
 ## Prerequisites
 
