@@ -1,4 +1,3 @@
-
 # /// script
 # dependencies = [
 #   "mcp-use>=1.0.0",
