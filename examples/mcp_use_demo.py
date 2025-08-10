@@ -1,4 +1,3 @@
-
 """
 Demo script showing how to use mcp-use as a wrapper for connector-builder-mcp.
 
@@ -22,6 +21,7 @@ import os
 
 try:
     from mcp_use import MCPAgent, MCPClient
+
     MCP_USE_AVAILABLE = True
 except ImportError:
     print("⚠️  mcp-use not available - install with: pip install mcp-use")
@@ -32,17 +32,14 @@ except ImportError:
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     print("⚠️  python-dotenv not available - environment variables won't be loaded from .env")
 
 MCP_CONFIG = {
     "mcpServers": {
-        "connector-builder": {
-            "command": "uv",
-            "args": ["run", "connector-builder-mcp"],
-            "env": {}
-        }
+        "connector-builder": {"command": "uv", "args": ["run", "connector-builder-mcp"], "env": {}}
     }
 }
 
@@ -88,7 +85,9 @@ async def demo_direct_tool_calls():
         print("📋 Configuration for connector-builder-mcp:")
         print("  • Command: uv run connector-builder-mcp")
         print("  • Transport: STDIO")
-        print("  • Available tools: 11 tools including validate_manifest, execute_stream_test_read, etc.")
+        print(
+            "  • Available tools: 11 tools including validate_manifest, execute_stream_test_read, etc."
+        )
         print("\n💡 With mcp-use installed, this would:")
         print("  • Connect to connector-builder-mcp via STDIO transport")
         print("  • List all available MCP tools programmatically")
@@ -109,25 +108,19 @@ async def demo_direct_tool_calls():
         print(f"\n✅ Found {len(tools)} tools available")
 
         print("\n🔍 Validating sample manifest...")
-        result = await session.call_tool(
-            "validate_manifest",
-            {"manifest": SAMPLE_MANIFEST}
-        )
+        result = await session.call_tool("validate_manifest", {"manifest": SAMPLE_MANIFEST})
 
         print("📄 Validation Result:")
         for content in result.content:
-            if hasattr(content, 'text'):
+            if hasattr(content, "text"):
                 print(f"  {content.text}")
 
         print("\n📚 Getting connector builder documentation...")
-        docs_result = await session.call_tool(
-            "get_connector_builder_docs",
-            {}
-        )
+        docs_result = await session.call_tool("get_connector_builder_docs", {})
 
         print("📖 Documentation Overview:")
         for content in docs_result.content:
-            if hasattr(content, 'text'):
+            if hasattr(content, "text"):
                 text = content.text[:200] + "..." if len(content.text) > 200 else content.text
                 print(f"  {text}")
 
@@ -163,10 +156,13 @@ async def demo_llm_integration():
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         agent = MCPAgent(client=client, llm=llm)
 
-        query = """
+        query = (
+            """
         Please validate this connector manifest and provide feedback on its structure:
 
-        """ + SAMPLE_MANIFEST
+        """
+            + SAMPLE_MANIFEST
+        )
 
         print("💭 Asking LLM to validate and analyze the manifest...")
         result = await agent.run(query)
@@ -204,24 +200,15 @@ async def demo_multi_tool_workflow():
         session = await client.create_session("connector-builder")
 
         print("1️⃣  Validating manifest...")
-        await session.call_tool(
-            "validate_manifest",
-            {"manifest": SAMPLE_MANIFEST}
-        )
+        await session.call_tool("validate_manifest", {"manifest": SAMPLE_MANIFEST})
         print("   ✅ Manifest validation complete")
 
         print("\n2️⃣  Getting development checklist...")
-        await session.call_tool(
-            "get_connector_builder_checklist",
-            {}
-        )
+        await session.call_tool("get_connector_builder_checklist", {})
         print("   📋 Development checklist retrieved")
 
         print("\n3️⃣  Getting manifest JSON schema...")
-        await session.call_tool(
-            "get_manifest_yaml_json_schema",
-            {}
-        )
+        await session.call_tool("get_manifest_yaml_json_schema", {})
         print("   📄 JSON schema retrieved")
 
         print("\n🎉 Multi-tool workflow completed successfully!")
