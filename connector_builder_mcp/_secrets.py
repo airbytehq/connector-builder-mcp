@@ -133,7 +133,9 @@ def list_dotenv_secrets(
 
 
 def populate_dotenv_missing_secrets_stubs(
-    dotenv_path: Annotated[str, Field(description="Absolute path to the .env file to add secrets to")],
+    dotenv_path: Annotated[
+        str, Field(description="Absolute path to the .env file to add secrets to")
+    ],
     manifest: Annotated[
         str | None,
         Field(
@@ -212,7 +214,9 @@ def populate_dotenv_missing_secrets_stubs(
                 )
 
             collision_list = ", ".join(collisions)
-            existing_secrets_summary = [f'{s.key}({"set" if s.is_set else "unset"})' for s in secrets_info]
+            existing_secrets_summary = [
+                f"{s.key}({'set' if s.is_set else 'unset'})" for s in secrets_info
+            ]
             return f"Error: Cannot create stubs for secrets that already exist: {collision_list}. Existing secrets in file: {existing_secrets_summary}"
 
         added_count = 0
