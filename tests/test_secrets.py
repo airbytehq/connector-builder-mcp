@@ -141,8 +141,9 @@ def test_list_dotenv_secrets_with_file():
 def test_populate_dotenv_missing_secrets_stubs_config_paths():
     """Test adding secret stubs using config paths."""
     with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+        absolute_path = str(Path(f.name).resolve())
         result = populate_dotenv_missing_secrets_stubs(
-            f.name,
+            absolute_path,
             config_paths="credentials.password,oauth.client_secret",
         )
 
@@ -163,6 +164,7 @@ def test_populate_dotenv_missing_secrets_stubs_config_paths():
 def test_populate_dotenv_missing_secrets_stubs_manifest_mode():
     """Test adding secret stubs from manifest analysis."""
     with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+        absolute_path = str(Path(f.name).resolve())
         manifest = {
             "spec": {
                 "connection_specification": {
@@ -180,7 +182,7 @@ def test_populate_dotenv_missing_secrets_stubs_manifest_mode():
         }
 
         manifest_yaml = yaml.dump(manifest)
-        result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest_yaml)
+        result = populate_dotenv_missing_secrets_stubs(absolute_path, manifest=manifest_yaml)
 
         assert "Added 2 secret stub(s)" in result
         assert "api_token" in result
@@ -200,6 +202,7 @@ def test_populate_dotenv_missing_secrets_stubs_manifest_mode():
 def test_populate_dotenv_missing_secrets_stubs_combined_mode():
     """Test adding secret stubs using both manifest and config paths."""
     with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+        absolute_path = str(Path(f.name).resolve())
         manifest = {
             "spec": {
                 "connection_specification": {
@@ -210,7 +213,7 @@ def test_populate_dotenv_missing_secrets_stubs_combined_mode():
 
         manifest_yaml = yaml.dump(manifest)
         result = populate_dotenv_missing_secrets_stubs(
-            f.name,
+            absolute_path,
             manifest=manifest_yaml,
             config_paths="credentials.password,oauth.refresh_token",
         )
@@ -238,9 +241,66 @@ def test_populate_dotenv_missing_secrets_stubs_no_args():
     assert "Error: Must provide either manifest or config_paths" in result
 
 
+def test_populate_dotenv_missing_secrets_stubs_relative_path():
+    """Test error when relative path is provided."""
+    result = populate_dotenv_missing_secrets_stubs("relative/path/.env", config_paths="api_key")
+    assert "Error: Path must be absolute, got relative path: relative/path/.env" in result
+
+
+def test_populate_dotenv_missing_secrets_stubs_collision_detection():
+    """Test collision detection when secrets already exist."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("api_token=existing_value\n")
+        f.write("empty_secret=\n")
+        f.write("comment_secret=# TODO: Set actual value for comment_secret\n")
+        f.flush()
+
+        absolute_path = str(Path(f.name).resolve())
+        result = populate_dotenv_missing_secrets_stubs(
+            absolute_path,
+            config_paths="api_token,new_secret",
+        )
+
+        assert "Error: Cannot create stubs for secrets that already exist: api_token" in result
+        assert "Existing secrets in file:" in result
+        assert "api_token(set)" in result
+        assert "empty_secret(unset)" in result
+        assert "comment_secret(unset)" in result
+
+        Path(f.name).unlink()
+
+
+def test_populate_dotenv_missing_secrets_stubs_no_collision():
+    """Test successful addition when no collisions exist."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("existing_secret=value\n")
+        f.flush()
+
+        absolute_path = str(Path(f.name).resolve())
+        result = populate_dotenv_missing_secrets_stubs(
+            absolute_path,
+            config_paths="new_secret1,new_secret2",
+        )
+
+        assert "Added 2 secret stub(s)" in result
+        assert "new_secret1" in result
+        assert "new_secret2" in result
+
+        with open(f.name) as file:
+            content = file.read()
+            assert "existing_secret=value" in content  # Original content preserved
+            assert "new_secret1=" in content
+            assert "new_secret2=" in content
+            assert "TODO: Set actual value for new_secret1" in content
+            assert "TODO: Set actual value for new_secret2" in content
+
+        Path(f.name).unlink()
+
+
 def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
     """Test with manifest that has no secrets."""
     with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+        absolute_path = str(Path(f.name).resolve())
         manifest = {
             "spec": {
                 "connection_specification": {
@@ -250,7 +310,7 @@ def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
         }
 
         manifest_yaml = yaml.dump(manifest)
-        result = populate_dotenv_missing_secrets_stubs(f.name, manifest=manifest_yaml)
+        result = populate_dotenv_missing_secrets_stubs(absolute_path, manifest=manifest_yaml)
         assert "No secrets found to add" in result
 
         Path(f.name).unlink()

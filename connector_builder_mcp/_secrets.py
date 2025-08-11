@@ -133,7 +133,9 @@ def list_dotenv_secrets(
 
 
 def populate_dotenv_missing_secrets_stubs(
-    dotenv_path: Annotated[str, Field(description="Path to the .env file to add secrets to")],
+    dotenv_path: Annotated[
+        str, Field(description="Absolute path to the .env file to add secrets to")
+    ],
     manifest: Annotated[
         str | None,
         Field(
@@ -157,18 +159,26 @@ def populate_dotenv_missing_secrets_stubs(
 
     If both are provided, both sets of secrets will be added.
 
+    This function is non-destructive and will not overwrite existing secrets.
+    If any of the secrets to be added already exist, an error will be returned
+    with information about the existing secrets.
+
     Returns:
         Message about the operation result
     """
+    path_obj = Path(dotenv_path)
+    if not path_obj.is_absolute():
+        return f"Error: Path must be absolute, got relative path: {dotenv_path}"
+
     config_paths_list = config_paths.split(",") if config_paths else []
     if not any([manifest, config_paths_list]):
         return "Error: Must provide either manifest or config_paths"
 
     try:
         if allow_create:
-            Path(dotenv_path).parent.mkdir(parents=True, exist_ok=True)
-            Path(dotenv_path).touch()
-        elif not Path(dotenv_path).exists():
+            path_obj.parent.mkdir(parents=True, exist_ok=True)
+            path_obj.touch()
+        elif not path_obj.exists():
             return f"Error: File {dotenv_path} does not exist and allow_create=False"
 
         secrets_to_add = []
@@ -184,6 +194,30 @@ def populate_dotenv_missing_secrets_stubs(
 
         if not secrets_to_add:
             return "No secrets found to add"
+
+        existing_secrets = {}
+        if path_obj.exists():
+            try:
+                existing_secrets = dotenv_values(dotenv_path) or {}
+            except Exception as e:
+                logger.error(f"Error reading existing secrets: {e}")
+
+        collisions = [key for key in secrets_to_add if key in existing_secrets]
+        if collisions:
+            secrets_info = []
+            for key, value in existing_secrets.items():
+                secrets_info.append(
+                    SecretInfo(
+                        key=key,
+                        is_set=bool(value and value.strip() and not value.strip().startswith("#")),
+                    )
+                )
+
+            collision_list = ", ".join(collisions)
+            existing_secrets_summary = [
+                f"{s.key}({'set' if s.is_set else 'unset'})" for s in secrets_info
+            ]
+            return f"Error: Cannot create stubs for secrets that already exist: {collision_list}. Existing secrets in file: {', '.join(existing_secrets_summary)}"
 
         added_count = 0
         for dotenv_key in secrets_to_add:
