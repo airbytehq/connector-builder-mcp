@@ -217,7 +217,7 @@ def populate_dotenv_missing_secrets_stubs(
             existing_secrets_summary = [
                 f"{s.key}({'set' if s.is_set else 'unset'})" for s in secrets_info
             ]
-            return f"Error: Cannot create stubs for secrets that already exist: {collision_list}. Existing secrets in file: {existing_secrets_summary}"
+            return f"Error: Cannot create stubs for secrets that already exist: {collision_list}. Existing secrets in file: {', '.join(existing_secrets_summary)}"
 
         added_count = 0
         for dotenv_key in secrets_to_add:
