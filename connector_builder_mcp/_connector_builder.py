@@ -34,6 +34,12 @@ from airbyte_cdk.models import (
     DestinationSyncMode,
     SyncMode,
 )
+from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer import (
+    ManifestComponentTransformer,
+)
+from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
+    ManifestReferenceResolver,
+)
 
 from connector_builder_mcp._guidance import CONNECTOR_BUILDER_CHECKLIST, TOPIC_MAPPING
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
@@ -218,7 +224,28 @@ def validate_manifest(
         manifest_dict = parse_manifest_input(manifest)
 
         if not validate_manifest_structure(manifest_dict):
-            errors.append("Manifest missing required fields: version, type, check, streams")
+            errors.append(
+                "Manifest missing required fields: version, type, check, and either streams or dynamic_streams"
+            )
+            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+
+        try:
+            logger.info("Applying CDK preprocessing: resolving references")
+            reference_resolver = ManifestReferenceResolver()
+            resolved_manifest = reference_resolver.preprocess_manifest(manifest_dict)
+
+            logger.info("Applying CDK preprocessing: propagating types and parameters")
+            component_transformer = ManifestComponentTransformer()
+            processed_manifest = component_transformer.propagate_types_and_parameters(
+                "", resolved_manifest, {}
+            )
+
+            logger.info("CDK preprocessing completed successfully")
+            manifest_dict = processed_manifest
+
+        except Exception as preprocessing_error:
+            logger.error(f"CDK preprocessing failed: {preprocessing_error}")
+            errors.append(f"Preprocessing error: {str(preprocessing_error)}")
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         try:
