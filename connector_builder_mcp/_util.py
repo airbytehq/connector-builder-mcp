@@ -112,7 +112,7 @@ def validate_manifest_structure(manifest: dict[str, Any]) -> bool:
     """
     required_fields = ["version", "type", "check"]
     has_required = all(field in manifest for field in required_fields)
-    
+
     has_streams = "streams" in manifest or "dynamic_streams" in manifest
-    
+
     return has_required and has_streams
