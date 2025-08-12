@@ -22,7 +22,6 @@ Requirements:
 """
 
 import asyncio
-import os
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -105,25 +104,34 @@ async def demo_direct_tool_calls():
 
 
 async def demo_llm_integration():
-    """Demonstrate LLM integration with mcp-use (requires OpenAI API key)."""
+    """Demonstrate LLM integration with mcp-use."""
     print("\n🤖 Demo 2: LLM Integration")
     print("=" * 50)
 
-    client = MCPClient.from_dict(MCP_CONFIG)
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    agent = MCPAgent(client=client, llm=llm)
-
-    query = (
-        """
-    Please validate this connector manifest and provide feedback on its structure:
-
-    """
-        + SAMPLE_MANIFEST
+    await run_mcp_use_prompt(
+        prompt="Please validate this connector manifest and provide feedback on its structure:",
+        model="gpt-4o-mini",
+        temperature=0.0,
     )
 
-    print("💭 Asking LLM to validate and analyze the manifest...")
-    result = await agent.run(query)
 
+async def run_mcp_use_prompt(
+    prompt: str,
+    model: str = "gpt-4o-mini",
+    temperature: float = 0.0,
+):
+    """Execute LLM agent with mcp-use."""
+    client = MCPClient.from_dict(MCP_CONFIG)
+    llm = ChatOpenAI(
+        model=model,
+        temperature=temperature,
+    )
+    agent = MCPAgent(client=client, llm=llm)
+
+    print("💭 Asking LLM to validate and analyze the manifest...")
+    result = await agent.run(
+      prompt,
+    )
     print("🤖 LLM Analysis:")
     print(f"  {result}")
 
@@ -169,12 +177,6 @@ async def main():
 
     print("\n" + "=" * 60)
     print("✨ Demo completed!")
-    print()
-    print("Key takeaways:")
-    print("• mcp-use provides vendor-neutral access to MCP servers")
-    print("• Works with any LangChain-supported LLM")
-    print("• Supports both direct tool calls and AI agent workflows")
-    print("• Perfect for building custom connector development tools")
 
 
 if __name__ == "__main__":
