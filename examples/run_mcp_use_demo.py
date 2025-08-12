@@ -109,7 +109,8 @@ async def demo_llm_integration():
     print("=" * 50)
 
     await run_mcp_use_prompt(
-        prompt="Please validate this connector manifest and provide feedback on its structure:",
+        prompt="Please validate this connector manifest and provide feedback on its structure:"
+        + SAMPLE_MANIFEST,
         model="gpt-4o-mini",
         temperature=0.0,
     )
