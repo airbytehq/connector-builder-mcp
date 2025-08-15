@@ -72,7 +72,6 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "requests" },
-    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -102,7 +101,6 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "requests", specifier = ">=2.25.0" },
-    { name = "typing-extensions", specifier = ">=4.14.1" },
 ]
 
 [package.metadata.requires-dev]

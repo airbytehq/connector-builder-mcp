@@ -7,7 +7,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "airbyte-cdk>=6.0,<7.0",
-    "typing-extensions>=4.14.1",
     "fastmcp>=0.2.0",
     "pydantic>=2.7.0,<3.0",
     "requests>=2.25.0",
@@ -69,4 +68,8 @@ markers = [
 ]
 
 [tool.deptry]
-ignore = ["DEP002"]
+exclude = [
+    "examples/",
+    ".venv/",
+    "tests/",
+]
