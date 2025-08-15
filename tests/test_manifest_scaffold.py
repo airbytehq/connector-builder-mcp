@@ -20,7 +20,7 @@ class TestConnectorManifestScaffold:
             api_base_url="https://api.example.com",
             initial_stream_name="users",
             initial_stream_path="/users",
-            authentication_type="NoAuth"
+            authentication_type="NoAuth",
         )
 
         assert result.success
@@ -35,7 +35,7 @@ class TestConnectorManifestScaffold:
             api_base_url="https://api.example.com",
             initial_stream_name="users",
             initial_stream_path="/users",
-            authentication_type="NoAuth"
+            authentication_type="NoAuth",
         )
 
         assert not result.success
@@ -48,7 +48,7 @@ class TestConnectorManifestScaffold:
             api_base_url="https://api.example.com",
             initial_stream_name="users",
             initial_stream_path="/users",
-            authentication_type="ApiKeyAuthenticator"
+            authentication_type="ApiKeyAuthenticator",
         )
 
         assert result.success
@@ -63,7 +63,7 @@ class TestConnectorManifestScaffold:
             initial_stream_name="users",
             initial_stream_path="/users",
             authentication_type="NoAuth",
-            pagination_type="page_increment"
+            pagination_type="page_increment",
         )
 
         assert result.success
@@ -78,19 +78,19 @@ class TestConnectorManifestScaffold:
             initial_stream_name="users",
             initial_stream_path="/users",
             authentication_type="NoAuth",
-            primary_key="TODO"
+            primary_key="TODO",
         )
 
         assert result.success
         assert "TODO" in result.manifest_yaml
 
-        manifest_lines = result.manifest_yaml.split('\n')
+        manifest_lines = result.manifest_yaml.split("\n")
         yaml_content = []
         for line in manifest_lines:
-            if not line.strip().startswith('#'):
+            if not line.strip().startswith("#"):
                 yaml_content.append(line)
 
-        manifest = yaml.safe_load('\n'.join(yaml_content))
+        manifest = yaml.safe_load("\n".join(yaml_content))
         assert manifest["streams"][0]["primary_key"] == ["TODO"]
 
     def test_all_generated_manifests_pass_validation(self):
@@ -105,14 +105,20 @@ class TestConnectorManifestScaffold:
                     authentication_type=auth_type,
                     pagination_type=pagination_type,
                     primary_key="TODO",
-                    record_selector_path=[]
+                    record_selector_path=[],
                 )
 
-                assert result.success, f"Failed with auth_type={auth_type}, pagination_type={pagination_type}: {result.errors}"
-                assert result.validation_result.is_valid, f"Validation failed with auth_type={auth_type}, pagination_type={pagination_type}: {result.validation_result.errors}"
+                assert result.success, (
+                    f"Failed with auth_type={auth_type}, pagination_type={pagination_type}: {result.errors}"
+                )
+                assert result.validation_result.is_valid, (
+                    f"Validation failed with auth_type={auth_type}, pagination_type={pagination_type}: {result.validation_result.errors}"
+                )
 
                 validation_result = validate_manifest(result.manifest_yaml)
-                assert validation_result.is_valid, f"Direct validation failed with auth_type={auth_type}, pagination_type={pagination_type}: {validation_result.errors}"
+                assert validation_result.is_valid, (
+                    f"Direct validation failed with auth_type={auth_type}, pagination_type={pagination_type}: {validation_result.errors}"
+                )
 
     def test_dynamic_schema_loader_included(self):
         """Test that dynamic schema loader is included in generated manifests."""
@@ -121,7 +127,7 @@ class TestConnectorManifestScaffold:
             api_base_url="https://api.example.com",
             initial_stream_name="users",
             initial_stream_path="/users",
-            authentication_type="NoAuth"
+            authentication_type="NoAuth",
         )
 
         assert result.success
@@ -135,7 +141,7 @@ class TestConnectorManifestScaffold:
             api_base_url="https://api.example.com",
             initial_stream_name="users",
             initial_stream_path="/users",
-            authentication_type="NoAuth"
+            authentication_type="NoAuth",
         )
 
         assert result.success

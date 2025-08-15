@@ -866,6 +866,7 @@ def get_manifest_yaml_json_schema() -> str:
 
 class AuthenticationType(str, Enum):
     """Valid authentication types for connector manifests."""
+
     NO_AUTH = "NoAuth"
     API_KEY = "ApiKeyAuthenticator"
     BEARER_TOKEN = "BearerAuthenticator"
@@ -875,6 +876,7 @@ class AuthenticationType(str, Enum):
 
 class PaginationType(str, Enum):
     """Valid pagination types for connector manifests."""
+
     NONE = "none"
     PAGE_INCREMENT = "page_increment"
     OFFSET_INCREMENT = "offset_increment"
@@ -883,9 +885,10 @@ class PaginationType(str, Enum):
 
 class ConnectorManifestScaffoldInput(BaseModel):
     """Input model for creating connector manifest scaffold."""
+
     connector_name: str = Field(
         description="Connector name in kebab-case starting with 'source-'",
-        pattern=r"^source-[a-z0-9]+(-[a-z0-9]+)*$"
+        pattern=r"^source-[a-z0-9]+(-[a-z0-9]+)*$",
     )
     api_base_url: str = Field(description="Base URL for the API")
     initial_stream_name: str = Field(description="Name of the initial stream to create")
@@ -893,12 +896,17 @@ class ConnectorManifestScaffoldInput(BaseModel):
     authentication_type: AuthenticationType = Field(description="Authentication method (required)")
     primary_key: str = Field(default="TODO", description="Primary key field for the stream")
     http_method: str = Field(default="GET", description="HTTP method for requests")
-    record_selector_path: list[str] = Field(default_factory=list, description="JSONPath for extracting records")
-    pagination_type: PaginationType = Field(default=PaginationType.NONE, description="Pagination strategy")
+    record_selector_path: list[str] = Field(
+        default_factory=list, description="JSONPath for extracting records"
+    )
+    pagination_type: PaginationType = Field(
+        default=PaginationType.NONE, description="Pagination strategy"
+    )
 
 
 class ConnectorManifestScaffoldResult(BaseModel):
     """Result of manifest scaffold creation."""
+
     success: bool
     manifest_yaml: str | None = None
     validation_result: Union["ManifestValidationResult", None] = None
@@ -916,19 +924,16 @@ def _generate_authenticator_config(auth_type: AuthenticationType) -> dict[str, A
             "inject_into": {
                 "type": "RequestOption",
                 "inject_into": "header",
-                "field_name": "Authorization"
-            }
+                "field_name": "Authorization",
+            },
         }
     elif auth_type == AuthenticationType.BEARER_TOKEN:
-        return {
-            "type": "BearerAuthenticator",
-            "api_token": "{{ config['api_token'] }}"
-        }
+        return {"type": "BearerAuthenticator", "api_token": "{{ config['api_token'] }}"}
     elif auth_type == AuthenticationType.BASIC_HTTP:
         return {
             "type": "BasicHttpAuthenticator",
             "username": "{{ config['username'] }}",
-            "password": "{{ config['password'] }}"
+            "password": "{{ config['password'] }}",
         }
     elif auth_type == AuthenticationType.OAUTH:
         return {
@@ -936,7 +941,7 @@ def _generate_authenticator_config(auth_type: AuthenticationType) -> dict[str, A
             "client_id": "{{ config['client_id'] }}",
             "client_secret": "{{ config['client_secret'] }}",
             "refresh_token": "{{ config['refresh_token'] }}",
-            "token_refresh_endpoint": "{{ config['token_refresh_endpoint'] }}"
+            "token_refresh_endpoint": "{{ config['token_refresh_endpoint'] }}",
         }
 
     raise ValueError(f"Unsupported authentication type: {auth_type}")
@@ -952,12 +957,9 @@ def _generate_paginator_config(pagination_type: PaginationType) -> dict[str, Any
             "page_token_option": {
                 "type": "RequestOption",
                 "inject_into": "request_parameter",
-                "field_name": "page"
+                "field_name": "page",
             },
-            "pagination_strategy": {
-                "type": "PageIncrement",
-                "start_from_page": 1
-            }
+            "pagination_strategy": {"type": "PageIncrement", "start_from_page": 1},
         }
     elif pagination_type == PaginationType.OFFSET_INCREMENT:
         return {
@@ -965,12 +967,9 @@ def _generate_paginator_config(pagination_type: PaginationType) -> dict[str, Any
             "page_token_option": {
                 "type": "RequestOption",
                 "inject_into": "request_parameter",
-                "field_name": "offset"
+                "field_name": "offset",
             },
-            "pagination_strategy": {
-                "type": "OffsetIncrement",
-                "page_size": 100
-            }
+            "pagination_strategy": {"type": "OffsetIncrement", "page_size": 100},
         }
     elif pagination_type == PaginationType.CURSOR_PAGINATION:
         return {
@@ -978,13 +977,13 @@ def _generate_paginator_config(pagination_type: PaginationType) -> dict[str, Any
             "page_token_option": {
                 "type": "RequestOption",
                 "inject_into": "request_parameter",
-                "field_name": "cursor"
+                "field_name": "cursor",
             },
             "pagination_strategy": {
                 "type": "CursorPagination",
                 "cursor_value": "{{ response._metadata.next_cursor }}",
-                "stop_condition": "{{ not response._metadata.has_more }}"
-            }
+                "stop_condition": "{{ not response._metadata.has_more }}",
+            },
         }
 
     raise ValueError(f"Unsupported pagination type: {pagination_type}")
@@ -1018,7 +1017,7 @@ def _generate_connection_spec(connector_name: str, auth_type: AuthenticationType
         "type": "object",
         "additionalProperties": True,
         "properties": properties,
-        "required": required
+        "required": required,
     }
 
 
@@ -1031,24 +1030,40 @@ def _generate_schema_loader_config(stream_name: str) -> dict[str, Any]:
             "properties": {
                 "TODO": {
                     "type": "string",
-                    "description": "Replace with actual schema after examining API response"
+                    "description": "Replace with actual schema after examining API response",
                 }
-            }
-        }
+            },
+        },
     }
 
 
 def create_connector_manifest_scaffold(
-    connector_name: Annotated[str, Field(description="Connector name in kebab-case starting with 'source-'")],
+    connector_name: Annotated[
+        str, Field(description="Connector name in kebab-case starting with 'source-'")
+    ],
     api_base_url: Annotated[str, Field(description="Base URL for the API")],
     initial_stream_name: Annotated[str, Field(description="Name of the initial stream to create")],
-    initial_stream_path: Annotated[str, Field(description="API endpoint path for the initial stream")],
-    authentication_type: Annotated[str, Field(description="Authentication method (NoAuth, ApiKeyAuthenticator, BearerAuthenticator, BasicHttpAuthenticator, OAuthAuthenticator)")],
+    initial_stream_path: Annotated[
+        str, Field(description="API endpoint path for the initial stream")
+    ],
+    authentication_type: Annotated[
+        str,
+        Field(
+            description="Authentication method (NoAuth, ApiKeyAuthenticator, BearerAuthenticator, BasicHttpAuthenticator, OAuthAuthenticator)"
+        ),
+    ],
     *,
     primary_key: Annotated[str, Field(description="Primary key field for the stream")] = "TODO",
     http_method: Annotated[str, Field(description="HTTP method for requests")] = "GET",
-    record_selector_path: Annotated[list[str], Field(description="JSONPath for extracting records")] = None,
-    pagination_type: Annotated[str, Field(description="Pagination strategy (none, page_increment, offset_increment, cursor_pagination)")] = "none",
+    record_selector_path: Annotated[
+        list[str] | None, Field(description="JSONPath for extracting records")
+    ] = None,
+    pagination_type: Annotated[
+        str,
+        Field(
+            description="Pagination strategy (none, page_increment, offset_increment, cursor_pagination)"
+        ),
+    ] = "none",
 ) -> ConnectorManifestScaffoldResult:
     """Create a basic connector manifest scaffold with the specified configuration.
 
@@ -1071,54 +1086,51 @@ def create_connector_manifest_scaffold(
             primary_key=primary_key,
             http_method=http_method.upper(),
             record_selector_path=record_selector_path or [],
-            pagination_type=PaginationType(pagination_type)
+            pagination_type=PaginationType(pagination_type),
         )
 
         authenticator_config = _generate_authenticator_config(input_data.authentication_type)
         paginator_config = _generate_paginator_config(input_data.pagination_type)
-        connection_spec = _generate_connection_spec(input_data.connector_name, input_data.authentication_type)
+        connection_spec = _generate_connection_spec(
+            input_data.connector_name, input_data.authentication_type
+        )
         schema_loader_config = _generate_schema_loader_config(input_data.initial_stream_name)
 
-        manifest = {
+        manifest: dict[str, Any] = {
             "version": "4.6.2",
             "type": "DeclarativeSource",
-            "definitions": {
-                "authenticator": authenticator_config
-            },
-            "check": {
-                "type": "CheckStream",
-                "stream_names": [input_data.initial_stream_name]
-            },
-            "streams": [{
-                "type": "DeclarativeStream",
-                "name": input_data.initial_stream_name,
-                "primary_key": [input_data.primary_key],
-                "retriever": {
-                    "type": "SimpleRetriever",
-                    "requester": {
-                        "type": "HttpRequester",
-                        "url_base": input_data.api_base_url,
-                        "path": input_data.initial_stream_path,
-                        "http_method": input_data.http_method,
-                        "authenticator": {
-                            "$ref": "#/definitions/authenticator"
-                        }
+            "definitions": {"authenticator": authenticator_config},
+            "check": {"type": "CheckStream", "stream_names": [input_data.initial_stream_name]},
+            "streams": [
+                {
+                    "type": "DeclarativeStream",
+                    "name": input_data.initial_stream_name,
+                    "primary_key": [input_data.primary_key],
+                    "retriever": {
+                        "type": "SimpleRetriever",
+                        "requester": {
+                            "type": "HttpRequester",
+                            "url_base": input_data.api_base_url,
+                            "path": input_data.initial_stream_path,
+                            "http_method": input_data.http_method,
+                            "authenticator": {"$ref": "#/definitions/authenticator"},
+                        },
+                        "record_selector": {
+                            "type": "RecordSelector",
+                            "extractor": {
+                                "type": "DpathExtractor",
+                                "field_path": input_data.record_selector_path or [],
+                            },
+                        },
                     },
-                    "record_selector": {
-                        "type": "RecordSelector",
-                        "extractor": {
-                            "type": "DpathExtractor",
-                            "field_path": input_data.record_selector_path or []
-                        }
-                    }
-                },
-                "schema_loader": schema_loader_config
-            }],
+                    "schema_loader": schema_loader_config,
+                }
+            ],
             "spec": {
                 "type": "Spec",
                 "documentation_url": f"https://docs.airbyte.com/integrations/sources/{input_data.connector_name}",
-                "connection_specification": connection_spec
-            }
+                "connection_specification": connection_spec,
+            },
         }
 
         if paginator_config:
@@ -1126,10 +1138,16 @@ def create_connector_manifest_scaffold(
         else:
             manifest["streams"][0]["retriever"]["paginator"] = {"type": "NoPagination"}
 
-        manifest_yaml = "# This manifest was generated by the create_connector_manifest_scaffold tool\n"
+        manifest_yaml = (
+            "# This manifest was generated by the create_connector_manifest_scaffold tool\n"
+        )
         manifest_yaml += "# TODO: Review and update the configuration before using in production\n"
-        manifest_yaml += "# TODO: Update primary_key with the actual primary key field from your API\n"
-        manifest_yaml += "# TODO: Update record_selector field_path after examining API response structure\n"
+        manifest_yaml += (
+            "# TODO: Update primary_key with the actual primary key field from your API\n"
+        )
+        manifest_yaml += (
+            "# TODO: Update record_selector field_path after examining API response structure\n"
+        )
         manifest_yaml += "# TODO: Configure incremental sync if your API supports it (see commented example below)\n"
         manifest_yaml += "# TODO: Consider replacing InlineSchemaLoader with static schema for better performance before production\n\n"
 
@@ -1138,16 +1156,18 @@ def create_connector_manifest_scaffold(
         manifest_yaml += "\n# TODO: Uncomment and configure incremental sync when ready\n"
         manifest_yaml += "# incremental_sync:\n"
         manifest_yaml += "#   type: DatetimeBasedCursor\n"
-        manifest_yaml += "#   cursor_field: updated_at  # TODO: Replace with actual timestamp field\n"
-        manifest_yaml += "#   datetime_format: \"%Y-%m-%dT%H:%M:%S%z\"\n"
+        manifest_yaml += (
+            "#   cursor_field: updated_at  # TODO: Replace with actual timestamp field\n"
+        )
+        manifest_yaml += '#   datetime_format: "%Y-%m-%dT%H:%M:%S%z"\n'
         manifest_yaml += "#   start_datetime:\n"
         manifest_yaml += "#     type: MinMaxDatetime\n"
         manifest_yaml += "#     datetime: \"{{ config['start_date'] }}\"\n"
-        manifest_yaml += "#     datetime_format: \"%Y-%m-%d\"\n"
+        manifest_yaml += '#     datetime_format: "%Y-%m-%d"\n'
         manifest_yaml += "#   end_datetime:\n"
         manifest_yaml += "#     type: MinMaxDatetime\n"
-        manifest_yaml += "#     datetime: \"{{ now_utc() }}\"\n"
-        manifest_yaml += "#     datetime_format: \"%Y-%m-%dT%H:%M:%S%z\"\n"
+        manifest_yaml += '#     datetime: "{{ now_utc() }}"\n'
+        manifest_yaml += '#     datetime_format: "%Y-%m-%dT%H:%M:%S%z"\n'
 
         validation_result = validate_manifest(manifest_yaml)
 
@@ -1155,19 +1175,17 @@ def create_connector_manifest_scaffold(
             success=validation_result.is_valid,
             manifest_yaml=manifest_yaml,
             validation_result=validation_result,
-            errors=validation_result.errors if not validation_result.is_valid else []
+            errors=validation_result.errors if not validation_result.is_valid else [],
         )
 
     except ValueError as e:
         return ConnectorManifestScaffoldResult(
-            success=False,
-            errors=[f"Input validation error: {str(e)}"]
+            success=False, errors=[f"Input validation error: {str(e)}"]
         )
     except Exception as e:
         logger.error(f"Error creating manifest scaffold: {e}")
         return ConnectorManifestScaffoldResult(
-            success=False,
-            errors=[f"Manifest generation error: {str(e)}"]
+            success=False, errors=[f"Manifest generation error: {str(e)}"]
         )
 
 
