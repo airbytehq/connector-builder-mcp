@@ -2,12 +2,12 @@
 
 import yaml
 
-from connector_builder_mcp._connector_builder import (
+from connector_builder_mcp._manifest_scaffold import (
     AuthenticationType,
     PaginationType,
     create_connector_manifest_scaffold,
-    validate_manifest,
 )
+from connector_builder_mcp._validation_testing import validate_manifest
 
 
 class TestConnectorManifestScaffold:
