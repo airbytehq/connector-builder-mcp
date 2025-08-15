@@ -40,6 +40,7 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
+
 from connector_builder_mcp._guidance import CONNECTOR_BUILDER_CHECKLIST, TOPIC_MAPPING
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import (
@@ -781,7 +782,6 @@ def _get_connector_language(connector_name: str) -> str | None:
                 return "unknown"
 
     return None
-
 
 
 def get_connector_manifest(
