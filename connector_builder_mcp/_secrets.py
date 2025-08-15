@@ -383,17 +383,18 @@ def populate_dotenv_missing_secrets_stubs(
         if not secrets_to_add:
             return "No secrets found to add"
 
-        existing_secrets = {}
+        local_existing_secrets: dict[str, str] = {}
         if path_obj.exists():
             try:
-                existing_secrets = dotenv_values(secrets_env_file_uris) or {}
+                raw_secrets = dotenv_values(secrets_env_file_uris) or {}
+                local_existing_secrets = {k: v for k, v in raw_secrets.items() if v is not None}
             except Exception as e:
                 logger.error(f"Error reading existing secrets: {e}")
 
-        collisions = [key for key in secrets_to_add if key in existing_secrets]
+        collisions = [key for key in secrets_to_add if key in local_existing_secrets]
         if collisions:
             secrets_info = []
-            for key, value in existing_secrets.items():
+            for key, value in local_existing_secrets.items():
                 secrets_info.append(
                     SecretInfo(
                         key=key,
