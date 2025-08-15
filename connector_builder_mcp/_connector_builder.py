@@ -11,7 +11,7 @@ import pkgutil
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 import requests
 import yaml
