@@ -40,7 +40,6 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
-
 from connector_builder_mcp._guidance import CONNECTOR_BUILDER_CHECKLIST, TOPIC_MAPPING
 from connector_builder_mcp._secrets import hydrate_config, register_secrets_tools
 from connector_builder_mcp._util import (
@@ -295,14 +294,14 @@ def execute_stream_test_read(
         str,
         Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
     ],
-    config: Annotated[
-        dict[str, Any],
-        Field(description="Connector configuration"),
-    ],
     stream_name: Annotated[
         str,
         Field(description="Name of the stream to test"),
     ],
+    config: Annotated[
+        dict[str, Any] | None,
+        Field(description="Connector configuration"),
+    ] = None,
     *,
     max_records: Annotated[
         int,
@@ -332,6 +331,7 @@ def execute_stream_test_read(
     We do not attempt to sanitize record data, as it is expected to be user-defined.
     """
     logger.info(f"Testing stream read for stream: {stream_name}")
+    config = config or {}
 
     try:
         manifest_dict = parse_manifest_input(manifest)
@@ -432,9 +432,9 @@ def execute_record_counts_smoke_test(
         Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
     ],
     config: Annotated[
-        dict[str, Any],
+        dict[str, Any] | None,
         Field(description="Connector configuration"),
-    ],
+    ] = None,
     streams: Annotated[
         str | None,
         Field(
@@ -472,6 +472,7 @@ def execute_record_counts_smoke_test(
     total_streams_successful = 0
     total_records_count = 0
     stream_results: dict[str, StreamSmokeTest] = {}
+    config = config or {}
 
     manifest_dict = parse_manifest_input(manifest)
 
@@ -743,44 +744,44 @@ def _get_topic_specific_docs(topic: str) -> str:
         )
 
 
-def _is_manifest_only_connector(connector_name: str) -> bool:
-    """Check if a connector is manifest-only by querying the registry.
+def _get_connector_language(connector_name: str) -> str | None:
+    """Return the language of the specified connector, or None if the connector does not exist.
 
     Args:
         connector_name: Name of the connector (e.g., 'source-faker')
 
     Returns:
-        True if the connector is manifest-only, False otherwise or on error
+        Language of the connector if found, None if no connector exists by the given name.
     """
+    response = requests.get(_REGISTRY_URL, timeout=30)
     try:
-        response = requests.get(_REGISTRY_URL, timeout=30)
         response.raise_for_status()
-        registry_data = response.json()
+    except requests.HTTPError as e:
+        raise RuntimeError(f"Error fetching connector registry URL: {_REGISTRY_URL}") from e
 
-        for connector_list in [
-            registry_data.get("sources", []),
-            registry_data.get("destinations", []),
-        ]:
-            for connector in connector_list:
-                docker_repo = connector.get("dockerRepository", "")
-                repo_connector_name = docker_repo.replace("airbyte/", "")
+    registry_data = response.json()
 
-                if repo_connector_name == connector_name:
-                    language = connector.get("language")
-                    tags = connector.get("tags", [])
+    for connector_list in [
+        registry_data.get("sources", []),
+        registry_data.get("destinations", []),
+    ]:
+        for connector in connector_list:
+            docker_repo = connector.get("dockerRepository", "")
+            repo_connector_name = docker_repo.replace("airbyte/", "")
 
-                    return (
-                        language == _MANIFEST_ONLY_LANGUAGE
-                        or f"language:{_MANIFEST_ONLY_LANGUAGE}" in tags
-                    )
+            if repo_connector_name == connector_name:
+                if "language" in connector:
+                    return str(connector["language"])
 
-    except Exception as e:
-        logger.warning(f"Failed to fetch registry data for {connector_name}: {e}")
-        return False
-    else:
-        # No exception and no match found.
-        logger.info(f"Connector {connector_name} was not found in the registry.")
-        return False
+                tag: str
+                for tag in connector.get("tags", []):
+                    if tag.startswith("language:"):
+                        return tag.split(":", 1)[1]
+
+                return "unknown"
+
+    return None
+
 
 
 def get_connector_manifest(
@@ -807,13 +808,17 @@ def get_connector_manifest(
     logger.info(f"Getting connector manifest for {connector_name} version {version}")
 
     cleaned_version = version.removeprefix("v")
-    is_manifest_only = _is_manifest_only_connector(connector_name)
+    language = _get_connector_language(connector_name)
+    if language is None:
+        return f"ERROR: Connector '{connector_name}' does not exist."
+
+    is_manifest_only: bool = language == _MANIFEST_ONLY_LANGUAGE
 
     logger.info(
         f"Connector {connector_name} is {'manifest-only' if is_manifest_only else 'not manifest-only'}."
     )
     if not is_manifest_only:
-        return "ERROR: This connector is not manifest-only."
+        return f"ERROR: This connector is not manifest-only. (Language={language})"
 
     manifest_url = f"https://connectors.airbyte.com/metadata/airbyte/{connector_name}/{cleaned_version}/manifest.yaml"
 

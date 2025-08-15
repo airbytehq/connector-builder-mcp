@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "MCP server for Airbyte connector building operations with AI ownership focus"
 authors = [{name = "Airbyte", email = "contact@airbyte.io"}]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "airbyte-cdk>=6.0,<7.0",
     "typing-extensions>=4.14.1",
