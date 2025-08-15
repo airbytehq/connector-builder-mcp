@@ -909,7 +909,7 @@ class ConnectorManifestScaffoldResult(BaseModel):
 
     success: bool
     manifest_yaml: str | None = None
-    validation_result: Union["ManifestValidationResult", None] = None
+    validation_result: ManifestValidationResult | None = None
     errors: list[str] = []
 
 

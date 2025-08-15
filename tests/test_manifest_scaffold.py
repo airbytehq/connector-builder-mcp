@@ -85,10 +85,7 @@ class TestConnectorManifestScaffold:
         assert "TODO" in result.manifest_yaml
 
         manifest_lines = result.manifest_yaml.split("\n")
-        yaml_content = []
-        for line in manifest_lines:
-            if not line.strip().startswith("#"):
-                yaml_content.append(line)
+        yaml_content = [line for line in manifest_lines if not line.strip().startswith("#")]
 
         manifest = yaml.safe_load("\n".join(yaml_content))
         assert manifest["streams"][0]["primary_key"] == ["TODO"]
