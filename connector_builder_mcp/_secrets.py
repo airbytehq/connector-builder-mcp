@@ -58,6 +58,41 @@ def _parse_secrets_uris(secrets_env_file_uris: str | list[str] | None) -> list[s
     return secrets_env_file_uris
 
 
+def _validate_secrets_uris(secrets_env_file_uris: str | list[str] | None) -> list[str]:
+    """Validate secrets URIs and return array of error messages.
+
+    Args:
+        secrets_env_file_uris: String, comma-separated string, or list of URIs
+
+    Returns:
+        List of error messages (empty if all valid)
+    """
+    errors: list[str] = []
+    uris = _parse_secrets_uris(secrets_env_file_uris)
+
+    if not uris:
+        return errors
+
+    for uri in uris:
+        if uri.startswith("pastebin://"):
+            if not os.getenv("PASTEBIN_PASSWORD"):
+                errors.append(
+                    f"Pastebin URL '{uri}' requires PASTEBIN_PASSWORD environment variable to be set"
+                )
+
+            parsed = urlparse(uri.replace("pastebin://", "https://", 1))
+            if "password=" in parsed.query:
+                errors.append(
+                    f"Pastebin URL '{uri}' contains embedded password - this is not allowed for security reasons"
+                )
+        else:
+            path_obj = Path(uri)
+            if not path_obj.is_absolute():
+                errors.append(f"Local file path must be absolute, got relative path: {uri}")
+
+    return errors
+
+
 def _fetch_pastebin_content(url: str) -> str:
     """Fetch content from pastebin URL with password authentication.
 
@@ -102,6 +137,12 @@ def load_secrets(secrets_env_file_uris: str | list[str] | None = None) -> dict[s
     Returns:
         Dictionary of secret key-value pairs from all sources
     """
+    validation_errors = _validate_secrets_uris(secrets_env_file_uris)
+    if validation_errors:
+        for error in validation_errors:
+            logger.error(f"Validation error: {error}")
+        return {}
+
     uris = _parse_secrets_uris(secrets_env_file_uris)
     if not uris:
         return {}
@@ -198,6 +239,13 @@ def list_dotenv_secrets(
     Returns:
         Information about the secrets files and their contents
     """
+    validation_errors = _validate_secrets_uris(secrets_env_file_uris)
+    if validation_errors:
+        error_message = "; ".join(validation_errors)
+        return SecretsFileInfo(
+            file_path=f"Validation failed: {error_message}", exists=False, secrets=[]
+        )
+
     uris = _parse_secrets_uris(secrets_env_file_uris)
     if not uris:
         return SecretsFileInfo(file_path="", exists=False, secrets=[])
@@ -296,6 +344,10 @@ def populate_dotenv_missing_secrets_stubs(
     Returns:
         Message about the operation result
     """
+    validation_errors = _validate_secrets_uris(secrets_env_file_uris)
+    if validation_errors:
+        return f"Validation failed: {'; '.join(validation_errors)}"
+
     if secrets_env_file_uris.startswith("pastebin://"):
         config_paths_list = config_paths.split(",") if config_paths else []
         if not any([manifest, config_paths_list]):
@@ -355,9 +407,6 @@ def populate_dotenv_missing_secrets_stubs(
         return " ".join(result_parts)
 
     path_obj = Path(secrets_env_file_uris)
-    if not path_obj.is_absolute():
-        return f"Error: Path must be absolute, got relative path: {secrets_env_file_uris}"
-
     config_paths_list = config_paths.split(",") if config_paths else []
     if not any([manifest, config_paths_list]):
         return "Error: Must provide either manifest or config_paths"

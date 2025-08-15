@@ -244,7 +244,8 @@ def test_populate_dotenv_missing_secrets_stubs_no_args():
 def test_populate_dotenv_missing_secrets_stubs_relative_path():
     """Test error when relative path is provided."""
     result = populate_dotenv_missing_secrets_stubs("relative/path/.env", config_paths="api_key")
-    assert "Error: Path must be absolute, got relative path: relative/path/.env" in result
+    assert "Validation failed" in result
+    assert "must be absolute" in result
 
 
 def test_populate_dotenv_missing_secrets_stubs_collision_detection():
@@ -382,7 +383,7 @@ def test_load_secrets_pastebin_url_no_password(mock_getenv):
 @patch("connector_builder_mcp._secrets.os.getenv")
 @patch("connector_builder_mcp._secrets.requests.get")
 def test_load_secrets_pastebin_url_with_existing_password_param(mock_get, mock_getenv):
-    """Test loading from pastebin URL that already has password parameter."""
+    """Test loading from pastebin URL with embedded password fails validation."""
     mock_getenv.return_value = "test_password"
     mock_response = mock_get.return_value
     mock_response.text = "api_key=secret123\n"
@@ -390,8 +391,7 @@ def test_load_secrets_pastebin_url_with_existing_password_param(mock_get, mock_g
 
     secrets = load_secrets("pastebin://pastebin.com/abc123?password=existing_pass")
 
-    assert secrets == {"api_key": "secret123"}
-    mock_get.assert_called_with("https://pastebin.com/abc123?password=existing_pass", timeout=30)
+    assert secrets == {}
 
 
 @patch("connector_builder_mcp._secrets.os.getenv")
@@ -437,9 +437,11 @@ def test_list_dotenv_secrets_multiple_sources():
             Path(f2.name).unlink()
 
 
+@patch("connector_builder_mcp._secrets.os.getenv")
 @patch("connector_builder_mcp._secrets._fetch_pastebin_content")
-def test_list_dotenv_secrets_pastebin_url(mock_fetch):
+def test_list_dotenv_secrets_pastebin_url(mock_fetch, mock_getenv):
     """Test listing secrets from pastebin URL."""
+    mock_getenv.return_value = "test_password"
     mock_fetch.return_value = "api_key=secret123\ntoken=\n"
 
     result = list_dotenv_secrets("pastebin://pastebin.com/abc123")
@@ -458,8 +460,10 @@ def test_list_dotenv_secrets_pastebin_url(mock_fetch):
             assert secret.is_set is False
 
 
-def test_populate_dotenv_missing_secrets_stubs_pastebin_url():
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_populate_dotenv_missing_secrets_stubs_pastebin_url(mock_getenv):
     """Test populate stubs with pastebin URL returns instructions."""
+    mock_getenv.return_value = "test_password"
     with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
         mock_load.return_value = {"existing_key": "value"}
 
@@ -476,8 +480,10 @@ def test_populate_dotenv_missing_secrets_stubs_pastebin_url():
         assert "Ensure PASTEBIN_PASSWORD environment variable is set" in result
 
 
-def test_populate_dotenv_missing_secrets_stubs_pastebin_all_present():
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_populate_dotenv_missing_secrets_stubs_pastebin_all_present(mock_getenv):
     """Test populate stubs with pastebin URL when all secrets are present."""
+    mock_getenv.return_value = "test_password"
     with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
         mock_load.return_value = {"key1": "value1", "key2": "value2"}
 
@@ -511,6 +517,97 @@ def test_populate_dotenv_missing_secrets_stubs_readonly_file():
         finally:
             os.chmod(f.name, 0o644)
             Path(f.name).unlink()
+
+
+def test_validate_secrets_uris_absolute_path_valid():
+    """Test validation passes for absolute paths."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+        absolute_path = str(Path(f.name).resolve())
+        errors = _validate_secrets_uris(absolute_path)
+        assert errors == []
+        Path(f.name).unlink()
+
+
+def test_validate_secrets_uris_relative_path_invalid():
+    """Test validation fails for relative paths."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    errors = _validate_secrets_uris("relative/path/.env")
+    assert len(errors) == 1
+    assert "must be absolute" in errors[0]
+    assert "relative/path/.env" in errors[0]
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_validate_secrets_uris_pastebin_no_password(mock_getenv):
+    """Test validation fails for pastebin URL without PASTEBIN_PASSWORD."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    mock_getenv.return_value = None
+    errors = _validate_secrets_uris("pastebin://pastebin.com/abc123")
+    assert len(errors) == 1
+    assert "requires PASTEBIN_PASSWORD environment variable" in errors[0]
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_validate_secrets_uris_pastebin_with_password_valid(mock_getenv):
+    """Test validation passes for pastebin URL with PASTEBIN_PASSWORD set."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    mock_getenv.return_value = "test_password"
+    errors = _validate_secrets_uris("pastebin://pastebin.com/abc123")
+    assert errors == []
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_validate_secrets_uris_pastebin_embedded_password_invalid(mock_getenv):
+    """Test validation fails for pastebin URL with embedded password."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    mock_getenv.return_value = "test_password"
+    errors = _validate_secrets_uris("pastebin://pastebin.com/abc123?password=embedded")
+    assert len(errors) == 1
+    assert "contains embedded password" in errors[0]
+    assert "not allowed for security reasons" in errors[0]
+
+
+def test_validate_secrets_uris_mixed_valid_invalid():
+    """Test validation with mix of valid and invalid URIs."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+        absolute_path = str(Path(f.name).resolve())
+        uris = [absolute_path, "relative/path/.env", "pastebin://pastebin.com/abc123"]
+
+        errors = _validate_secrets_uris(uris)
+        assert len(errors) == 2
+        assert any("must be absolute" in error for error in errors)
+        assert any("requires PASTEBIN_PASSWORD" in error for error in errors)
+
+        Path(f.name).unlink()
+
+
+def test_load_secrets_validation_failure():
+    """Test load_secrets returns empty dict when validation fails."""
+    secrets = load_secrets("relative/path/.env")
+    assert secrets == {}
+
+
+def test_list_dotenv_secrets_validation_failure():
+    """Test list_dotenv_secrets returns error info when validation fails."""
+    result = list_dotenv_secrets("relative/path/.env")
+    assert result.exists is False
+    assert "Validation failed" in result.file_path
+    assert "must be absolute" in result.file_path
+
+
+def test_populate_dotenv_missing_secrets_stubs_validation_failure():
+    """Test populate stubs returns validation error when validation fails."""
+    result = populate_dotenv_missing_secrets_stubs("relative/path/.env", config_paths="api_key")
+    assert "Validation failed" in result
+    assert "must be absolute" in result
 
 
 def test_populate_dotenv_missing_secrets_stubs_readonly_file_no_collision():
