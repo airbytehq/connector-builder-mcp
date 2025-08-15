@@ -35,8 +35,8 @@ def test_load_secrets_existing_file():
         Path(f.name).unlink()
 
 
-def test_hydrate_config_no_dotenv_path():
-    """Test hydration with no dotenv path returns config unchanged."""
+def test_hydrate_config_no_secrets_env_file_uris():
+    """Test hydration with no secrets env file uris returns config unchanged."""
     config = {"host": "localhost", "credentials": {"username": "user"}}
     result = hydrate_config(config)
     assert result == config
@@ -314,3 +314,222 @@ def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
         assert "No secrets found to add" in result
 
         Path(f.name).unlink()
+
+
+def test_load_secrets_comma_separated_string():
+    """Test loading from comma-separated string of file paths."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f1:
+        f1.write("api_key=secret1\n")
+        f1.flush()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f2:
+            f2.write("token=secret2\n")
+            f2.flush()
+
+            secrets = load_secrets(f"{f1.name},{f2.name}")
+
+            assert secrets == {"api_key": "secret1", "token": "secret2"}
+
+            Path(f1.name).unlink()
+            Path(f2.name).unlink()
+
+
+def test_load_secrets_list_of_files():
+    """Test loading from list of file paths."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f1:
+        f1.write("api_key=secret1\n")
+        f1.flush()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f2:
+            f2.write("token=secret2\n")
+            f2.flush()
+
+            secrets = load_secrets([f1.name, f2.name])
+
+            assert secrets == {"api_key": "secret1", "token": "secret2"}
+
+            Path(f1.name).unlink()
+            Path(f2.name).unlink()
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+@patch("connector_builder_mcp._secrets.requests.get")
+def test_load_secrets_pastebin_url_success(mock_get, mock_getenv):
+    """Test loading from pastebin URL with password authentication."""
+    mock_getenv.return_value = "test_password"
+    mock_response = mock_get.return_value
+    mock_response.text = "api_key=secret123\ntoken=token456\n"
+    mock_response.raise_for_status.return_value = None
+
+    secrets = load_secrets("pastebin://pastebin.com/abc123")
+
+    assert secrets == {"api_key": "secret123", "token": "token456"}
+    mock_getenv.assert_called_with("PASTEBIN_PASSWORD")
+    mock_get.assert_called_with("https://pastebin.com/abc123?password=test_password", timeout=30)
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_load_secrets_pastebin_url_no_password(mock_getenv):
+    """Test loading from pastebin URL without PASTEBIN_PASSWORD fails."""
+    mock_getenv.return_value = None
+
+    secrets = load_secrets("pastebin://pastebin.com/abc123")
+
+    assert secrets == {}
+    mock_getenv.assert_called_with("PASTEBIN_PASSWORD")
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+@patch("connector_builder_mcp._secrets.requests.get")
+def test_load_secrets_pastebin_url_with_existing_password_param(mock_get, mock_getenv):
+    """Test loading from pastebin URL that already has password parameter."""
+    mock_getenv.return_value = "test_password"
+    mock_response = mock_get.return_value
+    mock_response.text = "api_key=secret123\n"
+    mock_response.raise_for_status.return_value = None
+
+    secrets = load_secrets("pastebin://pastebin.com/abc123?password=existing_pass")
+
+    assert secrets == {"api_key": "secret123"}
+    mock_get.assert_called_with("https://pastebin.com/abc123?password=existing_pass", timeout=30)
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+@patch("connector_builder_mcp._secrets.requests.get")
+def test_load_secrets_mixed_files_and_pastebin(mock_get, mock_getenv):
+    """Test loading from mix of local files and pastebin URLs."""
+    mock_getenv.return_value = "test_password"
+    mock_response = mock_get.return_value
+    mock_response.text = "pastebin_key=pastebin_secret\n"
+    mock_response.raise_for_status.return_value = None
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("local_key=local_secret\n")
+        f.flush()
+
+        secrets = load_secrets([f.name, "pastebin://pastebin.com/abc123"])
+
+        assert secrets == {"local_key": "local_secret", "pastebin_key": "pastebin_secret"}
+
+        Path(f.name).unlink()
+
+
+def test_list_dotenv_secrets_multiple_sources():
+    """Test listing secrets from multiple sources."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f1:
+        f1.write("api_key=secret1\n")
+        f1.flush()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f2:
+            f2.write("token=secret2\n")
+            f2.flush()
+
+            result = list_dotenv_secrets([f1.name, f2.name])
+
+            assert isinstance(result, SecretsFileInfo)
+            assert result.exists is True
+            assert len(result.secrets) == 2
+
+            secret_keys = {s.key for s in result.secrets}
+            assert secret_keys == {"api_key", "token"}
+
+            Path(f1.name).unlink()
+            Path(f2.name).unlink()
+
+
+@patch("connector_builder_mcp._secrets._fetch_pastebin_content")
+def test_list_dotenv_secrets_pastebin_url(mock_fetch):
+    """Test listing secrets from pastebin URL."""
+    mock_fetch.return_value = "api_key=secret123\ntoken=\n"
+
+    result = list_dotenv_secrets("pastebin://pastebin.com/abc123")
+
+    assert isinstance(result, SecretsFileInfo)
+    assert result.exists is True
+    assert len(result.secrets) == 2
+
+    secret_keys = {s.key for s in result.secrets}
+    assert secret_keys == {"api_key", "token"}
+
+    for secret in result.secrets:
+        if secret.key == "api_key":
+            assert secret.is_set is True
+        elif secret.key == "token":
+            assert secret.is_set is False
+
+
+def test_populate_dotenv_missing_secrets_stubs_pastebin_url():
+    """Test populate stubs with pastebin URL returns instructions."""
+    with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
+        mock_load.return_value = {"existing_key": "value"}
+
+        result = populate_dotenv_missing_secrets_stubs(
+            "pastebin://pastebin.com/abc123", config_paths="existing_key,missing_key"
+        )
+
+        assert "Existing secrets found: existing_key(set)" in result
+        assert "Missing secrets: missing_key" in result
+        assert "Instructions: Pastebin URLs are immutable" in result
+        assert "Create a new pastebin with the missing secrets" in result
+        assert "Set a password for the pastebin" in result
+        assert "Use the new pastebin URL with pastebin:// scheme" in result
+        assert "Ensure PASTEBIN_PASSWORD environment variable is set" in result
+
+
+def test_populate_dotenv_missing_secrets_stubs_pastebin_all_present():
+    """Test populate stubs with pastebin URL when all secrets are present."""
+    with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
+        mock_load.return_value = {"key1": "value1", "key2": "value2"}
+
+        result = populate_dotenv_missing_secrets_stubs(
+            "pastebin://pastebin.com/abc123", config_paths="key1,key2"
+        )
+
+        assert "All requested secrets are already present in the pastebin" in result
+        assert "Instructions:" not in result
+
+
+def test_populate_dotenv_missing_secrets_stubs_readonly_file():
+    """Test populate stubs with read-only file path returns collision error first."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("existing_key=value\n")
+        f.flush()
+
+        import os
+
+        os.chmod(f.name, 0o444)
+
+        try:
+            result = populate_dotenv_missing_secrets_stubs(
+                str(Path(f.name).resolve()), config_paths="existing_key,missing_key"
+            )
+
+            assert (
+                "Error: Cannot create stubs for secrets that already exist: existing_key" in result
+            )
+
+        finally:
+            os.chmod(f.name, 0o644)
+            Path(f.name).unlink()
+
+
+def test_populate_dotenv_missing_secrets_stubs_readonly_file_no_collision():
+    """Test populate stubs with read-only file path returns write error when no collisions."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("different_key=value\n")
+        f.flush()
+
+        import os
+
+        os.chmod(f.name, 0o444)
+
+        try:
+            result = populate_dotenv_missing_secrets_stubs(
+                str(Path(f.name).resolve()), config_paths="new_key"
+            )
+
+            assert "new_key" in result
+
+        finally:
+            os.chmod(f.name, 0o644)
+            Path(f.name).unlink()
