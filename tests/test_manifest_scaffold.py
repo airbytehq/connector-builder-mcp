@@ -104,9 +104,7 @@ class TestConnectorManifestScaffold:
             )
 
             assert isinstance(result, str), f"Expected string, got {type(result)}"
-            assert not result.startswith("ERROR:"), (
-                f"Failed with auth_type={auth_type}: {result}"
-            )
+            assert not result.startswith("ERROR:"), f"Failed with auth_type={auth_type}: {result}"
 
             validation_result = validate_manifest(result)
             assert validation_result.is_valid, (

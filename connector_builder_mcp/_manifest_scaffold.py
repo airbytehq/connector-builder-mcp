@@ -144,7 +144,7 @@ def _generate_authenticator_yaml(auth_type: AuthenticationType) -> str:
 
 def _generate_connection_spec_yaml(connector_name: str, auth_type: AuthenticationType) -> str:
     """Generate connection specification YAML with proper indentation."""
-    title = connector_name.replace('-', ' ').title()
+    title = connector_name.replace("-", " ").title()
 
     if auth_type == AuthenticationType.NO_AUTH:
         return f"""    $schema: http://json-schema.org/draft-07/schema#
@@ -248,6 +248,7 @@ def create_connector_manifest_scaffold(
 
     try:
         import re
+
         if not re.match(r"^source-[a-z0-9]+(-[a-z0-9]+)*$", connector_name):
             return "ERROR: Input validation error: Connector name must be in kebab-case starting with 'source-'"
 

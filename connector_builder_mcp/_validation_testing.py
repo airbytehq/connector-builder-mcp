@@ -317,10 +317,18 @@ def execute_stream_test_read(
 
         for message in output:  # type: ignore[attr-defined]
             if isinstance(message, AirbyteMessage):
-                if message.type == Type.RECORD and message.record and message.record.stream == stream_name:
+                if (
+                    message.type == Type.RECORD
+                    and message.record
+                    and message.record.stream == stream_name
+                ):
                     if include_records_data:
                         records_data.append(message.record.data)
-                elif message.type == Type.TRACE and message.trace and message.trace.type.value == "STREAM_STATUS":
+                elif (
+                    message.type == Type.TRACE
+                    and message.trace
+                    and message.trace.type.value == "STREAM_STATUS"
+                ):
                     if hasattr(message.trace, "stream_status") and message.trace.stream_status:
                         slice_data = getattr(message.trace.stream_status, "slice", None)
                         if slice_data:
@@ -412,7 +420,9 @@ def execute_record_counts_smoke_test(
         stream_names = [s.strip() for s in streams]
     else:
         available_streams = manifest_dict.get("streams", [])
-        stream_names = [stream.get("name", f"stream_{i}") for i, stream in enumerate(available_streams)]
+        stream_names = [
+            stream.get("name", f"stream_{i}") for i, stream in enumerate(available_streams)
+        ]
 
     logger.info(f"Testing {len(stream_names)} streams: {stream_names}")
 
