@@ -129,7 +129,9 @@ def _generate_authenticator_yaml(auth_type: AuthenticationType) -> str:
     token_refresh_endpoint: "{{ config['token_refresh_endpoint'] }}\""""
 
     valid_auth_types = [at.value for at in AuthenticationType]
-    raise ValueError(f"Unsupported authentication type: {auth_type}. Must be one of: {valid_auth_types}")
+    raise ValueError(
+        f"Unsupported authentication type: {auth_type}. Must be one of: {valid_auth_types}"
+    )
 
 
 def _generate_connection_spec_yaml(connector_name: str, auth_type: AuthenticationType) -> str:
@@ -143,17 +145,14 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
     additionalProperties: true"""
 
     auth_configs = {
-        AuthenticationType.NO_AUTH: (
-            "    properties: {}",
-            "    required: []"
-        ),
+        AuthenticationType.NO_AUTH: ("    properties: {}", "    required: []"),
         AuthenticationType.API_KEY: (
             """    properties:
       api_key:
         type: string
         airbyte_secret: true""",
             """    required:
-      - api_key"""
+      - api_key""",
         ),
         AuthenticationType.BEARER_TOKEN: (
             """    properties:
@@ -161,7 +160,7 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
         type: string
         airbyte_secret: true""",
             """    required:
-      - api_token"""
+      - api_token""",
         ),
         AuthenticationType.BASIC_HTTP: (
             """    properties:
@@ -172,7 +171,7 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
         airbyte_secret: true""",
             """    required:
       - username
-      - password"""
+      - password""",
         ),
         AuthenticationType.OAUTH: (
             """    properties:
@@ -190,13 +189,15 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
       - client_id
       - client_secret
       - refresh_token
-      - token_refresh_endpoint"""
-        )
+      - token_refresh_endpoint""",
+        ),
     }
 
     if auth_type not in auth_configs:
         valid_auth_types = [at.value for at in AuthenticationType]
-        raise ValueError(f"Unsupported authentication type: {auth_type}. Must be one of: {valid_auth_types}")
+        raise ValueError(
+            f"Unsupported authentication type: {auth_type}. Must be one of: {valid_auth_types}"
+        )
 
     properties, required = auth_configs[auth_type]
     return f"""{base_spec}
