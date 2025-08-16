@@ -87,27 +87,25 @@ streams:
             TODO:  # TODO: Replace with actual schema after examining API response - consider static schema for production performance
               type: string
               description: "Replace with actual schema after examining API response"
+    # TODO: Uncomment and configure incremental sync when known
+    # incremental_sync:
+    #   type: DatetimeBasedCursor
+    #   cursor_field: updated_at  # TODO: Replace with actual timestamp field
+    #   datetime_format: "%Y-%m-%dT%H:%M:%S%z"
+    #   start_datetime:
+    #     type: MinMaxDatetime
+    #     datetime: "{{ config['start_date'] }}"
+    #     datetime_format: "%Y-%m-%d"
+    #   end_datetime:
+    #     type: MinMaxDatetime
+    #     datetime: "{{ now_utc() }}"
+    #     datetime_format: "%Y-%m-%dT%H:%M:%S%z"
 
 spec:
   type: Spec
   documentation_url: https://docs.airbyte.com/integrations/sources/{connector_name}
   connection_specification:
 {spec_yaml}
-
-
-# TODO: Uncomment and configure incremental sync when ready
-# incremental_sync:
-#   type: DatetimeBasedCursor
-#   cursor_field: updated_at  # TODO: Replace with actual timestamp field
-#   datetime_format: "%Y-%m-%dT%H:%M:%S%z"
-#   start_datetime:
-#     type: MinMaxDatetime
-#     datetime: "{{ config['start_date'] }}"
-#     datetime_format: "%Y-%m-%d"
-#   end_datetime:
-#     type: MinMaxDatetime
-#     datetime: "{{ now_utc() }}"
-#     datetime_format: "%Y-%m-%dT%H:%M:%S%z"
 """
 
 
@@ -143,59 +141,46 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
     """Generate connection specification YAML with proper indentation."""
     title = connector_name.replace("-", " ").title()
 
-    if auth_type == AuthenticationType.NO_AUTH:
-        return f"""    $schema: http://json-schema.org/draft-07/schema#
+    # Base spec structure
+    base_spec = f"""    $schema: http://json-schema.org/draft-07/schema#
     title: {title} Spec
     type: object
-    additionalProperties: true
-    properties: {{}}
-    required: []"""
+    additionalProperties: true"""
 
-    elif auth_type == AuthenticationType.API_KEY:
-        return f"""    $schema: http://json-schema.org/draft-07/schema#
-    title: {title} Spec
-    type: object
-    additionalProperties: true
-    properties:
+    auth_configs = {
+        AuthenticationType.NO_AUTH: (
+            "    properties: {}",
+            "    required: []"
+        ),
+        AuthenticationType.API_KEY: (
+            """    properties:
       api_key:
         type: string
-        airbyte_secret: true
-    required:
+        airbyte_secret: true""",
+            """    required:
       - api_key"""
-
-    elif auth_type == AuthenticationType.BEARER_TOKEN:
-        return f"""    $schema: http://json-schema.org/draft-07/schema#
-    title: {title} Spec
-    type: object
-    additionalProperties: true
-    properties:
+        ),
+        AuthenticationType.BEARER_TOKEN: (
+            """    properties:
       api_token:
         type: string
-        airbyte_secret: true
-    required:
+        airbyte_secret: true""",
+            """    required:
       - api_token"""
-
-    elif auth_type == AuthenticationType.BASIC_HTTP:
-        return f"""    $schema: http://json-schema.org/draft-07/schema#
-    title: {title} Spec
-    type: object
-    additionalProperties: true
-    properties:
+        ),
+        AuthenticationType.BASIC_HTTP: (
+            """    properties:
       username:
         type: string
       password:
         type: string
-        airbyte_secret: true
-    required:
+        airbyte_secret: true""",
+            """    required:
       - username
       - password"""
-
-    elif auth_type == AuthenticationType.OAUTH:
-        return f"""    $schema: http://json-schema.org/draft-07/schema#
-    title: {title} Spec
-    type: object
-    additionalProperties: true
-    properties:
+        ),
+        AuthenticationType.OAUTH: (
+            """    properties:
       client_id:
         type: string
       client_secret:
@@ -205,14 +190,22 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
         type: string
         airbyte_secret: true
       token_refresh_endpoint:
-        type: string
-    required:
+        type: string""",
+            """    required:
       - client_id
       - client_secret
       - refresh_token
       - token_refresh_endpoint"""
+        )
+    }
 
-    raise ValueError(f"Unsupported authentication type: {auth_type}")
+    if auth_type not in auth_configs:
+        raise ValueError(f"Unsupported authentication type: {auth_type}")
+
+    properties, required = auth_configs[auth_type]
+    return f"""{base_spec}
+{properties}
+{required}"""
 
 
 def create_connector_manifest_scaffold(
