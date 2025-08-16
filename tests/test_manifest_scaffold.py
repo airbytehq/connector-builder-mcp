@@ -68,7 +68,7 @@ class TestConnectorManifestScaffold:
         assert isinstance(result, str)
         assert not result.startswith("ERROR:")
         assert "NoPagination" in result
-        assert "# TODO: Uncomment and configure pagination when needed" in result
+        assert "# TODO: Uncomment and configure pagination when known" in result
         assert "# paginator:" in result
         assert "#   type: DefaultPaginator" in result
 
