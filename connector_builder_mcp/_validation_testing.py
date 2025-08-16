@@ -1,15 +1,22 @@
 """Validation and testing tools for Airbyte connector manifests."""
 
-import csv
-import json
 import logging
 import pkgutil
 import time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-import requests
-from airbyte_cdk.sources.declarative.manifest_declarative_source import ManifestDeclarativeSource
+from jsonschema import ValidationError, validate
+from pydantic import BaseModel, Field
+
+from airbyte_cdk.connector_builder.connector_builder_handler import (
+    TestLimits,
+    create_source,
+    full_resolve_manifest,
+    get_limits,
+    resolve_manifest,
+)
+from airbyte_cdk.models import AirbyteMessage, ConfiguredAirbyteCatalog, Type
 from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer import (
     ManifestComponentTransformer,
 )
@@ -19,20 +26,10 @@ from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import 
 from airbyte_cdk.test.catalog_builder import CatalogBuilder
 from airbyte_cdk.test.entrypoint_wrapper import EntrypointOutput, read
 from airbyte_cdk.test.state_builder import StateBuilder
-from airbyte_cdk.utils.traced_exception import AirbyteTracedException
-from airbyte_cdk.models import AirbyteMessage, ConfiguredAirbyteCatalog, Type
-from jsonschema import ValidationError, validate
-from pydantic import BaseModel, Field
 
-from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
 from connector_builder_mcp._secrets import hydrate_config
-from airbyte_cdk.connector_builder.connector_builder_handler import (
-    TestLimits,
-    create_source,
-    full_resolve_manifest,
-    get_limits,
-    resolve_manifest,
-)
+from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
+
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +98,10 @@ def _get_declarative_component_schema() -> dict[str, Any]:
 
         import yaml
 
-        return yaml.safe_load(schema_text.decode("utf-8"))
+        schema_data = yaml.safe_load(schema_text.decode("utf-8"))
+        if isinstance(schema_data, dict):
+            return schema_data
+        return {}
     except Exception as e:
         logger.warning(f"Could not load declarative component schema: {e}")
         return {}
@@ -120,10 +120,12 @@ def _format_validation_error(error: ValidationError) -> str:
             detailed_error += f"\n    - At '{ctx_path}': {ctx_error.message}"
 
     if hasattr(error, "schema") and error.schema:
-        if "description" in error.schema:
-            detailed_error += f"\n  Expected: {error.schema['description']}"
-        elif "type" in error.schema:
-            detailed_error += f"\n  Expected type: {error.schema['type']}"
+        schema = error.schema
+        if isinstance(schema, dict):
+            if "description" in schema:
+                detailed_error += f"\n  Expected: {schema['description']}"
+            elif "type" in schema:
+                detailed_error += f"\n  Expected type: {schema['type']}"
 
     if error.instance is not None:
         instance_str = str(error.instance)
@@ -309,12 +311,12 @@ def execute_stream_test_read(
         records_data = []
         slices = []
 
-        for message in output:
+        for message in output:  # type: ignore[attr-defined]
             if isinstance(message, AirbyteMessage):
-                if message.type == Type.RECORD and message.record.stream == stream_name:
+                if message.type == Type.RECORD and message.record and message.record.stream == stream_name:
                     if include_records_data:
                         records_data.append(message.record.data)
-                elif message.type == Type.TRACE and message.trace.type.value == "STREAM_STATUS":
+                elif message.type == Type.TRACE and message.trace and message.trace.type.value == "STREAM_STATUS":
                     if hasattr(message.trace, "stream_status") and message.trace.stream_status:
                         slice_data = getattr(message.trace.stream_status, "slice", None)
                         if slice_data:
@@ -398,19 +400,6 @@ def execute_record_counts_smoke_test(
     manifest_dict = parse_manifest_input(manifest)
 
     config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
-    config_with_manifest = {
-        **config,
-        "__injected_declarative_manifest": manifest_dict,
-        "__test_read_config": {
-            "max_records": max_records,
-            "max_pages_per_slice": 10,
-            "max_slices": 10,
-            "max_streams": 100,
-        },
-    }
-
-    limits = get_limits(config_with_manifest)
-    source = create_source(config_with_manifest, limits)
 
     stream_names: list[str]
     if isinstance(streams, str):

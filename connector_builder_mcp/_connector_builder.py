@@ -10,36 +10,24 @@ fully control the connector development workflow including testing and PR creati
 import csv
 import logging
 from pathlib import Path
-from typing import Annotated, Any, Literal
-from enum import Enum
+from typing import Annotated
 
 import requests
-import yaml
 from fastmcp import FastMCP
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from connector_builder_mcp._guidance import CONNECTOR_BUILDER_CHECKLIST, TOPIC_MAPPING
 from connector_builder_mcp._manifest_scaffold import (
-    AuthenticationType,
-    ConnectorManifestScaffoldInput,
-    ConnectorManifestScaffoldResult,
-    PaginationType,
     create_connector_manifest_scaffold,
 )
 from connector_builder_mcp._secrets import register_secrets_tools
-from connector_builder_mcp._util import parse_manifest_input
 from connector_builder_mcp._validation_testing import (
-    ManifestValidationResult,
     execute_dynamic_manifest_resolution_test,
     execute_record_counts_smoke_test,
     execute_stream_test_read,
     validate_manifest,
 )
-from airbyte_cdk.connector_builder.connector_builder_handler import (
-    TestLimits,
-    create_source,
-    full_resolve_manifest,
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -47,74 +35,6 @@ _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
 _MANIFEST_SCHEMA_URL = "https://raw.githubusercontent.com/airbytehq/airbyte/master/airbyte-cdk/python/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
 _HTTP_OK = 200
-
-
-def execute_dynamic_manifest_resolution_test(
-    manifest: Annotated[
-        str,
-        Field(
-            description="The connector manifest with dynamic elements to resolve. "
-            "Can be raw YAML content or path to YAML file"
-        ),
-    ],
-    config: Annotated[
-        dict[str, Any] | None,
-        Field(description="Optional connector configuration"),
-    ] = None,
-) -> dict[str, Any] | Literal["Failed to resolve manifest"]:
-    """Get the resolved connector manifest, expanded with detected dynamic streams and schemas.
-
-    This tool is helpful for discovering dynamic streams and schemas. This should not replace the
-    original manifest, but it can provide helpful information to understand how the manifest will
-    be resolved and what streams will be available at runtime.
-
-    Args:
-        manifest: The connector manifest to resolve. Can be raw YAML content or path to YAML file
-        config: Optional configuration for resolution
-
-    TODO:
-    - Research: Is there any reason to ever get the non-fully resolved manifest?
-
-    Returns:
-        Resolved manifest or error message
-    """
-    logger.info("Getting resolved manifest")
-
-    try:
-        manifest_dict = parse_manifest_input(manifest)
-
-        if config is None:
-            config = {}
-
-        config_with_manifest = {
-            **config,
-            "__injected_declarative_manifest": manifest_dict,
-        }
-
-        limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
-
-        source = create_source(config_with_manifest, limits)
-        result = full_resolve_manifest(
-            source,
-            limits,
-        )
-
-        if (
-            result.type.value == "RECORD"
-            and result.record is not None
-            and result.record.data is not None
-        ):
-            manifest_data = result.record.data.get("manifest", {})
-            if isinstance(manifest_data, dict):
-                return manifest_data
-            return {}
-
-        return "Failed to resolve manifest"
-
-    except Exception as e:
-        logger.error(f"Error resolving manifest: {e}")
-        return "Failed to resolve manifest"
-
 
 
 def get_connector_builder_checklist() -> str:
@@ -312,8 +232,6 @@ def get_manifest_yaml_json_schema() -> str:
     raise RuntimeError(
         "Something went wrong. Expected success or exception but neither occurred."
     )  # pragma: no cover # This line should not be reached
-
-
 
 
 def find_connectors_by_class_name(class_names: str) -> list[str]:
