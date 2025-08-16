@@ -114,24 +114,28 @@ def _format_validation_error(error: ValidationError) -> str:
     detailed_error = f"Validation error at '{path}': {error.message}"
 
     if error.context:
-        detailed_error += "\n  Context errors:"
-        for ctx_error in error.context:
-            ctx_path = " -> ".join(str(p) for p in ctx_error.absolute_path) if ctx_error.absolute_path else "root"
-            detailed_error += f"\n    - At '{ctx_path}': {ctx_error.message}"
+        context_errors = [
+            f"\n    - At '{' -> '.join(str(p) for p in ctx_error.absolute_path) if ctx_error.absolute_path else 'root'}': {ctx_error.message}"
+            for ctx_error in error.context
+        ]
+        detailed_error += "\n  Context errors:" + "".join(context_errors)
 
+    additional_info = []
     if hasattr(error, "schema") and error.schema:
         schema = error.schema
         if isinstance(schema, dict):
             if "description" in schema:
-                detailed_error += f"\n  Expected: {schema['description']}"
+                additional_info.append(f"\n  Expected: {schema['description']}")
             elif "type" in schema:
-                detailed_error += f"\n  Expected type: {schema['type']}"
+                additional_info.append(f"\n  Expected type: {schema['type']}")
 
     if error.instance is not None:
         instance_str = str(error.instance)
         if len(instance_str) > 100:
             instance_str = instance_str[:100] + "..."
-        detailed_error += f"\n  Actual value: {instance_str}"
+        additional_info.append(f"\n  Actual value: {instance_str}")
+
+    detailed_error += "".join(additional_info)
 
     return detailed_error
 
