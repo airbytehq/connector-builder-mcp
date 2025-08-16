@@ -80,13 +80,7 @@ streams:
       #     type: PageIncrement
       #     start_from_page: 1
       schema_loader:
-        type: InlineSchemaLoader
-        schema:
-          type: object
-          properties:
-            TODO:  # TODO: Replace with actual schema after examining API response - consider static schema for production performance
-              type: string
-              description: "Replace with actual schema after examining API response"
+        type: DynamicSchemaLoader  # TODO: Consider switching to static schema for production performance
     # TODO: Uncomment and configure incremental sync when known
     # incremental_sync:
     #   type: DatetimeBasedCursor
@@ -134,7 +128,8 @@ def _generate_authenticator_yaml(auth_type: AuthenticationType) -> str:
     refresh_token: "{{ config['refresh_token'] }}"
     token_refresh_endpoint: "{{ config['token_refresh_endpoint'] }}\""""
 
-    raise ValueError(f"Unsupported authentication type: {auth_type}")
+    valid_auth_types = [at.value for at in AuthenticationType]
+    raise ValueError(f"Unsupported authentication type: {auth_type}. Must be one of: {valid_auth_types}")
 
 
 def _generate_connection_spec_yaml(connector_name: str, auth_type: AuthenticationType) -> str:
@@ -200,7 +195,8 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
     }
 
     if auth_type not in auth_configs:
-        raise ValueError(f"Unsupported authentication type: {auth_type}")
+        valid_auth_types = [at.value for at in AuthenticationType]
+        raise ValueError(f"Unsupported authentication type: {auth_type}. Must be one of: {valid_auth_types}")
 
     properties, required = auth_configs[auth_type]
     return f"""{base_spec}

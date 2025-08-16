@@ -123,7 +123,7 @@ class TestConnectorManifestScaffold:
 
         assert isinstance(result, str)
         assert not result.startswith("ERROR:")
-        assert "InlineSchemaLoader" in result
+        assert "DynamicSchemaLoader" in result
         assert "TODO" in result
 
     def test_incremental_sync_todo_comments(self):
