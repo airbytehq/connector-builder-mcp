@@ -258,8 +258,6 @@ def list_dotenv_secrets(
             content = _fetch_pastebin_content(uri)
             if content:
                 try:
-                    from io import StringIO
-
                     secrets = dotenv_values(stream=StringIO(content))
                     for key, value in (secrets or {}).items():
                         secrets_info.append(
@@ -374,7 +372,7 @@ def populate_dotenv_missing_secrets_stubs(
             secrets_info.append(
                 SecretInfo(
                     key=key,
-                    is_set=bool(value and value.strip() and not value.strip().startswith("#")),
+                    is_set=_is_secret_set(value),
                 )
             )
 
@@ -386,7 +384,7 @@ def populate_dotenv_missing_secrets_stubs(
 
         if existing_requested_keys:
             existing_summary = [
-                f"{key}({'set' if existing_secrets.get(key, '').strip() and not existing_secrets.get(key, '').strip().startswith('#') else 'unset'})"
+                f"{key}({'set' if _is_secret_set(existing_secrets.get(key, '')) else 'unset'})"
                 for key in existing_requested_keys
             ]
             result_parts.append(f"Existing secrets found: {', '.join(existing_summary)}")
@@ -447,7 +445,7 @@ def populate_dotenv_missing_secrets_stubs(
                 secrets_info.append(
                     SecretInfo(
                         key=key,
-                        is_set=bool(value and value.strip() and not value.strip().startswith("#")),
+                        is_set=_is_secret_set(value),
                     )
                 )
 
@@ -495,6 +493,18 @@ def _extract_secrets_names_from_manifest(manifest: dict[str, Any]) -> list[str]:
         logger.warning(f"Error extracting secrets from manifest: {e}")
 
     return secrets
+
+
+def _is_secret_set(value: str | None) -> bool:
+    """Check if a secret value is considered 'set' (not empty, not a comment).
+    
+    Args:
+        value: The secret value to check
+        
+    Returns:
+        True if the secret is set, False otherwise
+    """
+    return bool(value and value.strip() and not value.strip().startswith("#"))
 
 
 def _config_path_to_dotenv_key(config_path: str) -> str:
