@@ -356,8 +356,8 @@ def test_load_secrets_list_of_files():
 
 @patch("connector_builder_mcp._secrets.os.getenv")
 @patch("connector_builder_mcp._secrets.requests.get")
-def test_load_secrets_pastebin_url_success(mock_get, mock_getenv):
-    """Test loading from pastebin URL with password authentication."""
+def test_load_secrets_privatebin_url_success(mock_get, mock_getenv):
+    """Test loading from privatebin URL with password authentication."""
     mock_getenv.return_value = "test_password"
     mock_response = mock_get.return_value
     mock_response.text = "api_key=secret123\ntoken=token456\n"
@@ -371,8 +371,8 @@ def test_load_secrets_pastebin_url_success(mock_get, mock_getenv):
 
 
 @patch("connector_builder_mcp._secrets.os.getenv")
-def test_load_secrets_pastebin_url_no_password(mock_getenv):
-    """Test loading from pastebin URL without PASTEBIN_PASSWORD fails."""
+def test_load_secrets_privatebin_url_no_password(mock_getenv):
+    """Test loading from privatebin URL without PASTEBIN_PASSWORD fails."""
     mock_getenv.return_value = None
 
     secrets = load_secrets("pastebin://pastebin.com/abc123")
@@ -383,8 +383,8 @@ def test_load_secrets_pastebin_url_no_password(mock_getenv):
 
 @patch("connector_builder_mcp._secrets.os.getenv")
 @patch("connector_builder_mcp._secrets.requests.get")
-def test_load_secrets_pastebin_url_with_existing_password_param(mock_get, mock_getenv):
-    """Test loading from pastebin URL with embedded password fails validation."""
+def test_load_secrets_privatebin_url_with_existing_password_param(mock_get, mock_getenv):
+    """Test loading from privatebin URL with embedded password fails validation."""
     mock_getenv.return_value = "test_password"
     mock_response = mock_get.return_value
     mock_response.text = "api_key=secret123\n"
@@ -397,11 +397,11 @@ def test_load_secrets_pastebin_url_with_existing_password_param(mock_get, mock_g
 
 @patch("connector_builder_mcp._secrets.os.getenv")
 @patch("connector_builder_mcp._secrets.requests.get")
-def test_load_secrets_mixed_files_and_pastebin(mock_get, mock_getenv):
-    """Test loading from mix of local files and pastebin URLs."""
+def test_load_secrets_mixed_files_and_privatebin(mock_get, mock_getenv):
+    """Test loading from mix of local files and privatebin URLs."""
     mock_getenv.return_value = "test_password"
     mock_response = mock_get.return_value
-    mock_response.text = "pastebin_key=pastebin_secret\n"
+    mock_response.text = "privatebin_key=privatebin_secret\n"
     mock_response.raise_for_status.return_value = None
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
@@ -410,7 +410,7 @@ def test_load_secrets_mixed_files_and_pastebin(mock_get, mock_getenv):
 
         secrets = load_secrets([f.name, "pastebin://pastebin.com/abc123"])
 
-        assert secrets == {"local_key": "local_secret", "pastebin_key": "pastebin_secret"}
+        assert secrets == {"local_key": "local_secret", "privatebin_key": "privatebin_secret"}
 
         Path(f.name).unlink()
 
@@ -439,9 +439,9 @@ def test_list_dotenv_secrets_multiple_sources():
 
 
 @patch("connector_builder_mcp._secrets.os.getenv")
-@patch("connector_builder_mcp._secrets._fetch_pastebin_content")
-def test_list_dotenv_secrets_pastebin_url(mock_fetch, mock_getenv):
-    """Test listing secrets from pastebin URL."""
+@patch("connector_builder_mcp._secrets._fetch_privatebin_content")
+def test_list_dotenv_secrets_privatebin_url(mock_fetch, mock_getenv):
+    """Test listing secrets from privatebin URL."""
     mock_getenv.return_value = "test_password"
     mock_fetch.return_value = "api_key=secret123\ntoken=\n"
 
@@ -462,8 +462,8 @@ def test_list_dotenv_secrets_pastebin_url(mock_fetch, mock_getenv):
 
 
 @patch("connector_builder_mcp._secrets.os.getenv")
-def test_populate_dotenv_missing_secrets_stubs_pastebin_url(mock_getenv):
-    """Test populate stubs with pastebin URL returns instructions."""
+def test_populate_dotenv_missing_secrets_stubs_privatebin_url(mock_getenv):
+    """Test populate stubs with privatebin URL returns instructions."""
     mock_getenv.return_value = "test_password"
     with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
         mock_load.return_value = {"existing_key": "value"}
@@ -474,16 +474,16 @@ def test_populate_dotenv_missing_secrets_stubs_pastebin_url(mock_getenv):
 
         assert "Existing secrets found: existing_key(set)" in result
         assert "Missing secrets: missing_key" in result
-        assert "Instructions: Pastebin URLs are immutable" in result
-        assert "Create a new pastebin with the missing secrets" in result
-        assert "Set a password for the pastebin" in result
-        assert "Use the new pastebin URL with pastebin:// scheme" in result
+        assert "Instructions: Privatebin URLs are immutable" in result
+        assert "Create a new privatebin with the missing secrets" in result
+        assert "Set a password for the privatebin" in result
+        assert "Use the new privatebin URL with pastebin:// scheme" in result
         assert "Ensure PASTEBIN_PASSWORD environment variable is set" in result
 
 
 @patch("connector_builder_mcp._secrets.os.getenv")
-def test_populate_dotenv_missing_secrets_stubs_pastebin_all_present(mock_getenv):
-    """Test populate stubs with pastebin URL when all secrets are present."""
+def test_populate_dotenv_missing_secrets_stubs_privatebin_all_present(mock_getenv):
+    """Test populate stubs with privatebin URL when all secrets are present."""
     mock_getenv.return_value = "test_password"
     with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
         mock_load.return_value = {"key1": "value1", "key2": "value2"}
@@ -492,7 +492,7 @@ def test_populate_dotenv_missing_secrets_stubs_pastebin_all_present(mock_getenv)
             "pastebin://pastebin.com/abc123", config_paths="key1,key2"
         )
 
-        assert "All requested secrets are already present in the pastebin" in result
+        assert "All requested secrets are already present in the privatebin" in result
         assert "Instructions:" not in result
 
 

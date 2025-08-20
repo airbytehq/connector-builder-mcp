@@ -1,8 +1,8 @@
-"""Secrets management for connector configurations using dotenv files and pastebin URLs.
+"""Secrets management for connector configurations using dotenv files and privatebin URLs.
 
-This module provides stateless tools for managing secrets in .env files and pastebin URLs without
+This module provides stateless tools for managing secrets in .env files and privatebin URLs without
 exposing actual secret values to the LLM. All functions require explicit dotenv
-file paths or pastebin URLs to be passed by the caller.
+file paths or privatebin URLs to be passed by the caller.
 """
 
 import logging
@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlparse
 
+import privatebin
 import requests
 from dotenv import dotenv_values, set_key
 from fastmcp import FastMCP
@@ -77,13 +78,13 @@ def _validate_secrets_uris(secrets_env_file_uris: str | list[str] | None) -> lis
         if uri.startswith("pastebin://"):
             if not os.getenv("PASTEBIN_PASSWORD"):
                 errors.append(
-                    f"Pastebin URL '{uri}' requires PASTEBIN_PASSWORD environment variable to be set"
+                    f"Privatebin URL '{uri}' requires PASTEBIN_PASSWORD environment variable to be set"
                 )
 
             parsed = urlparse(uri.replace("pastebin://", "https://", 1))
             if "password=" in parsed.query:
                 errors.append(
-                    f"Pastebin URL '{uri}' contains embedded password - this is not allowed for security reasons"
+                    f"Privatebin URL '{uri}' contains embedded password - this is not allowed for security reasons"
                 )
         else:
             path_obj = Path(uri)
@@ -93,11 +94,11 @@ def _validate_secrets_uris(secrets_env_file_uris: str | list[str] | None) -> lis
     return errors
 
 
-def _fetch_pastebin_content(url: str) -> str:
-    """Fetch content from pastebin URL with password authentication.
+def _fetch_privatebin_content(url: str) -> str:
+    """Fetch content from privatebin URL with password authentication.
 
     Args:
-        url: Pastebin URL (e.g., pastebin://pastebin.com/abc123?password=xyz)
+        url: Privatebin URL (e.g., pastebin://privatebin.net/... or pastebin://pastebin.com/abc123)
 
     Returns:
         Content as string, empty string on error
@@ -113,25 +114,29 @@ def _fetch_pastebin_content(url: str) -> str:
             logger.error("PASTEBIN_PASSWORD environment variable not set")
             return ""
 
-        parsed = urlparse(https_url)
-        if "password=" not in parsed.query:
-            separator = "&" if parsed.query else "?"
-            https_url = f"{https_url}{separator}password={password}"
+        if "privatebin.net" in https_url:
+            paste = privatebin.get(https_url, password=password)
+            return paste.text
+        else:
+            parsed = urlparse(https_url)
+            if "password=" not in parsed.query:
+                separator = "&" if parsed.query else "?"
+                https_url = f"{https_url}{separator}password={password}"
 
-        response = requests.get(https_url, timeout=30)
-        response.raise_for_status()
-        return response.text
+            response = requests.get(https_url, timeout=30)
+            response.raise_for_status()
+            return response.text
 
     except Exception as e:
-        logger.error(f"Error fetching pastebin content from {url}: {e}")
+        logger.error(f"Error fetching privatebin content from {url}: {e}")
         return ""
 
 
 def load_secrets(secrets_env_file_uris: str | list[str] | None = None) -> dict[str, str]:
-    """Load secrets from the specified dotenv files and pastebin URLs.
+    """Load secrets from the specified dotenv files and privatebin URLs.
 
     Args:
-        secrets_env_file_uris: List of paths/URLs to .env files or pastebin URLs,
+        secrets_env_file_uris: List of paths/URLs to .env files or privatebin URLs,
                               or comma-separated string, or single string
 
     Returns:
@@ -152,13 +157,13 @@ def load_secrets(secrets_env_file_uris: str | list[str] | None = None) -> dict[s
     for uri in uris:
         try:
             if uri.startswith("pastebin://"):
-                content = _fetch_pastebin_content(uri)
+                content = _fetch_privatebin_content(uri)
                 if content:
                     secrets = dotenv_values(stream=StringIO(content))
                     if secrets:
                         filtered_secrets = {k: v for k, v in secrets.items() if v is not None}
                         all_secrets.update(filtered_secrets)
-                        logger.info(f"Loaded {len(filtered_secrets)} secrets from pastebin URL")
+                        logger.info(f"Loaded {len(filtered_secrets)} secrets from privatebin URL")
             else:
                 if not Path(uri).exists():
                     logger.warning(f"Secrets file not found: {uri}")
@@ -180,7 +185,7 @@ def load_secrets(secrets_env_file_uris: str | list[str] | None = None) -> dict[s
 def hydrate_config(
     config: dict[str, Any], secrets_env_file_uris: str | list[str] | None = None
 ) -> dict[str, Any]:
-    """Hydrate configuration with secrets from dotenv files and pastebin URLs using dot notation.
+    """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
 
     Dotenv keys are mapped directly to config paths using dot notation:
     - credentials.password -> credentials.password
@@ -189,11 +194,11 @@ def hydrate_config(
 
     Args:
         config: Configuration dictionary to hydrate with secrets
-        secrets_env_file_uris: List of paths/URLs to .env files or pastebin URLs,
+        secrets_env_file_uris: List of paths/URLs to .env files or privatebin URLs,
                               or comma-separated string, or single string
 
     Returns:
-        Configuration with secrets injected from .env files and pastebin URLs
+        Configuration with secrets injected from .env files and privatebin URLs
     """
     if not config or not secrets_env_file_uris:
         return config
@@ -227,14 +232,14 @@ def list_dotenv_secrets(
     secrets_env_file_uris: Annotated[
         str | list[str],
         Field(
-            description="Path to .env file or pastebin URL, or list of paths/URLs, or comma-separated string"
+            description="Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string"
         ),
     ],
 ) -> SecretsFileInfo:
-    """List all secrets in the specified dotenv files and pastebin URLs without exposing values.
+    """List all secrets in the specified dotenv files and privatebin URLs without exposing values.
 
     Args:
-        secrets_env_file_uris: Path to .env file or pastebin URL, or list of paths/URLs, or comma-separated string
+        secrets_env_file_uris: Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string
 
     Returns:
         Information about the secrets files and their contents
@@ -255,7 +260,7 @@ def list_dotenv_secrets(
         secrets_info = []
 
         if uri.startswith("pastebin://"):
-            content = _fetch_pastebin_content(uri)
+            content = _fetch_privatebin_content(uri)
             if content:
                 try:
                     secrets = dotenv_values(stream=StringIO(content))
@@ -267,7 +272,7 @@ def list_dotenv_secrets(
                             )
                         )
                 except Exception as e:
-                    logger.error(f"Error reading pastebin secrets: {e}")
+                    logger.error(f"Error reading privatebin secrets: {e}")
 
             return SecretsFileInfo(file_path=uri, exists=bool(content), secrets=secrets_info)
         else:
@@ -310,7 +315,7 @@ def populate_dotenv_missing_secrets_stubs(
     secrets_env_file_uris: Annotated[
         str,
         Field(
-            description="Absolute path to the .env file to add secrets to, or pastebin URL to check"
+            description="Absolute path to the .env file to add secrets to, or privatebin URL to check"
         ),
     ],
     manifest: Annotated[
@@ -392,15 +397,15 @@ def populate_dotenv_missing_secrets_stubs(
         if missing_keys:
             result_parts.append(f"Missing secrets: {', '.join(missing_keys)}")
             result_parts.append(
-                "Instructions: Pastebin URLs are immutable. To add missing secrets:"
+                "Instructions: Privatebin URLs are immutable. To add missing secrets:"
             )
-            result_parts.append("1. Create a new pastebin with the missing secrets")
-            result_parts.append("2. Set a password for the pastebin")
-            result_parts.append("3. Use the new pastebin URL with pastebin:// scheme")
+            result_parts.append("1. Create a new privatebin with the missing secrets")
+            result_parts.append("2. Set a password for the privatebin")
+            result_parts.append("3. Use the new privatebin URL with pastebin:// scheme")
             result_parts.append("4. Ensure PASTEBIN_PASSWORD environment variable is set")
 
         if not missing_keys and existing_requested_keys:
-            result_parts.append("All requested secrets are already present in the pastebin.")
+            result_parts.append("All requested secrets are already present in the privatebin.")
 
         return " ".join(result_parts)
 
@@ -497,10 +502,10 @@ def _extract_secrets_names_from_manifest(manifest: dict[str, Any]) -> list[str]:
 
 def _is_secret_set(value: str | None) -> bool:
     """Check if a secret value is considered 'set' (not empty, not a comment).
-    
+
     Args:
         value: The secret value to check
-        
+
     Returns:
         True if the secret is set, False otherwise
     """

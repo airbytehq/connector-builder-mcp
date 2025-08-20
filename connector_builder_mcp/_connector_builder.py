@@ -323,7 +323,7 @@ def execute_stream_test_read(
     secrets_env_file_uris: Annotated[
         str | list[str] | None,
         Field(
-            description="Optional paths/URLs to .env files or pastebin URLs for secret hydration. Can be a single string, comma-separated string, or list of strings."
+            description="Optional paths/URLs to .env files or privatebin URLs for secret hydration. Can be a single string, comma-separated string, or list of strings."
         ),
     ] = None,
 ) -> StreamTestResult:
@@ -452,7 +452,7 @@ def execute_record_counts_smoke_test(
     secrets_env_file_uris: Annotated[
         str | list[str] | None,
         Field(
-            description="Optional paths/URLs to .env files or pastebin URLs for secret hydration. Can be a single string, comma-separated string, or list of strings."
+            description="Optional paths/URLs to .env files or privatebin URLs for secret hydration. Can be a single string, comma-separated string, or list of strings."
         ),
     ] = None,
 ) -> MultiStreamSmokeTest:
@@ -465,7 +465,7 @@ def execute_record_counts_smoke_test(
         manifest: The connector manifest (YAML string or file path)
         config: Connector configuration
         max_records: Maximum number of records to read per stream (default: 10000)
-        secrets_env_file_uris: Optional paths/URLs to .env files or pastebin URLs for secret hydration
+        secrets_env_file_uris: Optional paths/URLs to .env files or privatebin URLs for secret hydration
 
     Returns:
         MultiStreamSmokeTest result with per-stream statistics and overall summary
