@@ -1,5 +1,6 @@
 """Tests for secrets management functionality."""
 
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -501,8 +502,6 @@ def test_populate_dotenv_missing_secrets_stubs_readonly_file():
         f.write("existing_key=value\n")
         f.flush()
 
-        import os
-
         os.chmod(f.name, 0o444)
 
         try:
@@ -615,8 +614,6 @@ def test_populate_dotenv_missing_secrets_stubs_readonly_file_no_collision():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
         f.write("different_key=value\n")
         f.flush()
-
-        import os
 
         os.chmod(f.name, 0o444)
 
