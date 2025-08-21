@@ -257,7 +257,9 @@ def execute_stream_test_read(
     ] = None,
     dotenv_file_uris: Annotated[
         str | list[str] | None,
-        Field(description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."),
+        Field(
+            description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
+        ),
     ] = None,
 ) -> StreamTestResult:
     """Test reading records from a specific stream in the connector.
@@ -384,7 +386,9 @@ def execute_record_counts_smoke_test(
     ] = 10000,
     dotenv_file_uris: Annotated[
         str | list[str] | None,
-        Field(description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."),
+        Field(
+            description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
+        ),
     ] = None,
 ) -> MultiStreamSmokeTest:
     """Execute a smoke test to count records from all streams in the connector.
