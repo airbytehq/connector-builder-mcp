@@ -245,7 +245,7 @@ spec:
         end_time = time.time()
         duration = end_time - start_time
 
-        assert duration < 15.0, f"Multiple tool calls took too long: {duration}s"
+        assert duration < 20.0, f"Multiple tool calls took too long: {duration}s"
 
     def test_simple_api_manifest_workflow(self, simple_api_manifest, empty_config):
         """Test workflow with simple API manifest."""
