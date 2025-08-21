@@ -17,11 +17,11 @@ from fastmcp import FastMCP
 from pydantic import Field
 
 from connector_builder_mcp._guidance import CONNECTOR_BUILDER_CHECKLIST, TOPIC_MAPPING
-from connector_builder_mcp._manifest_scaffold import (
+from connector_builder_mcp._secrets import register_secrets_tools
+from connector_builder_mcp.manifest_scaffold import (
     create_connector_manifest_scaffold,
 )
-from connector_builder_mcp._secrets import register_secrets_tools
-from connector_builder_mcp._validation_testing import (
+from connector_builder_mcp.validation_testing import (
     execute_dynamic_manifest_resolution_test,
     execute_stream_test_read,
     run_connector_readiness_test_report,
