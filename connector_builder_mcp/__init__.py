@@ -7,8 +7,17 @@ The focus is on end-to-end AI ownership rather than AI assist, enabling AI agent
 fully control the connector development workflow including testing and PR creation.
 """
 
-from connector_builder_mcp import server
+from connector_builder_mcp import (
+    connector_builder,
+    manifest_scaffold,
+    server,
+    validation_testing,
+)
 
 
-__all__ = ["server"]
-__version__ = "0.1.0"
+__all__ = [
+    "server",
+    "connector_builder",
+    "manifest_scaffold",
+    "validation_testing",
+]
