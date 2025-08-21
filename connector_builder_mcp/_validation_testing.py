@@ -15,7 +15,13 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     get_limits,
     resolve_manifest,
 )
-from airbyte_cdk.models import AirbyteMessage, ConfiguredAirbyteCatalog, SyncMode, Type
+from airbyte_cdk.models import (
+    AirbyteMessage,
+    ConfiguredAirbyteCatalog,
+    DestinationSyncMode,
+    SyncMode,
+    Type,
+)
 from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer import (
     ManifestComponentTransformer,
 )
@@ -306,8 +312,8 @@ def execute_stream_test_read(
 
         for configured_stream in catalog.streams:
             if configured_stream.stream.name == stream_name:
-                configured_stream.sync_mode = "full_refresh"
-                configured_stream.destination_sync_mode = "overwrite"
+                configured_stream.sync_mode = SyncMode.full_refresh
+                configured_stream.destination_sync_mode = DestinationSyncMode.overwrite
                 break
         else:
             return StreamTestResult(
@@ -326,7 +332,7 @@ def execute_stream_test_read(
         property_stats: dict[str, dict[str, Any]] = {}
         total_records = 0
 
-        for message in output:  # type: ignore[attr-defined]
+        for message in output.get_message_iterator():
             if isinstance(message, AirbyteMessage):
                 if (
                     message.type == Type.RECORD
