@@ -63,6 +63,7 @@ class StreamSmokeTest(BaseModel):
     records_read: int = 0
     duration_seconds: float = 0.0
     error_message: str | None = None
+    field_count_warnings: list[str] = []
 
 
 class MultiStreamSmokeTest(BaseModel):
@@ -321,10 +322,8 @@ def execute_stream_test_read(
         records_data = []
         slices = []
         record_stats = None
-
-        if include_record_stats:
-            property_stats = {}
-            total_records = 0
+        property_stats: dict[str, dict[str, Any]] = {}
+        total_records = 0
 
         for message in output:  # type: ignore[attr-defined]
             if isinstance(message, AirbyteMessage):
