@@ -50,6 +50,12 @@ from connector_builder_mcp._util import (
 )
 
 
+DOTENV_FILE_URIS_DESCRIPTION = (
+    "Optional paths/URLs to .env files or privatebin URLs for secret hydration. "
+    "Can be a single string, comma-separated string, or list of strings."
+)
+
+
 _MANIFEST_SCHEMA_URL: str = "https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
@@ -322,9 +328,7 @@ def execute_stream_test_read(
     ] = None,
     dotenv_file_uris: Annotated[
         str | list[str] | None,
-        Field(
-            description="Optional paths/URLs to .env files or privatebin URLs for secret hydration. Can be a single string, comma-separated string, or list of strings."
-        ),
+        Field(description=DOTENV_FILE_URIS_DESCRIPTION),
     ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
@@ -451,9 +455,7 @@ def execute_record_counts_smoke_test(
     ] = 10000,
     dotenv_file_uris: Annotated[
         str | list[str] | None,
-        Field(
-            description="Optional paths/URLs to .env files or privatebin URLs for secret hydration. Can be a single string, comma-separated string, or list of strings."
-        ),
+        Field(description=DOTENV_FILE_URIS_DESCRIPTION),
     ] = None,
 ) -> MultiStreamSmokeTest:
     """Execute a smoke test to count records from all streams in the connector.
