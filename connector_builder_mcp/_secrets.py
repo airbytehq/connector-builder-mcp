@@ -1,14 +1,19 @@
-"""Secrets management for connector configurations using dotenv files.
+"""Secrets management for connector configurations using dotenv files and privatebin URLs.
 
-This module provides stateless tools for managing secrets in .env files without
+This module provides stateless tools for managing secrets in .env files and privatebin URLs without
 exposing actual secret values to the LLM. All functions require explicit dotenv
-file paths to be passed by the caller.
+file paths or privatebin URLs to be passed by the caller.
 """
 
 import logging
+import os
+from io import StringIO
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import urlparse
 
+import privatebin
+import requests
 from dotenv import dotenv_values, set_key
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
@@ -17,6 +22,24 @@ from connector_builder_mcp._util import parse_manifest_input
 
 
 logger = logging.getLogger(__name__)
+
+
+def _privatebin_password_exists() -> bool:
+    """Check if PRIVATEBIN_PASSWORD environment variable exists.
+
+    Returns:
+        True if PRIVATEBIN_PASSWORD is set, False otherwise
+    """
+    return bool(os.getenv("PRIVATEBIN_PASSWORD"))
+
+
+def _get_privatebin_password() -> str | None:
+    """Get PRIVATEBIN_PASSWORD environment variable value.
+
+    Returns:
+        PRIVATEBIN_PASSWORD value or None if not set
+    """
+    return os.getenv("PRIVATEBIN_PASSWORD")
 
 
 class SecretInfo(BaseModel):
@@ -34,31 +57,153 @@ class SecretsFileInfo(BaseModel):
     secrets: list[SecretInfo]
 
 
-def load_secrets(dotenv_path: str) -> dict[str, str]:
-    """Load secrets from the specified dotenv file.
+def _parse_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str]:
+    """Parse secrets URIs from various input formats.
 
     Args:
-        dotenv_path: Path to the .env file to load secrets from
+        dotenv_file_uris: String, comma-separated string, or list of URIs
 
     Returns:
-        Dictionary of secret key-value pairs
+        List of URI strings
     """
-    if not Path(dotenv_path).exists():
-        logger.warning(f"Secrets file not found: {dotenv_path}")
-        return {}
+    if not dotenv_file_uris:
+        return []
 
+    if isinstance(dotenv_file_uris, str):
+        if "," in dotenv_file_uris:
+            return [uri.strip() for uri in dotenv_file_uris.split(",") if uri.strip()]
+        return [dotenv_file_uris]
+
+    return dotenv_file_uris
+
+
+def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str]:
+    """Validate secrets URIs and return array of error messages.
+
+    Args:
+        dotenv_file_uris: String, comma-separated string, or list of URIs
+
+    Returns:
+        List of error messages (empty if all valid)
+    """
+    errors: list[str] = []
+    uris = _parse_secrets_uris(dotenv_file_uris)
+
+    if not uris:
+        return errors
+
+    for uri in uris:
+        if uri.startswith("privatebin://"):
+            if not _privatebin_password_exists():
+                errors.append(
+                    f"Privatebin URL '{uri}' requires PRIVATEBIN_PASSWORD environment variable to be set"
+                )
+
+            parsed = urlparse(uri.replace("privatebin://", "https://", 1))
+            if "password=" in parsed.query:
+                errors.append(
+                    f"Privatebin URL '{uri}' contains embedded password - this is not allowed for security reasons. You must relaunch the MCP server with an included `PRIVATEBIN_PASSWORD` env var."
+                )
+        else:
+            path_obj = Path(uri)
+            if not path_obj.is_absolute():
+                errors.append(f"Local file path must be absolute, got relative path: {uri}")
+
+    return errors
+
+
+def _fetch_privatebin_content(url: str) -> str:
+    """Fetch content from privatebin URL with password authentication.
+
+    Args:
+        url: Privatebin URL (e.g., privatebin://privatebin.net/... or privatebin://privatebin.com/abc123)
+
+    Returns:
+        Content as string, empty string on error
+    """
     try:
-        secrets = dotenv_values(dotenv_path)
-        filtered_secrets = {k: v for k, v in (secrets or {}).items() if v is not None}
-        logger.info(f"Loaded {len(filtered_secrets)} secrets from {dotenv_path}")
-        return filtered_secrets
+        if not url.startswith("privatebin://"):
+            return ""
+
+        https_url = url.replace("privatebin://", "https://", 1)
+
+        password = _get_privatebin_password()
+        if not password:
+            logger.error("PRIVATEBIN_PASSWORD environment variable not set")
+            return ""
+
+        if "privatebin.net" in https_url:
+            paste = privatebin.get(https_url, password=password)
+            return paste.text
+        else:
+            parsed = urlparse(https_url)
+            if "password=" not in parsed.query:
+                separator = "&" if parsed.query else "?"
+                https_url = f"{https_url}{separator}password={password}"
+
+            response = requests.get(https_url, timeout=30)
+            response.raise_for_status()
+            return response.text
+
     except Exception as e:
-        logger.error(f"Error loading secrets from {dotenv_path}: {e}")
+        logger.error(f"Error fetching privatebin content from {url}: {e}")
+        return ""
+
+
+def load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, str]:
+    """Load secrets from the specified dotenv files and privatebin URLs.
+
+    Args:
+        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
+                              or comma-separated string, or single string
+
+    Returns:
+        Dictionary of secret key-value pairs from all sources
+    """
+    validation_errors = _validate_secrets_uris(dotenv_file_uris)
+    if validation_errors:
+        for error in validation_errors:
+            logger.error(f"Validation error: {error}")
         return {}
 
+    uris = _parse_secrets_uris(dotenv_file_uris)
+    if not uris:
+        return {}
 
-def hydrate_config(config: dict[str, Any], dotenv_path: str | None = None) -> dict[str, Any]:
-    """Hydrate configuration with secrets from dotenv file using dot notation.
+    all_secrets = {}
+
+    for uri in uris:
+        try:
+            if uri.startswith("privatebin://"):
+                content = _fetch_privatebin_content(uri)
+                if content:
+                    secrets = dotenv_values(stream=StringIO(content))
+                    if secrets:
+                        filtered_secrets = {k: v for k, v in secrets.items() if v is not None}
+                        all_secrets.update(filtered_secrets)
+                        logger.info(f"Loaded {len(filtered_secrets)} secrets from privatebin URL")
+            else:
+                if not Path(uri).exists():
+                    logger.warning(f"Secrets file not found: {uri}")
+                    continue
+
+                secrets = dotenv_values(uri)
+                if secrets:
+                    filtered_secrets = {k: v for k, v in secrets.items() if v is not None}
+                    all_secrets.update(filtered_secrets)
+                    logger.info(f"Loaded {len(filtered_secrets)} secrets from {uri}")
+
+        except Exception as e:
+            logger.error(f"Error loading secrets from {uri}: {e}")
+            continue
+
+    return all_secrets
+
+
+def hydrate_config(
+    config: dict[str, Any], dotenv_file_uris: str | list[str] | None = None
+) -> dict[str, Any]:
+    """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
 
     Dotenv keys are mapped directly to config paths using dot notation:
     - credentials.password -> credentials.password
@@ -67,15 +212,16 @@ def hydrate_config(config: dict[str, Any], dotenv_path: str | None = None) -> di
 
     Args:
         config: Configuration dictionary to hydrate with secrets
-        dotenv_path: Path to the .env file to load secrets from. If None, returns config unchanged.
+        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
+                              or comma-separated string, or single string
 
     Returns:
-        Configuration with secrets injected from .env file
+        Configuration with secrets injected from .env files and privatebin URLs
     """
-    if not config or not dotenv_path:
+    if not config or not dotenv_file_uris:
         return config
 
-    secrets = load_secrets(dotenv_path)
+    secrets = load_secrets(dotenv_file_uris)
     if not secrets:
         return config
 
@@ -101,40 +247,94 @@ def hydrate_config(config: dict[str, Any], dotenv_path: str | None = None) -> di
 
 
 def list_dotenv_secrets(
-    dotenv_path: Annotated[str, Field(description="Path to the .env file to list secrets from")],
+    dotenv_file_uris: Annotated[
+        str | list[str],
+        Field(
+            description="Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string"
+        ),
+    ],
 ) -> SecretsFileInfo:
-    """List all secrets in the specified dotenv file without exposing values.
+    """List all secrets in the specified dotenv files and privatebin URLs without exposing values.
 
     Args:
-        dotenv_path: Path to the .env file to list secrets from
+        dotenv_file_uris: Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string
 
     Returns:
-        Information about the secrets file and its contents
+        Information about the secrets files and their contents
     """
-    file_path = Path(dotenv_path)
+    validation_errors = _validate_secrets_uris(dotenv_file_uris)
+    if validation_errors:
+        error_message = "; ".join(validation_errors)
+        return SecretsFileInfo(
+            file_path=f"Validation failed: {error_message}", exists=False, secrets=[]
+        )
 
+    uris = _parse_secrets_uris(dotenv_file_uris)
+    if not uris:
+        return SecretsFileInfo(file_path="", exists=False, secrets=[])
+
+    if len(uris) == 1:
+        uri = uris[0]
+        secrets_info = []
+
+        if uri.startswith("privatebin://"):
+            content = _fetch_privatebin_content(uri)
+            if content:
+                try:
+                    secrets = dotenv_values(stream=StringIO(content))
+                    for key, value in (secrets or {}).items():
+                        secrets_info.append(
+                            SecretInfo(
+                                key=key,
+                                is_set=bool(value and value.strip()),
+                            )
+                        )
+                except Exception as e:
+                    logger.error(f"Error reading privatebin secrets: {e}")
+
+            return SecretsFileInfo(file_path=uri, exists=bool(content), secrets=secrets_info)
+        else:
+            file_path = Path(uri)
+            if file_path.exists():
+                try:
+                    secrets = dotenv_values(uri)
+                    for key, value in (secrets or {}).items():
+                        secrets_info.append(
+                            SecretInfo(
+                                key=key,
+                                is_set=bool(value and value.strip()),
+                            )
+                        )
+                except Exception as e:
+                    logger.error(f"Error reading secrets file: {e}")
+
+            return SecretsFileInfo(
+                file_path=str(file_path.absolute()), exists=file_path.exists(), secrets=secrets_info
+            )
+
+    all_secrets = load_secrets(dotenv_file_uris)
     secrets_info = []
-    if file_path.exists():
-        try:
-            secrets = dotenv_values(dotenv_path)
-            for key, value in (secrets or {}).items():
-                secrets_info.append(
-                    SecretInfo(
-                        key=key,
-                        is_set=bool(value and value.strip()),
-                    )
-                )
-        except Exception as e:
-            logger.error(f"Error reading secrets file: {e}")
+    for key, value in all_secrets.items():
+        secrets_info.append(
+            SecretInfo(
+                key=key,
+                is_set=bool(value and value.strip()),
+            )
+        )
 
     return SecretsFileInfo(
-        file_path=str(file_path.absolute()), exists=file_path.exists(), secrets=secrets_info
+        file_path=f"Multiple sources: {', '.join(uris)}",
+        exists=bool(all_secrets),
+        secrets=secrets_info,
     )
 
 
 def populate_dotenv_missing_secrets_stubs(
-    dotenv_path: Annotated[
-        str, Field(description="Absolute path to the .env file to add secrets to")
+    dotenv_file_uri: Annotated[
+        str,
+        Field(
+            description="Absolute path to the .env file to add secrets to, or privatebin URL to check"
+        ),
     ],
     manifest: Annotated[
         str | None,
@@ -151,7 +351,7 @@ def populate_dotenv_missing_secrets_stubs(
     ] = None,
     allow_create: Annotated[bool, Field(description="Create the file if it doesn't exist")] = True,
 ) -> str:
-    """Add secret stubs to the specified dotenv file for the user to fill in.
+    """Add secret stubs to the specified dotenv file for the user to fill in, or check privatebin URLs.
 
     Supports two modes:
     1. Manifest-based: Pass manifest to auto-detect secrets from connection_specification
@@ -159,27 +359,20 @@ def populate_dotenv_missing_secrets_stubs(
 
     If both are provided, both sets of secrets will be added.
 
-    This function is non-destructive and will not overwrite existing secrets.
-    If any of the secrets to be added already exist, an error will be returned
-    with information about the existing secrets.
+    For local files: This function is non-destructive and will not overwrite existing secrets.
+    For privatebin URLs: This function will check existing secrets and return instructions for manual updates.
 
     Returns:
         Message about the operation result
     """
-    path_obj = Path(dotenv_path)
-    if not path_obj.is_absolute():
-        return f"Error: Path must be absolute, got relative path: {dotenv_path}"
+    validation_errors = _validate_secrets_uris(dotenv_file_uri)
+    if validation_errors:
+        return f"Validation failed: {'; '.join(validation_errors)}"
 
-    config_paths_list = config_paths.split(",") if config_paths else []
-    if not any([manifest, config_paths_list]):
-        return "Error: Must provide either manifest or config_paths"
-
-    try:
-        if allow_create:
-            path_obj.parent.mkdir(parents=True, exist_ok=True)
-            path_obj.touch()
-        elif not path_obj.exists():
-            return f"Error: File {dotenv_path} does not exist and allow_create=False"
+    if dotenv_file_uri.startswith("privatebin://"):
+        config_paths_list = config_paths.split(",") if config_paths else []
+        if not any([manifest, config_paths_list]):
+            return "Error: Must provide either manifest or config_paths"
 
         secrets_to_add = []
 
@@ -195,21 +388,87 @@ def populate_dotenv_missing_secrets_stubs(
         if not secrets_to_add:
             return "No secrets found to add"
 
-        existing_secrets = {}
+        existing_secrets = load_secrets(dotenv_file_uri)
+
+        secrets_info = []
+        for key, value in existing_secrets.items():
+            secrets_info.append(
+                SecretInfo(
+                    key=key,
+                    is_set=_is_secret_set(value),
+                )
+            )
+
+        existing_keys = set(existing_secrets.keys())
+        missing_keys = [key for key in secrets_to_add if key not in existing_keys]
+        existing_requested_keys = [key for key in secrets_to_add if key in existing_keys]
+
+        result_parts = []
+
+        if existing_requested_keys:
+            existing_summary = [
+                f"{key}({'set' if _is_secret_set(existing_secrets.get(key, '')) else 'unset'})"
+                for key in existing_requested_keys
+            ]
+            result_parts.append(f"Existing secrets found: {', '.join(existing_summary)}")
+
+        if missing_keys:
+            result_parts.append(f"Missing secrets: {', '.join(missing_keys)}")
+            result_parts.append(
+                "Instructions: Privatebin URLs are immutable. To add missing secrets:"
+            )
+            result_parts.append("1. Create a new privatebin with the missing secrets")
+            result_parts.append("2. Set a password for the privatebin")
+            result_parts.append("3. Use the new privatebin URL with privatebin:// scheme")
+            result_parts.append("4. Ensure PRIVATEBIN_PASSWORD environment variable is set")
+
+        if not missing_keys and existing_requested_keys:
+            result_parts.append("All requested secrets are already present in the privatebin.")
+
+        return " ".join(result_parts)
+
+    path_obj = Path(dotenv_file_uri)
+    config_paths_list = config_paths.split(",") if config_paths else []
+    if not any([manifest, config_paths_list]):
+        return "Error: Must provide either manifest or config_paths"
+
+    try:
+        if allow_create:
+            path_obj.parent.mkdir(parents=True, exist_ok=True)
+            path_obj.touch()
+        elif not path_obj.exists():
+            return f"Error: File {dotenv_file_uri} does not exist and allow_create=False"
+
+        secrets_to_add = []
+
+        if manifest:
+            manifest_dict = parse_manifest_input(manifest)
+            secrets_to_add.extend(_extract_secrets_names_from_manifest(manifest_dict))
+
+        if config_paths_list:
+            for path in config_paths_list:
+                dotenv_key = _config_path_to_dotenv_key(path)
+                secrets_to_add.append(dotenv_key)
+
+        if not secrets_to_add:
+            return "No secrets found to add"
+
+        local_existing_secrets: dict[str, str] = {}
         if path_obj.exists():
             try:
-                existing_secrets = dotenv_values(dotenv_path) or {}
+                raw_secrets = dotenv_values(dotenv_file_uri) or {}
+                local_existing_secrets = {k: v for k, v in raw_secrets.items() if v is not None}
             except Exception as e:
                 logger.error(f"Error reading existing secrets: {e}")
 
-        collisions = [key for key in secrets_to_add if key in existing_secrets]
+        collisions = [key for key in secrets_to_add if key in local_existing_secrets]
         if collisions:
             secrets_info = []
-            for key, value in existing_secrets.items():
+            for key, value in local_existing_secrets.items():
                 secrets_info.append(
                     SecretInfo(
                         key=key,
-                        is_set=bool(value and value.strip() and not value.strip().startswith("#")),
+                        is_set=_is_secret_set(value),
                     )
                 )
 
@@ -222,10 +481,10 @@ def populate_dotenv_missing_secrets_stubs(
         added_count = 0
         for dotenv_key in secrets_to_add:
             placeholder_value = f"# TODO: Set actual value for {dotenv_key}"
-            set_key(dotenv_path, dotenv_key, placeholder_value)
+            set_key(dotenv_file_uri, dotenv_key, placeholder_value)
             added_count += 1
 
-        return f"Added {added_count} secret stub(s) to {dotenv_path}: {', '.join(secrets_to_add)}. Please set the actual values."
+        return f"Added {added_count} secret stub(s) to {dotenv_file_uri}: {', '.join(secrets_to_add)}. Please set the actual values."
 
     except Exception as e:
         logger.error(f"Error adding secret stubs: {e}")
@@ -257,6 +516,18 @@ def _extract_secrets_names_from_manifest(manifest: dict[str, Any]) -> list[str]:
         logger.warning(f"Error extracting secrets from manifest: {e}")
 
     return secrets
+
+
+def _is_secret_set(value: str | None) -> bool:
+    """Check if a secret value is considered 'set' (not empty, not a comment).
+
+    Args:
+        value: The secret value to check
+
+    Returns:
+        True if the secret is set, False otherwise
+    """
+    return bool(value and value.strip() and not value.strip().startswith("#"))
 
 
 def _config_path_to_dotenv_key(config_path: str) -> str:

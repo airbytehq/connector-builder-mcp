@@ -3,7 +3,6 @@
 import logging
 import pkgutil
 import time
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from jsonschema import ValidationError, validate
@@ -256,9 +255,11 @@ def execute_stream_test_read(
             "True=always include, False=never include, None=include on errors only"
         ),
     ] = None,
-    dotenv_path: Annotated[
-        Path | None,
-        Field(description="Optional path to .env file for secret hydration"),
+    dotenv_file_uris: Annotated[
+        str | list[str] | None,
+        Field(
+            description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
+        ),
     ] = None,
 ) -> StreamTestResult:
     """Test reading records from a specific stream in the connector.
@@ -270,7 +271,7 @@ def execute_stream_test_read(
         max_records: Maximum number of records to read (default: 10000)
         include_records_data: Whether to include actual record data in response
         include_raw_responses_data: Whether to include raw API responses
-        dotenv_path: Optional path to .env file for secret hydration
+        dotenv_file_uris: Optional paths/URLs to .env files or privatebin URLs for secret hydration
 
     Returns:
         StreamTestResult with success status, record count, and optional data
@@ -280,7 +281,7 @@ def execute_stream_test_read(
     try:
         manifest_dict = parse_manifest_input(manifest)
 
-        config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+        config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest_dict,
@@ -383,9 +384,11 @@ def execute_record_counts_smoke_test(
         int,
         Field(description="Maximum number of records to read per stream", ge=1, le=50000),
     ] = 10000,
-    dotenv_path: Annotated[
-        Path | None,
-        Field(description="Optional path to .env file for secret hydration"),
+    dotenv_file_uris: Annotated[
+        str | list[str] | None,
+        Field(
+            description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
+        ),
     ] = None,
 ) -> MultiStreamSmokeTest:
     """Execute a smoke test to count records from all streams in the connector.
@@ -397,7 +400,7 @@ def execute_record_counts_smoke_test(
         manifest: The connector manifest (YAML string or file path)
         config: Connector configuration
         max_records: Maximum number of records to read per stream (default: 10000)
-        dotenv_path: Optional path to .env file for secret hydration
+        dotenv_file_uris: Optional paths/URLs to .env files or privatebin URLs for secret hydration
 
     Returns:
         MultiStreamSmokeTest result with per-stream statistics and overall summary
@@ -411,7 +414,7 @@ def execute_record_counts_smoke_test(
 
     manifest_dict = parse_manifest_input(manifest)
 
-    config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+    config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
 
     stream_names: list[str]
     if isinstance(streams, str):
@@ -438,7 +441,7 @@ def execute_record_counts_smoke_test(
                 max_records=max_records,
                 include_records_data=False,
                 include_raw_responses_data=False,
-                dotenv_path=dotenv_path,
+                dotenv_file_uris=dotenv_file_uris,
             )
 
             stream_duration = time.time() - stream_start_time
