@@ -24,6 +24,24 @@ from connector_builder_mcp._util import parse_manifest_input
 logger = logging.getLogger(__name__)
 
 
+def _privatebin_password_exists() -> bool:
+    """Check if PRIVATEBIN_PASSWORD environment variable exists.
+
+    Returns:
+        True if PRIVATEBIN_PASSWORD is set, False otherwise
+    """
+    return bool(os.getenv("PRIVATEBIN_PASSWORD"))
+
+
+def _get_privatebin_password() -> str | None:
+    """Get PRIVATEBIN_PASSWORD environment variable value.
+
+    Returns:
+        PRIVATEBIN_PASSWORD value or None if not set
+    """
+    return os.getenv("PRIVATEBIN_PASSWORD")
+
+
 class SecretInfo(BaseModel):
     """Information about a secret without exposing its value."""
 
@@ -39,49 +57,49 @@ class SecretsFileInfo(BaseModel):
     secrets: list[SecretInfo]
 
 
-def _parse_secrets_uris(dotenv_file_uri: str | list[str] | None) -> list[str]:
+def _parse_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str]:
     """Parse secrets URIs from various input formats.
 
     Args:
-        dotenv_file_uri: String, comma-separated string, or list of URIs
+        dotenv_file_uris: String, comma-separated string, or list of URIs
 
     Returns:
         List of URI strings
     """
-    if not dotenv_file_uri:
+    if not dotenv_file_uris:
         return []
 
-    if isinstance(dotenv_file_uri, str):
-        if "," in dotenv_file_uri:
-            return [uri.strip() for uri in dotenv_file_uri.split(",") if uri.strip()]
-        return [dotenv_file_uri]
+    if isinstance(dotenv_file_uris, str):
+        if "," in dotenv_file_uris:
+            return [uri.strip() for uri in dotenv_file_uris.split(",") if uri.strip()]
+        return [dotenv_file_uris]
 
-    return dotenv_file_uri
+    return dotenv_file_uris
 
 
-def _validate_secrets_uris(dotenv_file_uri: str | list[str] | None) -> list[str]:
+def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str]:
     """Validate secrets URIs and return array of error messages.
 
     Args:
-        dotenv_file_uri: String, comma-separated string, or list of URIs
+        dotenv_file_uris: String, comma-separated string, or list of URIs
 
     Returns:
         List of error messages (empty if all valid)
     """
     errors: list[str] = []
-    uris = _parse_secrets_uris(dotenv_file_uri)
+    uris = _parse_secrets_uris(dotenv_file_uris)
 
     if not uris:
         return errors
 
     for uri in uris:
-        if uri.startswith("pastebin://"):
-            if not os.getenv("PASTEBIN_PASSWORD"):
+        if uri.startswith("privatebin://"):
+            if not _privatebin_password_exists():
                 errors.append(
-                    f"Privatebin URL '{uri}' requires PASTEBIN_PASSWORD environment variable to be set"
+                    f"Privatebin URL '{uri}' requires PRIVATEBIN_PASSWORD environment variable to be set"
                 )
 
-            parsed = urlparse(uri.replace("pastebin://", "https://", 1))
+            parsed = urlparse(uri.replace("privatebin://", "https://", 1))
             if "password=" in parsed.query:
                 errors.append(
                     f"Privatebin URL '{uri}' contains embedded password - this is not allowed for security reasons. You must relaunch the MCP server with an included `PRIVATEBIN_PASSWORD` env var."
@@ -98,20 +116,20 @@ def _fetch_privatebin_content(url: str) -> str:
     """Fetch content from privatebin URL with password authentication.
 
     Args:
-        url: Privatebin URL (e.g., pastebin://privatebin.net/... or pastebin://privatebin.com/abc123)
+        url: Privatebin URL (e.g., privatebin://privatebin.net/... or privatebin://privatebin.com/abc123)
 
     Returns:
         Content as string, empty string on error
     """
     try:
-        if not url.startswith("pastebin://"):
+        if not url.startswith("privatebin://"):
             return ""
 
-        https_url = url.replace("pastebin://", "https://", 1)
+        https_url = url.replace("privatebin://", "https://", 1)
 
-        password = os.getenv("PASTEBIN_PASSWORD")
+        password = _get_privatebin_password()
         if not password:
-            logger.error("PASTEBIN_PASSWORD environment variable not set")
+            logger.error("PRIVATEBIN_PASSWORD environment variable not set")
             return ""
 
         if "privatebin.net" in https_url:
@@ -132,23 +150,23 @@ def _fetch_privatebin_content(url: str) -> str:
         return ""
 
 
-def load_secrets(dotenv_file_uri: str | list[str] | None = None) -> dict[str, str]:
+def load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, str]:
     """Load secrets from the specified dotenv files and privatebin URLs.
 
     Args:
-        dotenv_file_uri: List of paths/URLs to .env files or privatebin URLs,
+        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
                               or comma-separated string, or single string
 
     Returns:
         Dictionary of secret key-value pairs from all sources
     """
-    validation_errors = _validate_secrets_uris(dotenv_file_uri)
+    validation_errors = _validate_secrets_uris(dotenv_file_uris)
     if validation_errors:
         for error in validation_errors:
             logger.error(f"Validation error: {error}")
         return {}
 
-    uris = _parse_secrets_uris(dotenv_file_uri)
+    uris = _parse_secrets_uris(dotenv_file_uris)
     if not uris:
         return {}
 
@@ -156,7 +174,7 @@ def load_secrets(dotenv_file_uri: str | list[str] | None = None) -> dict[str, st
 
     for uri in uris:
         try:
-            if uri.startswith("pastebin://"):
+            if uri.startswith("privatebin://"):
                 content = _fetch_privatebin_content(uri)
                 if content:
                     secrets = dotenv_values(stream=StringIO(content))
@@ -183,7 +201,7 @@ def load_secrets(dotenv_file_uri: str | list[str] | None = None) -> dict[str, st
 
 
 def hydrate_config(
-    config: dict[str, Any], dotenv_file_uri: str | list[str] | None = None
+    config: dict[str, Any], dotenv_file_uris: str | list[str] | None = None
 ) -> dict[str, Any]:
     """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
 
@@ -194,16 +212,16 @@ def hydrate_config(
 
     Args:
         config: Configuration dictionary to hydrate with secrets
-        dotenv_file_uri: List of paths/URLs to .env files or privatebin URLs,
+        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
                               or comma-separated string, or single string
 
     Returns:
         Configuration with secrets injected from .env files and privatebin URLs
     """
-    if not config or not dotenv_file_uri:
+    if not config or not dotenv_file_uris:
         return config
 
-    secrets = load_secrets(dotenv_file_uri)
+    secrets = load_secrets(dotenv_file_uris)
     if not secrets:
         return config
 
@@ -229,7 +247,7 @@ def hydrate_config(
 
 
 def list_dotenv_secrets(
-    dotenv_file_uri: Annotated[
+    dotenv_file_uris: Annotated[
         str | list[str],
         Field(
             description="Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string"
@@ -239,19 +257,19 @@ def list_dotenv_secrets(
     """List all secrets in the specified dotenv files and privatebin URLs without exposing values.
 
     Args:
-        dotenv_file_uri: Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string
+        dotenv_file_uris: Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string
 
     Returns:
         Information about the secrets files and their contents
     """
-    validation_errors = _validate_secrets_uris(dotenv_file_uri)
+    validation_errors = _validate_secrets_uris(dotenv_file_uris)
     if validation_errors:
         error_message = "; ".join(validation_errors)
         return SecretsFileInfo(
             file_path=f"Validation failed: {error_message}", exists=False, secrets=[]
         )
 
-    uris = _parse_secrets_uris(dotenv_file_uri)
+    uris = _parse_secrets_uris(dotenv_file_uris)
     if not uris:
         return SecretsFileInfo(file_path="", exists=False, secrets=[])
 
@@ -259,7 +277,7 @@ def list_dotenv_secrets(
         uri = uris[0]
         secrets_info = []
 
-        if uri.startswith("pastebin://"):
+        if uri.startswith("privatebin://"):
             content = _fetch_privatebin_content(uri)
             if content:
                 try:
@@ -294,7 +312,7 @@ def list_dotenv_secrets(
                 file_path=str(file_path.absolute()), exists=file_path.exists(), secrets=secrets_info
             )
 
-    all_secrets = load_secrets(dotenv_file_uri)
+    all_secrets = load_secrets(dotenv_file_uris)
     secrets_info = []
     for key, value in all_secrets.items():
         secrets_info.append(
@@ -351,7 +369,7 @@ def populate_dotenv_missing_secrets_stubs(
     if validation_errors:
         return f"Validation failed: {'; '.join(validation_errors)}"
 
-    if dotenv_file_uri.startswith("pastebin://"):
+    if dotenv_file_uri.startswith("privatebin://"):
         config_paths_list = config_paths.split(",") if config_paths else []
         if not any([manifest, config_paths_list]):
             return "Error: Must provide either manifest or config_paths"
@@ -401,8 +419,8 @@ def populate_dotenv_missing_secrets_stubs(
             )
             result_parts.append("1. Create a new privatebin with the missing secrets")
             result_parts.append("2. Set a password for the privatebin")
-            result_parts.append("3. Use the new privatebin URL with pastebin:// scheme")
-            result_parts.append("4. Ensure PASTEBIN_PASSWORD environment variable is set")
+            result_parts.append("3. Use the new privatebin URL with privatebin:// scheme")
+            result_parts.append("4. Ensure PRIVATEBIN_PASSWORD environment variable is set")
 
         if not missing_keys and existing_requested_keys:
             result_parts.append("All requested secrets are already present in the privatebin.")
