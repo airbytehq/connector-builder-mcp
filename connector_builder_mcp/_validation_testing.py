@@ -362,7 +362,7 @@ def execute_stream_test_read(
         )
 
 
-def execute_record_counts_smoke_test(
+def run_connector_readiness_test_report(
     manifest: Annotated[
         str,
         Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
@@ -387,22 +387,23 @@ def execute_record_counts_smoke_test(
         Path | None,
         Field(description="Optional path to .env file for secret hydration"),
     ] = None,
-) -> MultiStreamSmokeTest:
-    """Execute a smoke test to count records from all streams in the connector.
+) -> str:
+    """Execute a connector readiness test and generate a comprehensive markdown report.
 
     This function tests all available streams by reading records up to the specified limit
-    and returns comprehensive statistics including record counts, errors, and timing information.
+    and returns a markdown-formatted readiness report with validation warnings and statistics.
 
     Args:
         manifest: The connector manifest (YAML string or file path)
         config: Connector configuration
+        streams: Optional CSV-delimited list of streams to test
         max_records: Maximum number of records to read per stream (default: 10000)
         dotenv_path: Optional path to .env file for secret hydration
 
     Returns:
-        MultiStreamSmokeTest result with per-stream statistics and overall summary
+        Markdown-formatted readiness report with per-stream statistics and validation warnings
     """
-    logger.info("Starting multi-stream smoke test")
+    logger.info("Starting connector readiness test")
     start_time = time.time()
     total_streams_tested = 0
     total_streams_successful = 0
@@ -413,13 +414,13 @@ def execute_record_counts_smoke_test(
 
     config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
 
+    available_streams = manifest_dict.get("streams", [])
+    total_available_streams = len(available_streams)
+
     stream_names: list[str]
     if isinstance(streams, str):
         stream_names = [s.strip() for s in streams.split(",") if s.strip()]
-    elif isinstance(streams, list):
-        stream_names = [s.strip() for s in streams]
     else:
-        available_streams = manifest_dict.get("streams", [])
         stream_names = [
             stream.get("name", f"stream_{i}") for i, stream in enumerate(available_streams)
         ]
@@ -436,7 +437,7 @@ def execute_record_counts_smoke_test(
                 config=config,
                 stream_name=stream_name,
                 max_records=max_records,
-                include_records_data=False,
+                include_records_data=True,
                 include_raw_responses_data=False,
                 dotenv_path=dotenv_path,
             )
@@ -447,12 +448,24 @@ def execute_record_counts_smoke_test(
             if result.success:
                 total_streams_successful += 1
                 total_records_count += records_read
+
+                field_count_warnings = []
+                if result.records and len(result.records) > 0:
+                    for i, record in enumerate(result.records[:5]):
+                        if isinstance(record, dict) and len(record.keys()) < 2:
+                            field_count_warnings.append(
+                                f"Record {i + 1} has only {len(record.keys())} field(s)"
+                            )
+                            if len(field_count_warnings) >= 3:
+                                break
+
                 stream_results[stream_name] = StreamSmokeTest(
                     stream_name=stream_name,
                     success=True,
                     records_read=records_read,
                     duration_seconds=stream_duration,
                 )
+                stream_results[stream_name].field_count_warnings = field_count_warnings
                 logger.info(f"✓ {stream_name}: {records_read} records in {stream_duration:.2f}s")
             else:
                 error_message = result.message
@@ -481,18 +494,81 @@ def execute_record_counts_smoke_test(
     overall_success = total_streams_successful == total_streams_tested
 
     logger.info(
-        f"Smoke test completed: {total_streams_successful}/{total_streams_tested} streams successful, "
+        f"Readiness test completed: {total_streams_successful}/{total_streams_tested} streams successful, "
         f"{total_records_count} total records in {total_duration:.2f}s"
     )
 
-    return MultiStreamSmokeTest(
-        success=overall_success,
-        total_streams_tested=total_streams_tested,
-        total_streams_successful=total_streams_successful,
-        total_records_count=total_records_count,
-        duration_seconds=total_duration,
-        stream_results=stream_results,
-    )
+    if not overall_success:
+        failed_streams = [name for name, result in stream_results.items() if not result.success]
+        error_details = []
+        for name, result in stream_results.items():
+            if not result.success:
+                error_details.append(f"- **{name}**: {result.error_message}")
+
+        return f"""# Connector Readiness Test Report - FAILED
+
+**Status**: {total_streams_successful}/{total_streams_tested} streams successful
+**Failed streams**: {", ".join(failed_streams)}
+**Total duration**: {total_duration:.2f}s
+
+{chr(10).join(error_details)}
+"""
+
+    report_lines = [
+        "# Connector Readiness Test Report",
+        "",
+        "## Summary",
+        f"- **Streams Tested**: {total_streams_tested} out of {total_available_streams} total streams",
+        f"- **Successful Streams**: {total_streams_successful}/{total_streams_tested}",
+        f"- **Total Records Extracted**: {total_records_count:,}",
+        f"- **Total Duration**: {total_duration:.2f}s",
+        "",
+        "## Stream Results",
+        "",
+    ]
+
+    for stream_name, result in stream_results.items():
+        if result.success:
+            warnings = []
+            if result.records_read == 0:
+                warnings.append("⚠️ No records extracted")
+            elif result.records_read == 1:
+                warnings.append("⚠️ Only 1 record extracted - may indicate pagination issues")
+            elif result.records_read % 10 == 0:
+                warnings.append("⚠️ Record count is multiple of 10 - may indicate pagination limit")
+
+            # TODO: Add page size validation
+            # if page_size is specified in config, check if records_read is multiple of page_size (important-comment)
+
+            field_warnings = getattr(result, "field_count_warnings", [])
+            if field_warnings:
+                warnings.append(f"⚠️ Field count issues: {'; '.join(field_warnings[:2])}")
+
+            report_lines.extend(
+                [
+                    f"### {stream_name} ✅",
+                    f"- **Records Extracted**: {result.records_read:,}",
+                    f"- **Duration**: {result.duration_seconds:.2f}s",
+                ]
+            )
+
+            if warnings:
+                report_lines.append(f"- **Warnings**: {' | '.join(warnings)}")
+            else:
+                report_lines.append("- **Status**: No issues detected")
+
+            report_lines.append("")
+        else:
+            report_lines.extend(
+                [
+                    f"### {stream_name} ❌",
+                    "- **Status**: Failed",
+                    f"- **Error**: {result.error_message}",
+                    "",
+                ]
+            )
+
+    return "\n".join(report_lines)
 
 
 def execute_dynamic_manifest_resolution_test(
