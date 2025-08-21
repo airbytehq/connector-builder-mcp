@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import requests
 
 from connector_builder_mcp._guidance import TOPIC_MAPPING
 from connector_builder_mcp._secrets import load_secrets
