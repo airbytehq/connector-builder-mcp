@@ -51,7 +51,7 @@ from connector_builder_mcp._util import (
 
 
 DOTENV_FILE_URIS_DESCRIPTION = """
-Optional paths/URLs to local .env files or Privatebin.net URLs for secret 
+Optional paths/URLs to local .env files or Privatebin.net URLs for secret
 hydration. Can be a single string, comma-separated string, or list of strings.
 
 Privatebin secrets may be created at privatebin.net, and must:
