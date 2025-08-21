@@ -25,6 +25,7 @@ from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import 
 from airbyte_cdk.test.catalog_builder import CatalogBuilder
 from airbyte_cdk.test.entrypoint_wrapper import EntrypointOutput, read
 from airbyte_cdk.test.state_builder import StateBuilder
+from airbyte_cdk.models import SyncMode
 
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
@@ -83,7 +84,7 @@ def _get_dummy_catalog(manifest_dict: dict[str, Any]) -> ConfiguredAirbyteCatalo
     streams = manifest_dict.get("streams", [])
     for stream in streams:
         stream_name = stream.get("name", "unknown_stream")
-        catalog_builder.with_stream(stream_name, {})
+        catalog_builder.with_stream(stream_name, SyncMode.full_refresh)
 
     return catalog_builder.build()
 
