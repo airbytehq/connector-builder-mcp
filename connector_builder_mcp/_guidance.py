@@ -191,3 +191,14 @@ For detailed guidance on specific components and features, you can request docum
 {NEWLINE.join(f"- `{key}` - {desc}" for key, (_, desc) in TOPIC_MAPPING.items())}
 
 """
+
+
+DOTENV_FILE_URI_DESCRIPTION = """
+Optional paths/URLs to local .env files or Privatebin.net URLs for secret
+hydration. Can be a single string, comma-separated string, or list of strings.
+
+Privatebin secrets may be created at privatebin.net, and must:
+- Contain text formatted as a dotenv file.
+- Use a password sent via the `PRIVATEBIN_PASSWORD` env var.
+- Not include password text in the URL.
+"""
