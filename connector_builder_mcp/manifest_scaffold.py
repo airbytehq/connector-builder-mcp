@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from connector_builder_mcp._validation_testing import validate_manifest
+from connector_builder_mcp.validation_testing import validate_manifest
 
 
 logger = logging.getLogger(__name__)
