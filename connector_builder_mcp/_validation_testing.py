@@ -3,24 +3,26 @@
 import logging
 import pkgutil
 import time
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel, Field
 
+from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     TestLimits,
     create_source,
     full_resolve_manifest,
     get_limits,
+    read_stream,
     resolve_manifest,
 )
 from airbyte_cdk.models import (
-    AirbyteMessage,
+    AirbyteStream,
     ConfiguredAirbyteCatalog,
     DestinationSyncMode,
     SyncMode,
-    Type,
 )
 from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer import (
     ManifestComponentTransformer,
@@ -28,12 +30,13 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
-from airbyte_cdk.test.catalog_builder import CatalogBuilder
-from airbyte_cdk.test.entrypoint_wrapper import EntrypointOutput, read
-from airbyte_cdk.test.state_builder import StateBuilder
 
 from connector_builder_mcp._secrets import hydrate_config
-from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
+from connector_builder_mcp._util import (
+    filter_config_secrets,
+    parse_manifest_input,
+    validate_manifest_structure,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -49,15 +52,21 @@ class ManifestValidationResult(BaseModel):
 
 
 class StreamTestResult(BaseModel):
-    """Result of stream testing."""
+    """Result of stream testing operation."""
 
     success: bool
     message: str
     records_read: int = 0
-    records: list[dict[str, Any]] | None = None
     errors: list[str] = []
-    raw_api_responses: list[dict[str, Any]] | None = None
-    record_stats: dict[str, Any] | None = None
+    records: list[dict[str, Any]] | None = Field(
+        default=None, description="Actual record data from the stream"
+    )
+    raw_api_responses: list[dict[str, Any]] | None = Field(
+        default=None, description="Raw request/response data and metadata from CDK"
+    )
+    logs: list[dict[str, Any]] | None = Field(
+        default=None, description="Logs returned by the test read operation (if applicable)."
+    )
 
 
 class StreamSmokeTest(BaseModel):
@@ -82,16 +91,26 @@ class MultiStreamSmokeTest(BaseModel):
     stream_results: dict[str, StreamSmokeTest]
 
 
-def _get_dummy_catalog(manifest_dict: dict[str, Any]) -> ConfiguredAirbyteCatalog:
-    """Create a dummy catalog for testing purposes."""
-    catalog_builder = CatalogBuilder()
+def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
+    """Create a dummy configured catalog for one stream.
 
-    streams = manifest_dict.get("streams", [])
-    for stream in streams:
-        stream_name = stream.get("name", "unknown_stream")
-        catalog_builder.with_stream(stream_name, SyncMode.full_refresh)
+    We shouldn't have to do this. We should push it into the CDK code instead.
 
-    return catalog_builder.build()
+    For now, we have to create this (with no schema) or the read operation will fail.
+    """
+    return ConfiguredAirbyteCatalog(
+        streams=[
+            ConfiguredAirbyteStream(
+                stream=AirbyteStream(
+                    name=stream_name,
+                    json_schema={},
+                    supported_sync_modes=[SyncMode.full_refresh],
+                ),
+                sync_mode=SyncMode.full_refresh,
+                destination_sync_mode=DestinationSyncMode.append,
+            ),
+        ]
+    )
 
 
 def _get_declarative_component_schema() -> dict[str, Any]:
@@ -242,154 +261,116 @@ def execute_stream_test_read(
         str,
         Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
     ],
-    config: Annotated[
-        dict[str, Any],
-        Field(description="Connector configuration"),
+    stream_name: Annotated[
+        str,
+        Field(description="Name of the stream to test"),
     ],
-    stream_name: Annotated[str, Field(description="Name of the stream to test")],
+    config: Annotated[
+        dict[str, Any] | None,
+        Field(description="Connector configuration"),
+    ] = None,
     *,
     max_records: Annotated[
         int,
-        Field(description="Maximum number of records to read", ge=1, le=50000),
-    ] = 10000,
+        Field(description="Maximum number of records to read", ge=1, le=1000),
+    ] = 10,
     include_records_data: Annotated[
         bool,
-        Field(description="Whether to include actual record data in the response"),
-    ] = False,
-    include_record_stats: Annotated[
-        bool,
-        Field(description="Include basic statistics on record properties"),
+        Field(description="Include actual record data from the stream read"),
     ] = True,
     include_raw_responses_data: Annotated[
         bool | None,
         Field(
-            description="Whether to include raw API response data. "
-            "True=always include, False=never include, None=include on errors only"
+            description="Include raw API responses and request/response metadata. "
+            "Defaults to 'None', which means raw data is included only if an error occurs. "
+            "If set to 'False', raw data is not included even on errors."
         ),
     ] = None,
-    dotenv_file_uris: Annotated[
-        str | list[str] | None,
-        Field(
-            description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
-        ),
+    dotenv_path: Annotated[
+        Path | None,
+        Field(description="Optional path to .env file for secret hydration"),
     ] = None,
 ) -> StreamTestResult:
-    """Test reading records from a specific stream in the connector.
+    """Execute reading from a connector stream.
 
-    Args:
-        manifest: The connector manifest (YAML string or file path)
-        config: Connector configuration
-        stream_name: Name of the stream to test
-        max_records: Maximum number of records to read (default: 10000)
-        include_records_data: Whether to include actual record data in response
-        include_record_stats: Whether to include basic statistics on record properties
-        include_raw_responses_data: Whether to include raw API responses
-        dotenv_file_uris: Optional paths/URLs to .env files or privatebin URLs for secret hydration
-
-    Returns:
-        StreamTestResult with success status, record count, and optional data
+    Return record data and/or raw request/response metadata from the stream test.
+    We attempt to automatically sanitize raw data to prevent exposure of secrets.
+    We do not attempt to sanitize record data, as it is expected to be user-defined.
     """
-    logger.info(f"Testing stream read for {stream_name}")
+    logger.info(f"Testing stream read for stream: {stream_name}")
+    config = config or {}
 
     try:
         manifest_dict = parse_manifest_input(manifest)
 
-        config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
+        config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest_dict,
             "__test_read_config": {
                 "max_records": max_records,
-                "max_pages_per_slice": 10,
-                "max_slices": 10,
+                "max_pages_per_slice": 1,
+                "max_slices": 1,
+                "max_streams": 1,
             },
         }
 
         limits = get_limits(config_with_manifest)
         source = create_source(config_with_manifest, limits)
+        catalog = _get_dummy_catalog(stream_name)
 
-        catalog = _get_dummy_catalog(manifest_dict)
+        result = read_stream(
+            source=source,
+            config=config_with_manifest,
+            configured_catalog=catalog,
+            state=[],
+            limits=limits,
+        )
 
-        for configured_stream in catalog.streams:
-            if configured_stream.stream.name == stream_name:
-                configured_stream.sync_mode = SyncMode.full_refresh
-                configured_stream.destination_sync_mode = DestinationSyncMode.overwrite
-                break
-        else:
+        if not (result.type.value == "RECORD" and result.record and result.record.data):
+            error_msg = "Failed to read from stream"
+            if hasattr(result, "trace") and result.trace:
+                error_msg = result.trace.error.message
+
             return StreamTestResult(
                 success=False,
-                message=f"Stream '{stream_name}' not found in manifest",
-                errors=[f"Stream '{stream_name}' not found in available streams"],
+                message=error_msg,
+                errors=[error_msg],
             )
 
-        state = StateBuilder().build()
+        stream_data = result.record.data
+        slices = stream_data.get("slices", None)
+        if not slices:
+            logs = stream_data.pop("logs", [])
+            return StreamTestResult(
+                success=False,
+                message=f"No API output returned for stream '{stream_name}'.",
+                errors=[
+                    f"No API output returned for stream '{stream_name}'.",
+                    f"Result object: {stream_data!s}",
+                ],
+                logs=logs,
+            )
 
-        output: EntrypointOutput = read(source, config_with_manifest, catalog, state)
+        slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
+        slices = filter_config_secrets(slices)
 
         records_data = []
-        slices = []
-        record_stats = None
-        property_stats: dict[str, dict[str, Any]] = {}
-        total_records = 0
-
-        for message in output.get_message_iterator():
-            if isinstance(message, AirbyteMessage):
-                if (
-                    message.type == Type.RECORD
-                    and message.record
-                    and message.record.stream == stream_name
-                ):
-                    if include_records_data:
-                        records_data.append(message.record.data)
-
-                    if include_record_stats and message.record.data:
-                        total_records += 1
-                        for key, value in message.record.data.items():
-                            if key not in property_stats:
-                                property_stats[key] = {
-                                    "type": type(value).__name__,
-                                    "num_null": 0,
-                                    "num_non_null": 0,
-                                }
-
-                            if value is None:
-                                property_stats[key]["num_null"] += 1
-                            else:
-                                property_stats[key]["num_non_null"] += 1
-                                property_stats[key]["type"] = type(value).__name__
-
-                elif (
-                    message.type == Type.TRACE
-                    and message.trace
-                    and message.trace.type.value == "STREAM_STATUS"
-                ):
-                    if hasattr(message.trace, "stream_status") and message.trace.stream_status:
-                        slice_data = getattr(message.trace.stream_status, "slice", None)
-                        if slice_data:
-                            slices.append(slice_data)
-
-        if include_record_stats:
-            record_stats = {
-                "num_properties": len(property_stats),
-                "properties": property_stats,
-            }
+        for slice_obj in slices:
+            if isinstance(slice_obj, dict) and "pages" in slice_obj:
+                for page in slice_obj["pages"]:
+                    if isinstance(page, dict) and "records" in page:
+                        records_data.extend(page.pop("records"))
 
         raw_responses_data = None
         if include_raw_responses_data is True and slices and isinstance(slices, list):
             raw_responses_data = slices
 
-        records_count = (
-            len(records_data)
-            if include_records_data
-            else (total_records if include_record_stats else 0)
-        )
-
         return StreamTestResult(
             success=True,
-            message=f"Successfully read {records_count} records from stream {stream_name}",
-            records_read=records_count,
+            message=f"Successfully read {len(records_data)} records from stream {stream_name}",
+            records_read=len(records_data),
             records=records_data if include_records_data else None,
-            record_stats=record_stats,
             raw_api_responses=raw_responses_data,
         )
 
@@ -484,15 +465,25 @@ def run_connector_readiness_test_report(
         total_streams_tested += 1
 
         try:
+            dotenv_path_value = None
+            if dotenv_file_uris:
+                if isinstance(dotenv_file_uris, str):
+                    dotenv_path_value = (
+                        Path(dotenv_file_uris.split(",")[0].strip())
+                        if "," in dotenv_file_uris
+                        else Path(dotenv_file_uris)
+                    )
+                elif isinstance(dotenv_file_uris, list) and len(dotenv_file_uris) > 0:
+                    dotenv_path_value = Path(dotenv_file_uris[0])
+
             result = execute_stream_test_read(
                 manifest=manifest,
-                config=config,
                 stream_name=stream_name,
+                config=config,
                 max_records=max_records,
                 include_records_data=False,
-                include_record_stats=True,
                 include_raw_responses_data=False,
-                dotenv_file_uris=dotenv_file_uris,
+                dotenv_path=dotenv_path_value,
             )
 
             stream_duration = time.time() - stream_start_time
@@ -503,11 +494,6 @@ def run_connector_readiness_test_report(
                 total_records_count += records_read
 
                 field_count_warnings = []
-
-                if result.record_stats and result.record_stats.get("num_properties", 0) < 2:
-                    field_count_warnings.append(
-                        f"Records have only {result.record_stats.get('num_properties', 0)} field(s), expected at least 2"
-                    )
 
                 smoke_test_result = StreamSmokeTest(
                     stream_name=stream_name,
