@@ -465,7 +465,7 @@ def run_connector_readiness_test_report(
                     records_read=records_read,
                     duration_seconds=stream_duration,
                 )
-                setattr(smoke_test_result, 'field_count_warnings', field_count_warnings)
+                smoke_test_result.field_count_warnings = field_count_warnings
                 stream_results[stream_name] = smoke_test_result
                 logger.info(f"✓ {stream_name}: {records_read} records in {stream_duration:.2f}s")
             else:
@@ -504,7 +504,7 @@ def run_connector_readiness_test_report(
         error_details = []
         for name, smoke_result in stream_results.items():
             if not smoke_result.success:
-                error_msg = getattr(smoke_result, 'error_message', 'Unknown error')
+                error_msg = getattr(smoke_result, "error_message", "Unknown error")
                 error_details.append(f"- **{name}**: {error_msg}")
 
         return f"""# Connector Readiness Test Report - FAILED
@@ -561,7 +561,7 @@ def run_connector_readiness_test_report(
 
             report_lines.append("")
         else:
-            error_msg = getattr(smoke_result, 'error_message', 'Unknown error')
+            error_msg = getattr(smoke_result, "error_message", "Unknown error")
             report_lines.extend(
                 [
                     f"### {stream_name} ❌",
