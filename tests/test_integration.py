@@ -13,13 +13,13 @@ from connector_builder_mcp._connector_builder import (
     get_connector_builder_docs,
 )
 from connector_builder_mcp._guidance import TOPIC_MAPPING
+from connector_builder_mcp._secrets import load_secrets
 from connector_builder_mcp._validation_testing import (
     StreamTestResult,
     execute_dynamic_manifest_resolution_test,
     execute_stream_test_read,
     validate_manifest,
 )
-from connector_builder_mcp._secrets import load_secrets
 
 
 @pytest.fixture

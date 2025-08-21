@@ -280,7 +280,7 @@ def execute_stream_test_read(
     try:
         manifest_dict = parse_manifest_input(manifest)
 
-        config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+        config = hydrate_config(config, dotenv_file_uris=str(dotenv_path) if dotenv_path else None)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest_dict,
@@ -411,7 +411,7 @@ def execute_record_counts_smoke_test(
 
     manifest_dict = parse_manifest_input(manifest)
 
-    config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+    config = hydrate_config(config, dotenv_file_uris=str(dotenv_path) if dotenv_path else None)
 
     stream_names: list[str]
     if isinstance(streams, str):
