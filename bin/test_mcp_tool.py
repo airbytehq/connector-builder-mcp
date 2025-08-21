@@ -10,7 +10,7 @@ Usage:
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from connector_builder_mcp._validation_testing import (
     execute_stream_test_read,
@@ -40,22 +40,31 @@ def main() -> None:
         print("  - @simple_api_manifest", file=sys.stderr)
         print("", file=sys.stderr)
         print("Example:", file=sys.stderr)
-        print('  poe test-tool execute_stream_test_read \'{"manifest": "@simple_api_manifest", "config": {}, "stream_name": "users", "max_records": 3}\'', file=sys.stderr)
+        print(
+            '  poe test-tool execute_stream_test_read \'{"manifest": "@simple_api_manifest", "config": {}, "stream_name": "users", "max_records": 3}\'',
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     tool_name = sys.argv[1]
     json_args = sys.argv[2]
 
     try:
-        args: Dict[str, Any] = json.loads(json_args)
+        args: dict[str, Any] = json.loads(json_args)
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON arguments: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if "manifest" in args and isinstance(args["manifest"], str) and args["manifest"].startswith("@"):
+    if (
+        "manifest" in args
+        and isinstance(args["manifest"], str)
+        and args["manifest"].startswith("@")
+    ):
         sample_name = args["manifest"][1:]
         try:
-            manifest_path = Path(__file__).parent.parent / "tests" / "resources" / f"{sample_name}.yaml"
+            manifest_path = (
+                Path(__file__).parent.parent / "tests" / "resources" / f"{sample_name}.yaml"
+            )
             if manifest_path.exists():
                 args["manifest"] = str(manifest_path)
             else:
@@ -84,12 +93,16 @@ def main() -> None:
 
         else:
             print(f"Unknown tool: {tool_name}", file=sys.stderr)
-            print("Available tools: execute_stream_test_read, run_connector_readiness_test_report", file=sys.stderr)
+            print(
+                "Available tools: execute_stream_test_read, run_connector_readiness_test_report",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     except Exception as e:
         print(f"Error executing tool '{tool_name}': {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
