@@ -1,5 +1,4 @@
 """Validation and testing tools for Airbyte connector manifests."""
-
 import logging
 import pkgutil
 import time
@@ -26,6 +25,11 @@ from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import 
 from airbyte_cdk.test.catalog_builder import CatalogBuilder, ConfiguredAirbyteStreamBuilder
 from airbyte_cdk.test.entrypoint_wrapper import EntrypointOutput, read
 from airbyte_cdk.test.state_builder import StateBuilder
+from airbyte_protocol_dataclasses.models.airbyte_protocol import (
+    AirbyteStream,
+    ConfiguredAirbyteStream,
+    DestinationSyncMode,
+)
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
 
@@ -79,11 +83,21 @@ def _get_dummy_catalog(
     stream_name: str,
 ) -> ConfiguredAirbyteCatalog:
     """Create a dummy catalog for testing purposes."""
-    catalog_builder = CatalogBuilder()
-    catalog_stream_builder = ConfiguredAirbyteStreamBuilder()
-    return catalog_builder.with_stream(
-        catalog_stream_builder.with_name(stream_name),
-    ).build()
+    return ConfiguredAirbyteCatalog(
+        streams=[
+            ConfiguredAirbyteStream(
+                sync_mode=SyncMode.full_refresh,
+                destination_sync_mode=DestinationSyncMode.append,
+                stream=AirbyteStream(
+                    name=stream_name,
+                    json_schema={},
+                    supported_sync_modes=[
+                        SyncMode.full_refresh,
+                    ],
+                )
+            )
+        ]
+    )
 
 
 def _get_declarative_component_schema() -> dict[str, Any]:
