@@ -286,7 +286,7 @@ class TestMCPServerIntegration:
             assert result is not None
 
 
-class TestPastebinIntegration:
+class TestPrivatebinIntegration:
     """Integration tests for privatebin functionality with real URLs."""
 
     @patch.dict(os.environ, {"PASTEBIN_PASSWORD": "PASSWORD"})

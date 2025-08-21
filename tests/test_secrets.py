@@ -36,8 +36,8 @@ def test_load_secrets_existing_file():
         Path(f.name).unlink()
 
 
-def test_hydrate_config_no_secrets_env_file_uris():
-    """Test hydration with no secrets env file uris returns config unchanged."""
+def test_hydrate_config_no_dotenv_file_uris():
+    """Test hydration with no dotenv file uris returns config unchanged."""
     config = {"host": "localhost", "credentials": {"username": "user"}}
     result = hydrate_config(config)
     assert result == config
@@ -541,7 +541,7 @@ def test_validate_secrets_uris_relative_path_invalid():
 
 @patch("connector_builder_mcp._secrets.os.getenv")
 def test_validate_secrets_uris_pastebin_no_password(mock_getenv):
-    """Test validation fails for pastebin URL without PASTEBIN_PASSWORD."""
+    """Test validation fails for privatebin URL without PASTEBIN_PASSWORD."""
     from connector_builder_mcp._secrets import _validate_secrets_uris
 
     mock_getenv.return_value = None
@@ -552,7 +552,7 @@ def test_validate_secrets_uris_pastebin_no_password(mock_getenv):
 
 @patch("connector_builder_mcp._secrets.os.getenv")
 def test_validate_secrets_uris_pastebin_with_password_valid(mock_getenv):
-    """Test validation passes for pastebin URL with PASTEBIN_PASSWORD set."""
+    """Test validation passes for privatebin URL with PASTEBIN_PASSWORD set."""
     from connector_builder_mcp._secrets import _validate_secrets_uris
 
     mock_getenv.return_value = "test_password"
@@ -562,7 +562,7 @@ def test_validate_secrets_uris_pastebin_with_password_valid(mock_getenv):
 
 @patch("connector_builder_mcp._secrets.os.getenv")
 def test_validate_secrets_uris_pastebin_embedded_password_invalid(mock_getenv):
-    """Test validation fails for pastebin URL with embedded password."""
+    """Test validation fails for privatebin URL with embedded password."""
     from connector_builder_mcp._secrets import _validate_secrets_uris
 
     mock_getenv.return_value = "test_password"
