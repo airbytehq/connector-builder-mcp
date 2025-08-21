@@ -15,7 +15,7 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     get_limits,
     resolve_manifest,
 )
-from airbyte_cdk.models import AirbyteMessage, ConfiguredAirbyteCatalog, Type
+from airbyte_cdk.models import AirbyteMessage, ConfiguredAirbyteCatalog, SyncMode, Type
 from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer import (
     ManifestComponentTransformer,
 )
@@ -25,7 +25,6 @@ from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import 
 from airbyte_cdk.test.catalog_builder import CatalogBuilder
 from airbyte_cdk.test.entrypoint_wrapper import EntrypointOutput, read
 from airbyte_cdk.test.state_builder import StateBuilder
-from airbyte_cdk.models import SyncMode
 
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure

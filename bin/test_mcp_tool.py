@@ -19,7 +19,7 @@ from fastmcp import Client
 async def call_mcp_tool(tool_name: str, args: dict[str, Any]) -> Any:
     """Call an MCP tool using the FastMCP client."""
     from connector_builder_mcp.server import app
-    
+
     async with Client(app) as client:
         result = await client.call_tool(tool_name, args)
         return result
@@ -78,7 +78,7 @@ def main() -> None:
 
     try:
         result = asyncio.run(call_mcp_tool(tool_name, args))
-        
+
         if hasattr(result, "text"):
             print(result.text)
         else:
