@@ -16,17 +16,16 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     get_limits,
     resolve_manifest,
 )
-from airbyte_cdk.models import AirbyteMessage, ConfiguredAirbyteCatalog, Type
+from airbyte_cdk.models import AirbyteMessage, ConfiguredAirbyteCatalog, SyncMode, Type
 from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer import (
     ManifestComponentTransformer,
 )
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
-from airbyte_cdk.test.catalog_builder import CatalogBuilder
+from airbyte_cdk.test.catalog_builder import CatalogBuilder, ConfiguredAirbyteStreamBuilder
 from airbyte_cdk.test.entrypoint_wrapper import EntrypointOutput, read
 from airbyte_cdk.test.state_builder import StateBuilder
-
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import parse_manifest_input, validate_manifest_structure
 
@@ -75,16 +74,16 @@ class MultiStreamSmokeTest(BaseModel):
     stream_results: dict[str, StreamSmokeTest]
 
 
-def _get_dummy_catalog(manifest_dict: dict[str, Any]) -> ConfiguredAirbyteCatalog:
+def _get_dummy_catalog(
+    # manifest_dict: dict[str, Any],
+    stream_name: str,
+) -> ConfiguredAirbyteCatalog:
     """Create a dummy catalog for testing purposes."""
     catalog_builder = CatalogBuilder()
-
-    streams = manifest_dict.get("streams", [])
-    for stream in streams:
-        stream_name = stream.get("name", "unknown_stream")
-        catalog_builder.with_stream(stream_name, {})
-
-    return catalog_builder.build()
+    catalog_stream_builder = ConfiguredAirbyteStreamBuilder()
+    return catalog_builder.with_stream(
+        catalog_stream_builder.with_name(stream_name),
+    ).build()
 
 
 def _get_declarative_component_schema() -> dict[str, Any]:
@@ -294,7 +293,10 @@ def execute_stream_test_read(
         limits = get_limits(config_with_manifest)
         source = create_source(config_with_manifest, limits)
 
-        catalog = _get_dummy_catalog(manifest_dict)
+        catalog = _get_dummy_catalog(
+            # manifest_dict,
+            stream_name=stream_name,
+        )
 
         for configured_stream in catalog.streams:
             if configured_stream.stream.name == stream_name:
@@ -347,8 +349,11 @@ def execute_stream_test_read(
         )
 
     except Exception as e:
-        logger.error(f"Error testing stream read: {e}")
-        error_msg = f"Stream test error: {str(e)}"
+        import traceback
+
+        tb = traceback.format_exc()
+        logger.error(f"Error testing stream read: {e}\n{tb}")
+        error_msg = f"Stream test error: {str(e)}\n{tb}"
 
         raw_responses_data = None
         if include_raw_responses_data is not False:

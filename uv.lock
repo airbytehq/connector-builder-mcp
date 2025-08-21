@@ -10,7 +10,7 @@ resolution-markers = [
 
 [[package]]
 name = "airbyte-cdk"
-version = "6.60.5"
+version = "6.60.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "airbyte-protocol-models-dataclasses" },
@@ -56,9 +56,9 @@ dependencies = [
     { name = "whenever" },
     { name = "xmltodict" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/ac/e59b49a4a9cd04520c243348145b00fa9f170f880a77c0c26dfac10e805e/airbyte_cdk-6.60.5.tar.gz", hash = "sha256:127e4ac4daefdee2cfd1b3de599581cb546dcfac33dc6e63d066db13c6bc9aa9", size = 510345, upload-time = "2025-08-01T15:10:18.744Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/19/c396a0cff2a6df4a455a4edc98eecb566b626e0e7f9ddc0b8960df1a15e8/airbyte_cdk-6.60.14.tar.gz", hash = "sha256:78b25219aaf080f798dd825b7bb0f5089db721c28d5d78beba7d1cf9e6e8ae45", size = 511569, upload-time = "2025-08-19T18:14:27.857Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/62/e68dd4238d6170f6658c8d39009de6b1a6e997974855f691230ed1a13d8e/airbyte_cdk-6.60.5-py3-none-any.whl", hash = "sha256:e0bff685c7cc50507d7bf42d6b85973b4351688394a3adb62afbdd8229454f2f", size = 725975, upload-time = "2025-08-01T15:10:15.869Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/b3/a0dafef0ed123b3fc93c5a06228c6936157712e369a39c679e1e6817dbb9/airbyte_cdk-6.60.14-py3-none-any.whl", hash = "sha256:417dcdbdf9b4b5d49544b6a5dec0be27365b8ba960faac65c790b766789adb06", size = 727341, upload-time = "2025-08-19T18:14:24.711Z" },
 ]
 
 [[package]]
@@ -94,7 +94,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "airbyte-cdk", specifier = ">=6.0,<7.0" },
+    { name = "airbyte-cdk", specifier = ">=6.60.14,<7.0" },
     { name = "fastmcp", specifier = ">=0.2.0" },
     { name = "jsonschema", specifier = ">=4.0.0" },
     { name = "pydantic", specifier = ">=2.7.0,<3.0" },

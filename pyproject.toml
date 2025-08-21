@@ -6,7 +6,7 @@ authors = [{name = "Airbyte", email = "contact@airbyte.io"}]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "airbyte-cdk>=6.0,<7.0",
+    "airbyte-cdk>=6.60.14,<7.0",
     "fastmcp>=0.2.0",
     "pydantic>=2.7.0,<3.0",
     "requests>=2.25.0",
