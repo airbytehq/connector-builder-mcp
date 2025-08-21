@@ -266,26 +266,29 @@ spec:
             ("simple_api_manifest", "users"),
         ],
     )
-    def test_sample_manifests_with_both_tools(self, manifest_fixture, stream_name, request, empty_config):
+    def test_sample_manifests_with_both_tools(
+        self, manifest_fixture, stream_name, request, empty_config
+    ):
         """Test that both execute_stream_test_read and run_connector_readiness_test_report work with sample manifests."""
         manifest = request.getfixturevalue(manifest_fixture)
-        
-        stream_result = execute_stream_test_read(
-            manifest, empty_config, stream_name, max_records=5
-        )
+
+        stream_result = execute_stream_test_read(manifest, empty_config, stream_name, max_records=5)
         assert isinstance(stream_result, StreamTestResult)
         assert stream_result.message is not None
         if stream_result.success:
             assert stream_result.records_read >= 0
-            assert "Successfully read" in stream_result.message and "records from stream" in stream_result.message
-        
+            assert (
+                "Successfully read" in stream_result.message
+                and "records from stream" in stream_result.message
+            )
+
         readiness_result = run_connector_readiness_test_report(
             manifest, empty_config, max_records=10
         )
         assert isinstance(readiness_result, str)
         assert "# Connector Readiness Test Report" in readiness_result
         assert stream_name in readiness_result
-        
+
         if "FAILED" in readiness_result:
             assert "Failed streams" in readiness_result
             assert "Total duration" in readiness_result
