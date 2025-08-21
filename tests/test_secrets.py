@@ -36,8 +36,8 @@ def test_load_secrets_existing_file():
         Path(f.name).unlink()
 
 
-def test_hydrate_config_no_dotenv_file_uris():
-    """Test hydration with no dotenv file uris returns config unchanged."""
+def test_hydrate_config_no_dotenv_file_uri():
+    """Test hydration with no dotenv file uri returns config unchanged."""
     config = {"host": "localhost", "credentials": {"username": "user"}}
     result = hydrate_config(config)
     assert result == config

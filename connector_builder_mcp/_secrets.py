@@ -39,37 +39,37 @@ class SecretsFileInfo(BaseModel):
     secrets: list[SecretInfo]
 
 
-def _parse_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str]:
+def _parse_secrets_uris(dotenv_file_uri: str | list[str] | None) -> list[str]:
     """Parse secrets URIs from various input formats.
 
     Args:
-        dotenv_file_uris: String, comma-separated string, or list of URIs
+        dotenv_file_uri: String, comma-separated string, or list of URIs
 
     Returns:
         List of URI strings
     """
-    if not dotenv_file_uris:
+    if not dotenv_file_uri:
         return []
 
-    if isinstance(dotenv_file_uris, str):
-        if "," in dotenv_file_uris:
-            return [uri.strip() for uri in dotenv_file_uris.split(",") if uri.strip()]
-        return [dotenv_file_uris]
+    if isinstance(dotenv_file_uri, str):
+        if "," in dotenv_file_uri:
+            return [uri.strip() for uri in dotenv_file_uri.split(",") if uri.strip()]
+        return [dotenv_file_uri]
 
-    return dotenv_file_uris
+    return dotenv_file_uri
 
 
-def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str]:
+def _validate_secrets_uris(dotenv_file_uri: str | list[str] | None) -> list[str]:
     """Validate secrets URIs and return array of error messages.
 
     Args:
-        dotenv_file_uris: String, comma-separated string, or list of URIs
+        dotenv_file_uri: String, comma-separated string, or list of URIs
 
     Returns:
         List of error messages (empty if all valid)
     """
     errors: list[str] = []
-    uris = _parse_secrets_uris(dotenv_file_uris)
+    uris = _parse_secrets_uris(dotenv_file_uri)
 
     if not uris:
         return errors
@@ -132,23 +132,23 @@ def _fetch_privatebin_content(url: str) -> str:
         return ""
 
 
-def load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, str]:
+def load_secrets(dotenv_file_uri: str | list[str] | None = None) -> dict[str, str]:
     """Load secrets from the specified dotenv files and privatebin URLs.
 
     Args:
-        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
+        dotenv_file_uri: List of paths/URLs to .env files or privatebin URLs,
                               or comma-separated string, or single string
 
     Returns:
         Dictionary of secret key-value pairs from all sources
     """
-    validation_errors = _validate_secrets_uris(dotenv_file_uris)
+    validation_errors = _validate_secrets_uris(dotenv_file_uri)
     if validation_errors:
         for error in validation_errors:
             logger.error(f"Validation error: {error}")
         return {}
 
-    uris = _parse_secrets_uris(dotenv_file_uris)
+    uris = _parse_secrets_uris(dotenv_file_uri)
     if not uris:
         return {}
 
@@ -183,7 +183,7 @@ def load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, s
 
 
 def hydrate_config(
-    config: dict[str, Any], dotenv_file_uris: str | list[str] | None = None
+    config: dict[str, Any], dotenv_file_uri: str | list[str] | None = None
 ) -> dict[str, Any]:
     """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
 
@@ -194,16 +194,16 @@ def hydrate_config(
 
     Args:
         config: Configuration dictionary to hydrate with secrets
-        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
+        dotenv_file_uri: List of paths/URLs to .env files or privatebin URLs,
                               or comma-separated string, or single string
 
     Returns:
         Configuration with secrets injected from .env files and privatebin URLs
     """
-    if not config or not dotenv_file_uris:
+    if not config or not dotenv_file_uri:
         return config
 
-    secrets = load_secrets(dotenv_file_uris)
+    secrets = load_secrets(dotenv_file_uri)
     if not secrets:
         return config
 
@@ -229,7 +229,7 @@ def hydrate_config(
 
 
 def list_dotenv_secrets(
-    dotenv_file_uris: Annotated[
+    dotenv_file_uri: Annotated[
         str | list[str],
         Field(
             description="Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string"
@@ -239,19 +239,19 @@ def list_dotenv_secrets(
     """List all secrets in the specified dotenv files and privatebin URLs without exposing values.
 
     Args:
-        dotenv_file_uris: Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string
+        dotenv_file_uri: Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string
 
     Returns:
         Information about the secrets files and their contents
     """
-    validation_errors = _validate_secrets_uris(dotenv_file_uris)
+    validation_errors = _validate_secrets_uris(dotenv_file_uri)
     if validation_errors:
         error_message = "; ".join(validation_errors)
         return SecretsFileInfo(
             file_path=f"Validation failed: {error_message}", exists=False, secrets=[]
         )
 
-    uris = _parse_secrets_uris(dotenv_file_uris)
+    uris = _parse_secrets_uris(dotenv_file_uri)
     if not uris:
         return SecretsFileInfo(file_path="", exists=False, secrets=[])
 
@@ -294,7 +294,7 @@ def list_dotenv_secrets(
                 file_path=str(file_path.absolute()), exists=file_path.exists(), secrets=secrets_info
             )
 
-    all_secrets = load_secrets(dotenv_file_uris)
+    all_secrets = load_secrets(dotenv_file_uri)
     secrets_info = []
     for key, value in all_secrets.items():
         secrets_info.append(
@@ -312,7 +312,7 @@ def list_dotenv_secrets(
 
 
 def populate_dotenv_missing_secrets_stubs(
-    dotenv_file_uris: Annotated[
+    dotenv_file_uri: Annotated[
         str,
         Field(
             description="Absolute path to the .env file to add secrets to, or privatebin URL to check"
@@ -347,11 +347,11 @@ def populate_dotenv_missing_secrets_stubs(
     Returns:
         Message about the operation result
     """
-    validation_errors = _validate_secrets_uris(dotenv_file_uris)
+    validation_errors = _validate_secrets_uris(dotenv_file_uri)
     if validation_errors:
         return f"Validation failed: {'; '.join(validation_errors)}"
 
-    if dotenv_file_uris.startswith("pastebin://"):
+    if dotenv_file_uri.startswith("pastebin://"):
         config_paths_list = config_paths.split(",") if config_paths else []
         if not any([manifest, config_paths_list]):
             return "Error: Must provide either manifest or config_paths"
@@ -370,7 +370,7 @@ def populate_dotenv_missing_secrets_stubs(
         if not secrets_to_add:
             return "No secrets found to add"
 
-        existing_secrets = load_secrets(dotenv_file_uris)
+        existing_secrets = load_secrets(dotenv_file_uri)
 
         secrets_info = []
         for key, value in existing_secrets.items():
@@ -409,7 +409,7 @@ def populate_dotenv_missing_secrets_stubs(
 
         return " ".join(result_parts)
 
-    path_obj = Path(dotenv_file_uris)
+    path_obj = Path(dotenv_file_uri)
     config_paths_list = config_paths.split(",") if config_paths else []
     if not any([manifest, config_paths_list]):
         return "Error: Must provide either manifest or config_paths"
@@ -419,7 +419,7 @@ def populate_dotenv_missing_secrets_stubs(
             path_obj.parent.mkdir(parents=True, exist_ok=True)
             path_obj.touch()
         elif not path_obj.exists():
-            return f"Error: File {dotenv_file_uris} does not exist and allow_create=False"
+            return f"Error: File {dotenv_file_uri} does not exist and allow_create=False"
 
         secrets_to_add = []
 
@@ -438,7 +438,7 @@ def populate_dotenv_missing_secrets_stubs(
         local_existing_secrets: dict[str, str] = {}
         if path_obj.exists():
             try:
-                raw_secrets = dotenv_values(dotenv_file_uris) or {}
+                raw_secrets = dotenv_values(dotenv_file_uri) or {}
                 local_existing_secrets = {k: v for k, v in raw_secrets.items() if v is not None}
             except Exception as e:
                 logger.error(f"Error reading existing secrets: {e}")
@@ -463,10 +463,10 @@ def populate_dotenv_missing_secrets_stubs(
         added_count = 0
         for dotenv_key in secrets_to_add:
             placeholder_value = f"# TODO: Set actual value for {dotenv_key}"
-            set_key(dotenv_file_uris, dotenv_key, placeholder_value)
+            set_key(dotenv_file_uri, dotenv_key, placeholder_value)
             added_count += 1
 
-        return f"Added {added_count} secret stub(s) to {dotenv_file_uris}: {', '.join(secrets_to_add)}. Please set the actual values."
+        return f"Added {added_count} secret stub(s) to {dotenv_file_uri}: {', '.join(secrets_to_add)}. Please set the actual values."
 
     except Exception as e:
         logger.error(f"Error adding secret stubs: {e}")

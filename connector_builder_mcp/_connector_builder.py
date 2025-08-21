@@ -50,7 +50,7 @@ from connector_builder_mcp._util import (
 )
 
 
-DOTENV_FILE_URIS_DESCRIPTION = """
+DOTENV_FILE_URI_DESCRIPTION = """
 Optional paths/URLs to local .env files or Privatebin.net URLs for secret
 hydration. Can be a single string, comma-separated string, or list of strings.
 
@@ -331,9 +331,9 @@ def execute_stream_test_read(
             "If set to 'False', raw data is not included even on errors."
         ),
     ] = None,
-    dotenv_file_uris: Annotated[
+    dotenv_file_uri: Annotated[
         str | list[str] | None,
-        Field(description=DOTENV_FILE_URIS_DESCRIPTION),
+        Field(description=DOTENV_FILE_URI_DESCRIPTION),
     ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
@@ -347,7 +347,7 @@ def execute_stream_test_read(
     try:
         manifest_dict = parse_manifest_input(manifest)
 
-        config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
+        config = hydrate_config(config, dotenv_file_uri=dotenv_file_uri)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest_dict,
@@ -458,9 +458,9 @@ def execute_record_counts_smoke_test(
         int,
         Field(description="Maximum number of records to read per stream", ge=1, le=50000),
     ] = 10000,
-    dotenv_file_uris: Annotated[
+    dotenv_file_uri: Annotated[
         str | list[str] | None,
-        Field(description=DOTENV_FILE_URIS_DESCRIPTION),
+        Field(description=DOTENV_FILE_URI_DESCRIPTION),
     ] = None,
 ) -> MultiStreamSmokeTest:
     """Execute a smoke test to count records from all streams in the connector.
@@ -472,7 +472,7 @@ def execute_record_counts_smoke_test(
         manifest: The connector manifest (YAML string or file path)
         config: Connector configuration
         max_records: Maximum number of records to read per stream (default: 10000)
-        dotenv_file_uris: Optional paths/URLs to .env files or privatebin URLs for secret hydration
+        dotenv_file_uri: Optional paths/URLs to .env files or privatebin URLs for secret hydration
 
     Returns:
         MultiStreamSmokeTest result with per-stream statistics and overall summary
@@ -486,8 +486,8 @@ def execute_record_counts_smoke_test(
 
     manifest_dict = parse_manifest_input(manifest)
 
-    # Hydrate config with secrets if dotenv_file_uris is provided
-    config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
+    # Hydrate config with secrets if dotenv_file_uri is provided
+    config = hydrate_config(config, dotenv_file_uri=dotenv_file_uri)
     config_with_manifest = {
         **config,
         "__injected_declarative_manifest": manifest_dict,
