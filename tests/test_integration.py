@@ -15,6 +15,7 @@ from connector_builder_mcp._validation_testing import (
     StreamTestResult,
     execute_dynamic_manifest_resolution_test,
     execute_stream_test_read,
+    run_connector_readiness_test_report,
     validate_manifest,
 )
 
@@ -257,6 +258,34 @@ spec:
         )
         assert isinstance(resolved_manifest, dict)
         assert "streams" in resolved_manifest
+
+    @pytest.mark.parametrize(
+        "manifest_fixture,stream_name",
+        [
+            ("rick_and_morty_manifest", "characters"),
+            ("simple_api_manifest", "users"),
+        ],
+    )
+    def test_sample_manifests_with_both_tools(self, manifest_fixture, stream_name, request, empty_config):
+        """Test that both execute_stream_test_read and run_connector_readiness_test_report work with sample manifests."""
+        manifest = request.getfixturevalue(manifest_fixture)
+        
+        stream_result = execute_stream_test_read(
+            manifest, empty_config, stream_name, max_records=5
+        )
+        assert isinstance(stream_result, StreamTestResult)
+        assert stream_result.message is not None
+        if stream_result.success:
+            assert stream_result.records_read >= 0
+            assert "Successfully read" in stream_result.message and "records from stream" in stream_result.message
+        
+        readiness_result = run_connector_readiness_test_report(
+            manifest, empty_config, max_records=10
+        )
+        assert isinstance(readiness_result, str)
+        assert "# Connector Readiness Test Report" in readiness_result
+        assert stream_name in readiness_result
+        assert "Records Extracted" in readiness_result
 
 
 class TestMCPServerIntegration:
