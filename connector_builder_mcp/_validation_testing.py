@@ -459,13 +459,14 @@ def run_connector_readiness_test_report(
                             if len(field_count_warnings) >= 3:
                                 break
 
-                stream_results[stream_name] = StreamSmokeTest(
+                smoke_test_result = StreamSmokeTest(
                     stream_name=stream_name,
                     success=True,
                     records_read=records_read,
                     duration_seconds=stream_duration,
                 )
-                stream_results[stream_name].field_count_warnings = field_count_warnings
+                setattr(smoke_test_result, 'field_count_warnings', field_count_warnings)
+                stream_results[stream_name] = smoke_test_result
                 logger.info(f"✓ {stream_name}: {records_read} records in {stream_duration:.2f}s")
             else:
                 error_message = result.message
@@ -501,9 +502,10 @@ def run_connector_readiness_test_report(
     if not overall_success:
         failed_streams = [name for name, result in stream_results.items() if not result.success]
         error_details = []
-        for name, result in stream_results.items():
-            if not result.success:
-                error_details.append(f"- **{name}**: {result.error_message}")
+        for name, smoke_result in stream_results.items():
+            if not smoke_result.success:
+                error_msg = getattr(smoke_result, 'error_message', 'Unknown error')
+                error_details.append(f"- **{name}**: {error_msg}")
 
         return f"""# Connector Readiness Test Report - FAILED
 
@@ -527,28 +529,28 @@ def run_connector_readiness_test_report(
         "",
     ]
 
-    for stream_name, result in stream_results.items():
-        if result.success:
+    for stream_name, smoke_result in stream_results.items():
+        if smoke_result.success:
             warnings = []
-            if result.records_read == 0:
+            if smoke_result.records_read == 0:
                 warnings.append("⚠️ No records extracted")
-            elif result.records_read == 1:
+            elif smoke_result.records_read == 1:
                 warnings.append("⚠️ Only 1 record extracted - may indicate pagination issues")
-            elif result.records_read % 10 == 0:
+            elif smoke_result.records_read % 10 == 0:
                 warnings.append("⚠️ Record count is multiple of 10 - may indicate pagination limit")
 
             # TODO: Add page size validation
             # if page_size is specified in config, check if records_read is multiple of page_size (important-comment)
 
-            field_warnings = getattr(result, "field_count_warnings", [])
+            field_warnings = getattr(smoke_result, "field_count_warnings", [])
             if field_warnings:
                 warnings.append(f"⚠️ Field count issues: {'; '.join(field_warnings[:2])}")
 
             report_lines.extend(
                 [
                     f"### {stream_name} ✅",
-                    f"- **Records Extracted**: {result.records_read:,}",
-                    f"- **Duration**: {result.duration_seconds:.2f}s",
+                    f"- **Records Extracted**: {smoke_result.records_read:,}",
+                    f"- **Duration**: {smoke_result.duration_seconds:.2f}s",
                 ]
             )
 
@@ -559,11 +561,12 @@ def run_connector_readiness_test_report(
 
             report_lines.append("")
         else:
+            error_msg = getattr(smoke_result, 'error_message', 'Unknown error')
             report_lines.extend(
                 [
                     f"### {stream_name} ❌",
                     "- **Status**: Failed",
-                    f"- **Error**: {result.error_message}",
+                    f"- **Error**: {error_msg}",
                     "",
                 ]
             )
