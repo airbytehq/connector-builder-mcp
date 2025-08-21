@@ -52,6 +52,7 @@ class StreamTestResult(BaseModel):
     records: list[dict[str, Any]] | None = None
     errors: list[str] = []
     raw_api_responses: list[dict[str, Any]] | None = None
+    record_stats: dict[str, Any] | None = None
 
 
 class StreamSmokeTest(BaseModel):
@@ -249,6 +250,10 @@ def execute_stream_test_read(
         bool,
         Field(description="Whether to include actual record data in the response"),
     ] = False,
+    include_record_stats: Annotated[
+        bool,
+        Field(description="Include basic statistics on record properties"),
+    ] = False,
     include_raw_responses_data: Annotated[
         bool | None,
         Field(
@@ -269,6 +274,7 @@ def execute_stream_test_read(
         stream_name: Name of the stream to test
         max_records: Maximum number of records to read (default: 10000)
         include_records_data: Whether to include actual record data in response
+        include_record_stats: Whether to include basic statistics on record properties
         include_raw_responses_data: Whether to include raw API responses
         dotenv_path: Optional path to .env file for secret hydration
 
@@ -314,6 +320,11 @@ def execute_stream_test_read(
 
         records_data = []
         slices = []
+        record_stats = None
+
+        if include_record_stats:
+            property_stats = {}
+            total_records = 0
 
         for message in output:  # type: ignore[attr-defined]
             if isinstance(message, AirbyteMessage):
@@ -324,6 +335,23 @@ def execute_stream_test_read(
                 ):
                     if include_records_data:
                         records_data.append(message.record.data)
+
+                    if include_record_stats and message.record.data:
+                        total_records += 1
+                        for key, value in message.record.data.items():
+                            if key not in property_stats:
+                                property_stats[key] = {
+                                    "type": type(value).__name__,
+                                    "num_null": 0,
+                                    "num_non_null": 0,
+                                }
+
+                            if value is None:
+                                property_stats[key]["num_null"] += 1
+                            else:
+                                property_stats[key]["num_non_null"] += 1
+                                property_stats[key]["type"] = type(value).__name__
+
                 elif (
                     message.type == Type.TRACE
                     and message.trace
@@ -334,15 +362,28 @@ def execute_stream_test_read(
                         if slice_data:
                             slices.append(slice_data)
 
+        if include_record_stats:
+            record_stats = {
+                "num_properties": len(property_stats),
+                "properties": property_stats,
+            }
+
         raw_responses_data = None
         if include_raw_responses_data is True and slices and isinstance(slices, list):
             raw_responses_data = slices
 
+        records_count = (
+            len(records_data)
+            if include_records_data
+            else (total_records if include_record_stats else 0)
+        )
+
         return StreamTestResult(
             success=True,
-            message=f"Successfully read {len(records_data)} records from stream {stream_name}",
-            records_read=len(records_data),
+            message=f"Successfully read {records_count} records from stream {stream_name}",
+            records_read=records_count,
             records=records_data if include_records_data else None,
+            record_stats=record_stats,
             raw_api_responses=raw_responses_data,
         )
 
@@ -390,8 +431,11 @@ def run_connector_readiness_test_report(
 ) -> str:
     """Execute a connector readiness test and generate a comprehensive markdown report.
 
-    This function tests all available streams by reading records up to the specified limit
-    and returns a markdown-formatted readiness report with validation warnings and statistics.
+    This function is meant to be run after individual streams have been tested with the test read tool,
+    to validate things are working properly and generate a report that can be shared with the end user.
+
+    It tests all available streams by reading records up to the specified limit and returns a
+    markdown-formatted readiness report with validation warnings and statistics.
 
     Args:
         manifest: The connector manifest (YAML string or file path)
@@ -437,7 +481,8 @@ def run_connector_readiness_test_report(
                 config=config,
                 stream_name=stream_name,
                 max_records=max_records,
-                include_records_data=True,
+                include_records_data=False,
+                include_record_stats=True,
                 include_raw_responses_data=False,
                 dotenv_path=dotenv_path,
             )
@@ -450,14 +495,11 @@ def run_connector_readiness_test_report(
                 total_records_count += records_read
 
                 field_count_warnings = []
-                if result.records and len(result.records) > 0:
-                    for i, record in enumerate(result.records[:5]):
-                        if isinstance(record, dict) and len(record.keys()) < 2:
-                            field_count_warnings.append(
-                                f"Record {i + 1} has only {len(record.keys())} field(s)"
-                            )
-                            if len(field_count_warnings) >= 3:
-                                break
+
+                if result.record_stats and result.record_stats.get("num_properties", 0) < 2:
+                    field_count_warnings.append(
+                        f"Records have only {result.record_stats.get('num_properties', 0)} field(s), expected at least 2"
+                    )
 
                 smoke_test_result = StreamSmokeTest(
                     stream_name=stream_name,
