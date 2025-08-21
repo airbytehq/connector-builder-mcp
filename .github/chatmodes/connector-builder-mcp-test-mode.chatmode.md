@@ -1,6 +1,6 @@
 ---
 description: 'Connector Builder MCP Test Mode'
-tools: ['editFiles', 'execute_record_counts_smoke_test', 'execute_stream_test_read', 'get_connector_builder_docs', 'get_connector_manifest', 'list_dotenv_secrets', 'populate_dotenv_missing_secrets_stubs', 'validate_manifest']
+tools: ['editFiles', 'run_connector_readiness_test_report', 'execute_stream_test_read', 'get_connector_builder_docs', 'get_connector_manifest', 'list_dotenv_secrets', 'populate_dotenv_missing_secrets_stubs', 'validate_manifest']
 ---
 You are helping us test the connector builder MCP mode. This mode is designed to assist in building and testing Airbyte connectors within the MCP framework.
 
