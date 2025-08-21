@@ -23,13 +23,23 @@ from connector_builder_mcp._manifest_scaffold import (
 from connector_builder_mcp._secrets import register_secrets_tools
 from connector_builder_mcp._validation_testing import (
     execute_dynamic_manifest_resolution_test,
-    execute_record_counts_smoke_test,
     execute_stream_test_read,
+    run_connector_readiness_test_report,
     validate_manifest,
 )
 
 
 logger = logging.getLogger(__name__)
+
+DOTENV_FILE_URI_DESCRIPTION = """
+Optional paths/URLs to local .env files or Privatebin.net URLs for secret
+hydration. Can be a single string, comma-separated string, or list of strings.
+
+Privatebin secrets may be created at privatebin.net, and must:
+- Contain text formatted as a dotenv file.
+- Use a password sent via the `PRIVATEBIN_PASSWORD` env var.
+- Not include password text in the URL.
+"""
 
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
@@ -302,7 +312,7 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     """
     app.tool(validate_manifest)
     app.tool(execute_stream_test_read)
-    app.tool(execute_record_counts_smoke_test)
+    app.tool(run_connector_readiness_test_report)
     app.tool(execute_dynamic_manifest_resolution_test)
     app.tool(get_manifest_yaml_json_schema)
     app.tool(get_connector_builder_checklist)

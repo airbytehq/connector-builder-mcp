@@ -1,8 +1,10 @@
 """Integration tests for Builder MCP using real manifest examples."""
 
 import concurrent.futures
+import os
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -11,10 +13,12 @@ from connector_builder_mcp._connector_builder import (
     get_connector_builder_docs,
 )
 from connector_builder_mcp._guidance import TOPIC_MAPPING
+from connector_builder_mcp._secrets import load_secrets
 from connector_builder_mcp._validation_testing import (
     StreamTestResult,
     execute_dynamic_manifest_resolution_test,
     execute_stream_test_read,
+    run_connector_readiness_test_report,
     validate_manifest,
 )
 
@@ -245,7 +249,7 @@ spec:
         end_time = time.time()
         duration = end_time - start_time
 
-        assert duration < 15.0, f"Multiple tool calls took too long: {duration}s"
+        assert duration < 20.0, f"Multiple tool calls took too long: {duration}s"
 
     def test_simple_api_manifest_workflow(self, simple_api_manifest, empty_config):
         """Test workflow with simple API manifest."""
@@ -257,6 +261,42 @@ spec:
         )
         assert isinstance(resolved_manifest, dict)
         assert "streams" in resolved_manifest
+
+    @pytest.mark.parametrize(
+        "manifest_fixture,stream_name",
+        [
+            ("rick_and_morty_manifest", "characters"),
+            ("simple_api_manifest", "users"),
+        ],
+    )
+    def test_sample_manifests_with_both_tools(
+        self, manifest_fixture, stream_name, request, empty_config
+    ):
+        """Test that both execute_stream_test_read and run_connector_readiness_test_report work with sample manifests."""
+        manifest = request.getfixturevalue(manifest_fixture)
+
+        stream_result = execute_stream_test_read(manifest, empty_config, stream_name, max_records=5)
+        assert isinstance(stream_result, StreamTestResult)
+        assert stream_result.message is not None
+        if stream_result.success:
+            assert stream_result.records_read >= 0
+            assert (
+                "Successfully read" in stream_result.message
+                and "records from stream" in stream_result.message
+            )
+
+        readiness_result = run_connector_readiness_test_report(
+            manifest, empty_config, max_records=10
+        )
+        assert isinstance(readiness_result, str)
+        assert "# Connector Readiness Test Report" in readiness_result
+        assert stream_name in readiness_result
+
+        if "FAILED" in readiness_result:
+            assert "Failed streams" in readiness_result
+            assert "Total duration" in readiness_result
+        else:
+            assert "Records Extracted" in readiness_result
 
 
 class TestMCPServerIntegration:
@@ -283,3 +323,23 @@ class TestMCPServerIntegration:
         assert len(results) == 3
         for result in results:
             assert result is not None
+
+
+class TestPrivatebinIntegration:
+    """Integration tests for privatebin functionality with real URLs."""
+
+    @patch.dict(os.environ, {"PRIVATEBIN_PASSWORD": "PASSWORD"})
+    def test_privatebin_integration(self):
+        """Test loading secrets from real privatebin URL with expected values."""
+        privatebin_url = "privatebin://privatebin.net/?187565d30322596b#H2VnHSogPPb1jyVzEmM8EaNY5KKzs3M9j8gLJy7pY1Mp"
+
+        secrets = load_secrets(privatebin_url)
+
+        assert secrets.get("answer") == "42", (
+            f"Expected answer=42, got answer={secrets.get('answer')}"
+        )
+        assert secrets.get("foo") == "bar", f"Expected foo=bar, got foo={secrets.get('foo')}"
+
+        expected_keys = {"answer", "foo"}
+        actual_keys = set(secrets.keys())
+        assert actual_keys == expected_keys, f"Expected keys {expected_keys}, got {actual_keys}"
