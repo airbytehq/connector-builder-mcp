@@ -254,7 +254,7 @@ def execute_stream_test_read(
     include_record_stats: Annotated[
         bool,
         Field(description="Include basic statistics on record properties"),
-    ] = False,
+    ] = True,
     include_raw_responses_data: Annotated[
         bool | None,
         Field(
