@@ -84,7 +84,7 @@ def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str
             parsed = urlparse(uri.replace("pastebin://", "https://", 1))
             if "password=" in parsed.query:
                 errors.append(
-                    f"Privatebin URL '{uri}' contains embedded password - this is not allowed for security reasons"
+                    f"Privatebin URL '{uri}' contains embedded password - this is not allowed for security reasons. You must relaunch the MCP server with an included `PRIVATEBIN_PASSWORD` env var."
                 )
         else:
             path_obj = Path(uri)
