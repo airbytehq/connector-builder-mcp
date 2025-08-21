@@ -50,10 +50,15 @@ from connector_builder_mcp._util import (
 )
 
 
-DOTENV_FILE_URIS_DESCRIPTION = (
-    "Optional paths/URLs to .env files or privatebin URLs for secret hydration. "
-    "Can be a single string, comma-separated string, or list of strings."
-)
+DOTENV_FILE_URIS_DESCRIPTION = """
+Optional paths/URLs to local .env files or Privatebin.net URLs for secret 
+hydration. Can be a single string, comma-separated string, or list of strings.
+
+Privatebin secrets may be created at privatebin.net, and must:
+- Contain text formatted as a dotenv file.
+- Use a password sent via the `PRIVATEBIN_PASSWORD` env var.
+- Not include password text in the URL.
+"""
 
 
 _MANIFEST_SCHEMA_URL: str = "https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
