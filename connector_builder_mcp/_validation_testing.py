@@ -303,7 +303,7 @@ def execute_stream_test_read(
     try:
         manifest_dict = parse_manifest_input(manifest)
 
-        config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+        config = hydrate_config(config, dotenv_file_uris=str(dotenv_path) if dotenv_path else None)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest_dict,
@@ -493,7 +493,7 @@ def run_connector_readiness_test_report(
                 total_streams_successful += 1
                 total_records_count += records_read
 
-                field_count_warnings = []
+                field_count_warnings: list[str] = []
 
                 smoke_test_result = StreamSmokeTest(
                     stream_name=stream_name,
