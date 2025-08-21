@@ -347,10 +347,13 @@ def execute_stream_test_read(
             **config,
             "__injected_declarative_manifest": manifest_dict,
             "__test_read_config": {
-                "max_records": max_records,
-                "max_pages_per_slice": 1,
-                "max_slices": 1,
                 "max_streams": 1,
+                "max_records": max_records,
+                # We actually don't want to limit pages or slices.
+                # But if we don't provide a value they default
+                # to very low limits, which is not what we want.
+                "max_pages_per_slice": max_records,
+                "max_slices": max_records,
             },
         }
 
