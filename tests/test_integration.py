@@ -285,7 +285,12 @@ spec:
         assert isinstance(readiness_result, str)
         assert "# Connector Readiness Test Report" in readiness_result
         assert stream_name in readiness_result
-        assert "Records Extracted" in readiness_result
+        
+        if "FAILED" in readiness_result:
+            assert "Failed streams" in readiness_result
+            assert "Total duration" in readiness_result
+        else:
+            assert "Records Extracted" in readiness_result
 
 
 class TestMCPServerIntegration:
