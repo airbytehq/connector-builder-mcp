@@ -3,7 +3,6 @@
 import logging
 import pkgutil
 import time
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from jsonschema import ValidationError, validate
@@ -67,6 +66,7 @@ class StreamTestResult(BaseModel):
     logs: list[dict[str, Any]] | None = Field(
         default=None, description="Logs returned by the test read operation (if applicable)."
     )
+    record_stats: dict[str, Any] | None = None
 
 
 class StreamSmokeTest(BaseModel):
@@ -89,6 +89,39 @@ class MultiStreamSmokeTest(BaseModel):
     total_records_count: int
     duration_seconds: float
     stream_results: dict[str, StreamSmokeTest]
+
+
+def _calculate_record_stats(records_data: list[dict[str, Any]]) -> dict[str, Any]:
+    """Calculate statistics for record properties.
+
+    Args:
+        records_data: List of record dictionaries to analyze
+
+    Returns:
+        Dictionary containing property statistics including counts and types
+    """
+    property_stats: dict[str, dict[str, Any]] = {}
+
+    for record in records_data:
+        if isinstance(record, dict):
+            for key, value in record.items():
+                if key not in property_stats:
+                    property_stats[key] = {
+                        "type": type(value).__name__,
+                        "num_null": 0,
+                        "num_non_null": 0,
+                    }
+
+                if value is None:
+                    property_stats[key]["num_null"] += 1
+                else:
+                    property_stats[key]["num_non_null"] += 1
+                    property_stats[key]["type"] = type(value).__name__
+
+    return {
+        "num_properties": len(property_stats),
+        "properties": property_stats,
+    }
 
 
 def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
@@ -272,11 +305,15 @@ def execute_stream_test_read(
     *,
     max_records: Annotated[
         int,
-        Field(description="Maximum number of records to read", ge=1, le=1000),
+        Field(description="Maximum number of records to read", ge=1),
     ] = 10,
     include_records_data: Annotated[
         bool,
         Field(description="Include actual record data from the stream read"),
+    ] = True,
+    include_record_stats: Annotated[
+        bool,
+        Field(description="Include basic statistics on record properties"),
     ] = True,
     include_raw_responses_data: Annotated[
         bool | None,
@@ -286,9 +323,11 @@ def execute_stream_test_read(
             "If set to 'False', raw data is not included even on errors."
         ),
     ] = None,
-    dotenv_path: Annotated[
-        Path | None,
-        Field(description="Optional path to .env file for secret hydration"),
+    dotenv_file_uris: Annotated[
+        str | list[str] | None,
+        Field(
+            description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
+        ),
     ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
@@ -303,7 +342,7 @@ def execute_stream_test_read(
     try:
         manifest_dict = parse_manifest_input(manifest)
 
-        config = hydrate_config(config, dotenv_file_uris=str(dotenv_path) if dotenv_path else None)
+        config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest_dict,
@@ -366,12 +405,17 @@ def execute_stream_test_read(
         if include_raw_responses_data is True and slices and isinstance(slices, list):
             raw_responses_data = slices
 
+        record_stats = None
+        if include_record_stats and records_data:
+            record_stats = _calculate_record_stats(records_data)
+
         return StreamTestResult(
             success=True,
             message=f"Successfully read {len(records_data)} records from stream {stream_name}",
             records_read=len(records_data),
             records=records_data if include_records_data else None,
             raw_api_responses=raw_responses_data,
+            record_stats=record_stats,
         )
 
     except Exception as e:
@@ -465,25 +509,15 @@ def run_connector_readiness_test_report(
         total_streams_tested += 1
 
         try:
-            dotenv_path_value = None
-            if dotenv_file_uris:
-                if isinstance(dotenv_file_uris, str):
-                    dotenv_path_value = (
-                        Path(dotenv_file_uris.split(",")[0].strip())
-                        if "," in dotenv_file_uris
-                        else Path(dotenv_file_uris)
-                    )
-                elif isinstance(dotenv_file_uris, list) and len(dotenv_file_uris) > 0:
-                    dotenv_path_value = Path(dotenv_file_uris[0])
-
             result = execute_stream_test_read(
                 manifest=manifest,
                 stream_name=stream_name,
                 config=config,
                 max_records=max_records,
                 include_records_data=False,
+                include_record_stats=True,
                 include_raw_responses_data=False,
-                dotenv_path=dotenv_path_value,
+                dotenv_file_uris=dotenv_file_uris,
             )
 
             stream_duration = time.time() - stream_start_time
@@ -493,7 +527,12 @@ def run_connector_readiness_test_report(
                 total_streams_successful += 1
                 total_records_count += records_read
 
-                field_count_warnings: list[str] = []
+                field_count_warnings = []
+
+                if result.record_stats and result.record_stats.get("num_properties", 0) < 2:
+                    field_count_warnings.append(
+                        f"Records have only {result.record_stats.get('num_properties', 0)} field(s), expected at least 2"
+                    )
 
                 smoke_test_result = StreamSmokeTest(
                     stream_name=stream_name,
