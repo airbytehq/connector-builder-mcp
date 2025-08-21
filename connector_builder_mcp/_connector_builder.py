@@ -31,6 +31,16 @@ from connector_builder_mcp._validation_testing import (
 
 logger = logging.getLogger(__name__)
 
+DOTENV_FILE_URI_DESCRIPTION = """
+Optional paths/URLs to local .env files or Privatebin.net URLs for secret
+hydration. Can be a single string, comma-separated string, or list of strings.
+
+Privatebin secrets may be created at privatebin.net, and must:
+- Contain text formatted as a dotenv file.
+- Use a password sent via the `PRIVATEBIN_PASSWORD` env var.
+- Not include password text in the URL.
+"""
+
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
 _MANIFEST_SCHEMA_URL = "https://raw.githubusercontent.com/airbytehq/airbyte/master/airbyte-cdk/python/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"

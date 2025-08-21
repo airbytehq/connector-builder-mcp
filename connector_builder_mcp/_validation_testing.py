@@ -3,7 +3,6 @@
 import logging
 import pkgutil
 import time
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from jsonschema import ValidationError, validate
@@ -262,9 +261,11 @@ def execute_stream_test_read(
             "True=always include, False=never include, None=include on errors only"
         ),
     ] = None,
-    dotenv_path: Annotated[
-        Path | None,
-        Field(description="Optional path to .env file for secret hydration"),
+    dotenv_file_uris: Annotated[
+        str | list[str] | None,
+        Field(
+            description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
+        ),
     ] = None,
 ) -> StreamTestResult:
     """Test reading records from a specific stream in the connector.
@@ -277,7 +278,7 @@ def execute_stream_test_read(
         include_records_data: Whether to include actual record data in response
         include_record_stats: Whether to include basic statistics on record properties
         include_raw_responses_data: Whether to include raw API responses
-        dotenv_path: Optional path to .env file for secret hydration
+        dotenv_file_uris: Optional paths/URLs to .env files or privatebin URLs for secret hydration
 
     Returns:
         StreamTestResult with success status, record count, and optional data
@@ -287,7 +288,7 @@ def execute_stream_test_read(
     try:
         manifest_dict = parse_manifest_input(manifest)
 
-        config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+        config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
         config_with_manifest = {
             **config,
             "__injected_declarative_manifest": manifest_dict,
@@ -423,9 +424,11 @@ def run_connector_readiness_test_report(
         int,
         Field(description="Maximum number of records to read per stream", ge=1, le=50000),
     ] = 10000,
-    dotenv_path: Annotated[
-        Path | None,
-        Field(description="Optional path to .env file for secret hydration"),
+    dotenv_file_uris: Annotated[
+        str | list[str] | None,
+        Field(
+            description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
+        ),
     ] = None,
 ) -> str:
     """Execute a connector readiness test and generate a comprehensive markdown report.
@@ -441,7 +444,7 @@ def run_connector_readiness_test_report(
         config: Connector configuration
         streams: Optional CSV-delimited list of streams to test
         max_records: Maximum number of records to read per stream (default: 10000)
-        dotenv_path: Optional path to .env file for secret hydration
+        dotenv_file_uris: Optional paths/URLs to .env files or privatebin URLs for secret hydration
 
     Returns:
         Markdown-formatted readiness report with per-stream statistics and validation warnings
@@ -455,7 +458,7 @@ def run_connector_readiness_test_report(
 
     manifest_dict = parse_manifest_input(manifest)
 
-    config = hydrate_config(config, dotenv_path=str(dotenv_path) if dotenv_path else None)
+    config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
 
     available_streams = manifest_dict.get("streams", [])
     total_available_streams = len(available_streams)
@@ -483,7 +486,7 @@ def run_connector_readiness_test_report(
                 include_records_data=False,
                 include_record_stats=True,
                 include_raw_responses_data=False,
-                dotenv_path=dotenv_path,
+                dotenv_file_uris=dotenv_file_uris,
             )
 
             stream_duration = time.time() - stream_start_time

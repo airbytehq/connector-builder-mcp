@@ -1,5 +1,6 @@
 """Tests for secrets management functionality."""
 
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -35,8 +36,8 @@ def test_load_secrets_existing_file():
         Path(f.name).unlink()
 
 
-def test_hydrate_config_no_dotenv_path():
-    """Test hydration with no dotenv path returns config unchanged."""
+def test_hydrate_config_no_dotenv_file_uris():
+    """Test hydration with no dotenv file uris returns config unchanged."""
     config = {"host": "localhost", "credentials": {"username": "user"}}
     result = hydrate_config(config)
     assert result == config
@@ -244,7 +245,8 @@ def test_populate_dotenv_missing_secrets_stubs_no_args():
 def test_populate_dotenv_missing_secrets_stubs_relative_path():
     """Test error when relative path is provided."""
     result = populate_dotenv_missing_secrets_stubs("relative/path/.env", config_paths="api_key")
-    assert "Error: Path must be absolute, got relative path: relative/path/.env" in result
+    assert "Validation failed" in result
+    assert "must be absolute" in result
 
 
 def test_populate_dotenv_missing_secrets_stubs_collision_detection():
@@ -314,3 +316,314 @@ def test_populate_dotenv_missing_secrets_stubs_empty_manifest():
         assert "No secrets found to add" in result
 
         Path(f.name).unlink()
+
+
+def test_load_secrets_comma_separated_string():
+    """Test loading from comma-separated string of file paths."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f1:
+        f1.write("api_key=secret1\n")
+        f1.flush()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f2:
+            f2.write("token=secret2\n")
+            f2.flush()
+
+            secrets = load_secrets(f"{f1.name},{f2.name}")
+
+            assert secrets == {"api_key": "secret1", "token": "secret2"}
+
+            Path(f1.name).unlink()
+            Path(f2.name).unlink()
+
+
+def test_load_secrets_list_of_files():
+    """Test loading from list of file paths."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f1:
+        f1.write("api_key=secret1\n")
+        f1.flush()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f2:
+            f2.write("token=secret2\n")
+            f2.flush()
+
+            secrets = load_secrets([f1.name, f2.name])
+
+            assert secrets == {"api_key": "secret1", "token": "secret2"}
+
+            Path(f1.name).unlink()
+            Path(f2.name).unlink()
+
+
+@patch("connector_builder_mcp._secrets.privatebin.get")
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_load_secrets_privatebin_url_success(mock_getenv, mock_privatebin_get):
+    """Test loading from privatebin URL with password authentication."""
+    mock_getenv.return_value = "test_password"
+    mock_paste = mock_privatebin_get.return_value
+    mock_paste.text = "api_key=secret123\ntoken=token456\n"
+
+    secrets = load_secrets("privatebin://privatebin.net/?abc123#testpassphrase")
+
+    assert secrets == {"api_key": "secret123", "token": "token456"}
+    mock_getenv.assert_called_with("PRIVATEBIN_PASSWORD")
+    mock_privatebin_get.assert_called_with(
+        "https://privatebin.net/?abc123#testpassphrase", password="test_password"
+    )
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_load_secrets_privatebin_url_no_password(mock_getenv):
+    """Test loading from privatebin URL without PRIVATEBIN_PASSWORD fails."""
+    mock_getenv.return_value = None
+
+    secrets = load_secrets("privatebin://privatebin.net/?abc123#test_passphrase")
+
+    assert secrets == {}
+    mock_getenv.assert_called_with("PRIVATEBIN_PASSWORD")
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+@patch("connector_builder_mcp._secrets.requests.get")
+def test_load_secrets_privatebin_url_with_existing_password_param(mock_get, mock_getenv):
+    """Test loading from privatebin URL with embedded password fails validation."""
+    mock_getenv.return_value = "test_password"
+    mock_response = mock_get.return_value
+    mock_response.text = "api_key=secret123\n"
+    mock_response.raise_for_status.return_value = None
+
+    secrets = load_secrets("privatebin://privatebin.net/abc123?password=existing_pass")
+
+    assert secrets == {}
+
+
+@patch("connector_builder_mcp._secrets.privatebin.get")
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_load_secrets_mixed_files_and_privatebin(mock_getenv, mock_privatebin_get):
+    """Test loading from mix of local files and privatebin URLs."""
+    mock_getenv.return_value = "test_password"
+    mock_paste = mock_privatebin_get.return_value
+    mock_paste.text = "privatebin_key=privatebin_secret\n"
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("local_key=local_secret\n")
+        f.flush()
+
+        secrets = load_secrets([f.name, "privatebin://privatebin.net/?abc123#testpassphrase"])
+
+        assert secrets == {"local_key": "local_secret", "privatebin_key": "privatebin_secret"}
+
+        Path(f.name).unlink()
+
+
+def test_list_dotenv_secrets_multiple_sources():
+    """Test listing secrets from multiple sources."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f1:
+        f1.write("api_key=secret1\n")
+        f1.flush()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f2:
+            f2.write("token=secret2\n")
+            f2.flush()
+
+            result = list_dotenv_secrets([f1.name, f2.name])
+
+            assert isinstance(result, SecretsFileInfo)
+            assert result.exists is True
+            assert len(result.secrets) == 2
+
+            secret_keys = {s.key for s in result.secrets}
+            assert secret_keys == {"api_key", "token"}
+
+            Path(f1.name).unlink()
+            Path(f2.name).unlink()
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+@patch("connector_builder_mcp._secrets._fetch_privatebin_content")
+def test_list_dotenv_secrets_privatebin_url(mock_fetch, mock_getenv):
+    """Test listing secrets from privatebin URL."""
+    mock_getenv.return_value = "test_password"
+    mock_fetch.return_value = "api_key=secret123\ntoken=\n"
+
+    result = list_dotenv_secrets("privatebin://privatebin.net/abc123")
+
+    assert isinstance(result, SecretsFileInfo)
+    assert result.exists is True
+    assert len(result.secrets) == 2
+
+    secret_keys = {s.key for s in result.secrets}
+    assert secret_keys == {"api_key", "token"}
+
+    for secret in result.secrets:
+        if secret.key == "api_key":
+            assert secret.is_set is True
+        elif secret.key == "token":
+            assert secret.is_set is False
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_populate_dotenv_missing_secrets_stubs_privatebin_url(mock_getenv):
+    """Test populate stubs with privatebin URL returns instructions."""
+    mock_getenv.return_value = "test_password"
+    with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
+        mock_load.return_value = {"existing_key": "value"}
+
+        result = populate_dotenv_missing_secrets_stubs(
+            "privatebin://privatebin.net/abc123", config_paths="existing_key,missing_key"
+        )
+
+        assert "Existing secrets found: existing_key(set)" in result
+        assert "Missing secrets: missing_key" in result
+        assert "Instructions: Privatebin URLs are immutable" in result
+        assert "Create a new privatebin with the missing secrets" in result
+        assert "Set a password for the privatebin" in result
+        assert "Use the new privatebin URL with privatebin:// scheme" in result
+        assert "Ensure PRIVATEBIN_PASSWORD environment variable is set" in result
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_populate_dotenv_missing_secrets_stubs_privatebin_all_present(mock_getenv):
+    """Test populate stubs with privatebin URL when all secrets are present."""
+    mock_getenv.return_value = "test_password"
+    with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
+        mock_load.return_value = {"key1": "value1", "key2": "value2"}
+
+        result = populate_dotenv_missing_secrets_stubs(
+            "privatebin://privatebin.net/abc123", config_paths="key1,key2"
+        )
+
+        assert "All requested secrets are already present in the privatebin" in result
+        assert "Instructions:" not in result
+
+
+def test_populate_dotenv_missing_secrets_stubs_readonly_file():
+    """Test populate stubs with read-only file path returns collision error first."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("existing_key=value\n")
+        f.flush()
+
+        os.chmod(f.name, 0o444)
+
+        try:
+            result = populate_dotenv_missing_secrets_stubs(
+                str(Path(f.name).resolve()), config_paths="existing_key,missing_key"
+            )
+
+            assert (
+                "Error: Cannot create stubs for secrets that already exist: existing_key" in result
+            )
+
+        finally:
+            os.chmod(f.name, 0o644)
+            Path(f.name).unlink()
+
+
+def test_validate_secrets_uris_absolute_path_valid():
+    """Test validation passes for absolute paths."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+        absolute_path = str(Path(f.name).resolve())
+        errors = _validate_secrets_uris(absolute_path)
+        assert errors == []
+        Path(f.name).unlink()
+
+
+def test_validate_secrets_uris_relative_path_invalid():
+    """Test validation fails for relative paths."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    errors = _validate_secrets_uris("relative/path/.env")
+    assert len(errors) == 1
+    assert "must be absolute" in errors[0]
+    assert "relative/path/.env" in errors[0]
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_validate_secrets_uris_privatebin_no_password(mock_getenv):
+    """Test validation fails for privatebin URL without PRIVATEBIN_PASSWORD."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    mock_getenv.return_value = None
+    errors = _validate_secrets_uris("privatebin://privatebin.net/abc123")
+    assert len(errors) == 1
+    assert "requires PRIVATEBIN_PASSWORD environment variable" in errors[0]
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_validate_secrets_uris_privatebin_with_password_valid(mock_getenv):
+    """Test validation passes for privatebin URL with PRIVATEBIN_PASSWORD set."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    mock_getenv.return_value = "test_password"
+    errors = _validate_secrets_uris("privatebin://privatebin.net/abc123")
+    assert errors == []
+
+
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_validate_secrets_uris_privatebin_embedded_password_invalid(mock_getenv):
+    """Test validation fails for privatebin URL with embedded password."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    mock_getenv.return_value = "test_password"
+    errors = _validate_secrets_uris("privatebin://privatebin.net/abc123?password=embedded")
+    assert len(errors) == 1
+    assert "contains embedded password" in errors[0]
+    assert "not allowed for security reasons" in errors[0]
+
+
+def test_validate_secrets_uris_mixed_valid_invalid():
+    """Test validation with mix of valid and invalid URIs."""
+    from connector_builder_mcp._secrets import _validate_secrets_uris
+
+    with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
+        absolute_path = str(Path(f.name).resolve())
+        uris = [absolute_path, "relative/path/.env", "privatebin://privatebin.net/abc123"]
+
+        errors = _validate_secrets_uris(uris)
+        assert len(errors) == 2
+        assert any("must be absolute" in error for error in errors)
+        assert any("requires PRIVATEBIN_PASSWORD" in error for error in errors)
+
+        Path(f.name).unlink()
+
+
+def test_load_secrets_validation_failure():
+    """Test load_secrets returns empty dict when validation fails."""
+    secrets = load_secrets("relative/path/.env")
+    assert secrets == {}
+
+
+def test_list_dotenv_secrets_validation_failure():
+    """Test list_dotenv_secrets returns error info when validation fails."""
+    result = list_dotenv_secrets("relative/path/.env")
+    assert result.exists is False
+    assert "Validation failed" in result.file_path
+    assert "must be absolute" in result.file_path
+
+
+def test_populate_dotenv_missing_secrets_stubs_validation_failure():
+    """Test populate stubs returns validation error when validation fails."""
+    result = populate_dotenv_missing_secrets_stubs("relative/path/.env", config_paths="api_key")
+    assert "Validation failed" in result
+    assert "must be absolute" in result
+
+
+def test_populate_dotenv_missing_secrets_stubs_readonly_file_no_collision():
+    """Test populate stubs with read-only file path returns write error when no collisions."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("different_key=value\n")
+        f.flush()
+
+        os.chmod(f.name, 0o444)
+
+        try:
+            result = populate_dotenv_missing_secrets_stubs(
+                str(Path(f.name).resolve()), config_paths="new_key"
+            )
+
+            assert "new_key" in result
+
+        finally:
+            os.chmod(f.name, 0o644)
+            Path(f.name).unlink()

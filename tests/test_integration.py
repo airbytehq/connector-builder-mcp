@@ -1,8 +1,10 @@
 """Integration tests for Builder MCP using real manifest examples."""
 
 import concurrent.futures
+import os
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -11,6 +13,7 @@ from connector_builder_mcp._connector_builder import (
     get_connector_builder_docs,
 )
 from connector_builder_mcp._guidance import TOPIC_MAPPING
+from connector_builder_mcp._secrets import load_secrets
 from connector_builder_mcp._validation_testing import (
     StreamTestResult,
     execute_dynamic_manifest_resolution_test,
@@ -320,3 +323,23 @@ class TestMCPServerIntegration:
         assert len(results) == 3
         for result in results:
             assert result is not None
+
+
+class TestPrivatebinIntegration:
+    """Integration tests for privatebin functionality with real URLs."""
+
+    @patch.dict(os.environ, {"PRIVATEBIN_PASSWORD": "PASSWORD"})
+    def test_privatebin_integration(self):
+        """Test loading secrets from real privatebin URL with expected values."""
+        privatebin_url = "privatebin://privatebin.net/?187565d30322596b#H2VnHSogPPb1jyVzEmM8EaNY5KKzs3M9j8gLJy7pY1Mp"
+
+        secrets = load_secrets(privatebin_url)
+
+        assert secrets.get("answer") == "42", (
+            f"Expected answer=42, got answer={secrets.get('answer')}"
+        )
+        assert secrets.get("foo") == "bar", f"Expected foo=bar, got foo={secrets.get('foo')}"
+
+        expected_keys = {"answer", "foo"}
+        actual_keys = set(secrets.keys())
+        assert actual_keys == expected_keys, f"Expected keys {expected_keys}, got {actual_keys}"

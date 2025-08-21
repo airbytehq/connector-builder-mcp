@@ -13,6 +13,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "jsonschema>=4.0.0",
     "pyyaml>=6.0.0",
+    "privatebin>=0.2.1",
 ]
 
 [dependency-groups]
