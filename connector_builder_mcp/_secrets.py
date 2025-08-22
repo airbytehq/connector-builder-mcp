@@ -280,8 +280,13 @@ def list_dotenv_secrets(
     Returns:
         Information about the secrets files and their contents
     """
+    import sys
+    print(f"DEBUG list_dotenv_secrets: received dotenv_path='{dotenv_path}', type={type(dotenv_path)}", file=sys.stderr)
+    
     if isinstance(dotenv_path, str) and dotenv_path.startswith("/home/ubuntu/https:/"):
+        print(f"DEBUG list_dotenv_secrets: applying workaround, before='{dotenv_path}'", file=sys.stderr)
         dotenv_path = dotenv_path.replace("/home/ubuntu/https:/", "https://")
+        print(f"DEBUG list_dotenv_secrets: after workaround='{dotenv_path}'", file=sys.stderr)
     
     validation_errors = _validate_secrets_uris(dotenv_path)
     if validation_errors:
