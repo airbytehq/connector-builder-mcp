@@ -362,7 +362,7 @@ def test_load_secrets_privatebin_url_success(mock_getenv, mock_privatebin_get):
     mock_paste = mock_privatebin_get.return_value
     mock_paste.text = "api_key=secret123\ntoken=token456\n"
 
-    secrets = load_secrets("privatebin://privatebin.net/?abc123#testpassphrase")
+    secrets = load_secrets("https://privatebin.net/?abc123#testpassphrase")
 
     assert secrets == {"api_key": "secret123", "token": "token456"}
     mock_getenv.assert_called_with("PRIVATEBIN_PASSWORD")
@@ -376,7 +376,7 @@ def test_load_secrets_privatebin_url_no_password(mock_getenv):
     """Test loading from privatebin URL without PRIVATEBIN_PASSWORD fails."""
     mock_getenv.return_value = None
 
-    secrets = load_secrets("privatebin://privatebin.net/?abc123#test_passphrase")
+    secrets = load_secrets("https://privatebin.net/?abc123#test_passphrase")
 
     assert secrets == {}
     mock_getenv.assert_called_with("PRIVATEBIN_PASSWORD")
@@ -391,7 +391,7 @@ def test_load_secrets_privatebin_url_with_existing_password_param(mock_get, mock
     mock_response.text = "api_key=secret123\n"
     mock_response.raise_for_status.return_value = None
 
-    secrets = load_secrets("privatebin://privatebin.net/abc123?password=existing_pass")
+    secrets = load_secrets("https://privatebin.net/abc123?password=existing_pass")
 
     assert secrets == {}
 
@@ -408,7 +408,7 @@ def test_load_secrets_mixed_files_and_privatebin(mock_getenv, mock_privatebin_ge
         f.write("local_key=local_secret\n")
         f.flush()
 
-        secrets = load_secrets([f.name, "privatebin://privatebin.net/?abc123#testpassphrase"])
+        secrets = load_secrets([f.name, "https://privatebin.net/?abc123#testpassphrase"])
 
         assert secrets == {"local_key": "local_secret", "privatebin_key": "privatebin_secret"}
 
@@ -445,7 +445,7 @@ def test_list_dotenv_secrets_privatebin_url(mock_fetch, mock_getenv):
     mock_getenv.return_value = "test_password"
     mock_fetch.return_value = "api_key=secret123\ntoken=\n"
 
-    result = list_dotenv_secrets("privatebin://privatebin.net/abc123")
+    result = list_dotenv_secrets("https://privatebin.net/abc123")
 
     assert isinstance(result, SecretsFileInfo)
     assert result.exists is True
@@ -469,7 +469,7 @@ def test_populate_dotenv_missing_secrets_stubs_privatebin_url(mock_getenv):
         mock_load.return_value = {"existing_key": "value"}
 
         result = populate_dotenv_missing_secrets_stubs(
-            "privatebin://privatebin.net/abc123", config_paths="existing_key,missing_key"
+            "https://privatebin.net/abc123", config_paths="existing_key,missing_key"
         )
 
         assert "Existing secrets found: existing_key(set)" in result
@@ -477,7 +477,7 @@ def test_populate_dotenv_missing_secrets_stubs_privatebin_url(mock_getenv):
         assert "Instructions: Privatebin URLs are immutable" in result
         assert "Create a new privatebin with the missing secrets" in result
         assert "Set a password for the privatebin" in result
-        assert "Use the new privatebin URL with privatebin:// scheme" in result
+        assert "Use the new privatebin URL (HTTPS format is supported)" in result
         assert "Ensure PRIVATEBIN_PASSWORD environment variable is set" in result
 
 
@@ -489,7 +489,7 @@ def test_populate_dotenv_missing_secrets_stubs_privatebin_all_present(mock_geten
         mock_load.return_value = {"key1": "value1", "key2": "value2"}
 
         result = populate_dotenv_missing_secrets_stubs(
-            "privatebin://privatebin.net/abc123", config_paths="key1,key2"
+            "https://privatebin.net/abc123", config_paths="key1,key2"
         )
 
         assert "All requested secrets are already present in the privatebin" in result
@@ -545,7 +545,7 @@ def test_validate_secrets_uris_privatebin_no_password(mock_getenv):
     from connector_builder_mcp._secrets import _validate_secrets_uris
 
     mock_getenv.return_value = None
-    errors = _validate_secrets_uris("privatebin://privatebin.net/abc123")
+    errors = _validate_secrets_uris("https://privatebin.net/abc123")
     assert len(errors) == 1
     assert "requires PRIVATEBIN_PASSWORD environment variable" in errors[0]
 
@@ -556,7 +556,7 @@ def test_validate_secrets_uris_privatebin_with_password_valid(mock_getenv):
     from connector_builder_mcp._secrets import _validate_secrets_uris
 
     mock_getenv.return_value = "test_password"
-    errors = _validate_secrets_uris("privatebin://privatebin.net/abc123")
+    errors = _validate_secrets_uris("https://privatebin.net/abc123")
     assert errors == []
 
 
@@ -566,19 +566,22 @@ def test_validate_secrets_uris_privatebin_embedded_password_invalid(mock_getenv)
     from connector_builder_mcp._secrets import _validate_secrets_uris
 
     mock_getenv.return_value = "test_password"
-    errors = _validate_secrets_uris("privatebin://privatebin.net/abc123?password=embedded")
+    errors = _validate_secrets_uris("https://privatebin.net/abc123?password=embedded")
     assert len(errors) == 1
     assert "contains embedded password" in errors[0]
     assert "not allowed for security reasons" in errors[0]
 
 
-def test_validate_secrets_uris_mixed_valid_invalid():
+@patch("connector_builder_mcp._secrets.os.getenv")
+def test_validate_secrets_uris_mixed_valid_invalid(mock_getenv):
     """Test validation with mix of valid and invalid URIs."""
     from connector_builder_mcp._secrets import _validate_secrets_uris
 
+    mock_getenv.return_value = None
+
     with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
         absolute_path = str(Path(f.name).resolve())
-        uris = [absolute_path, "relative/path/.env", "privatebin://privatebin.net/abc123"]
+        uris = [absolute_path, "relative/path/.env", "https://privatebin.net/abc123"]
 
         errors = _validate_secrets_uris(uris)
         assert len(errors) == 2

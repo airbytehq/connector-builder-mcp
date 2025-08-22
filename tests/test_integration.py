@@ -331,7 +331,9 @@ class TestPrivatebinIntegration:
     @patch.dict(os.environ, {"PRIVATEBIN_PASSWORD": "PASSWORD"})
     def test_privatebin_integration(self):
         """Test loading secrets from real privatebin URL with expected values."""
-        privatebin_url = "privatebin://privatebin.net/?187565d30322596b#H2VnHSogPPb1jyVzEmM8EaNY5KKzs3M9j8gLJy7pY1Mp"
+        privatebin_url = (
+            "https://privatebin.net/?187565d30322596b#H2VnHSogPPb1jyVzEmM8EaNY5KKzs3M9j8gLJy7pY1Mp"
+        )
 
         secrets = load_secrets(privatebin_url)
 
