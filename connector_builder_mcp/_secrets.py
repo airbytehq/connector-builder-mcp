@@ -274,7 +274,7 @@ def hydrate_config(
 
 
 def list_dotenv_secrets(
-    dotenv_path: Annotated[
+    dotenv_source: Annotated[
         str | list[str],
         Field(description=DOTENV_FILE_URI_DESCRIPTION.strip()),
     ],
@@ -288,9 +288,9 @@ def list_dotenv_secrets(
         Information about the secrets files and their contents
     """
     import sys
-    print(f"DEBUG list_dotenv_secrets: dotenv_path={dotenv_path}, type={type(dotenv_path)}", file=sys.stderr)
+    print(f"DEBUG list_dotenv_secrets: dotenv_source={dotenv_source}, type={type(dotenv_source)}", file=sys.stderr)
     
-    validation_errors = _validate_secrets_uris(dotenv_path)
+    validation_errors = _validate_secrets_uris(dotenv_source)
     print(f"DEBUG list_dotenv_secrets: validation_errors={validation_errors}", file=sys.stderr)
     if validation_errors:
         error_message = "; ".join(validation_errors)
@@ -298,7 +298,7 @@ def list_dotenv_secrets(
             file_path=f"Validation failed: {error_message}", exists=False, secrets=[]
         )
 
-    uris = _parse_secrets_uris(dotenv_path)
+    uris = _parse_secrets_uris(dotenv_source)
     print(f"DEBUG list_dotenv_secrets: uris={uris}", file=sys.stderr)
     if not uris:
         return SecretsFileInfo(file_path="", exists=False, secrets=[])
@@ -349,7 +349,7 @@ def list_dotenv_secrets(
                 file_path=str(file_path.absolute()), exists=file_path.exists(), secrets=secrets_info
             )
 
-    all_secrets = load_secrets(dotenv_path)
+    all_secrets = load_secrets(dotenv_source)
     secrets_info = []
     for key, value in all_secrets.items():
         secrets_info.append(
