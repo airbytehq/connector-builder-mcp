@@ -106,6 +106,34 @@ poe mcp-serve-sse
 # Equivalent to: uv run python -c "from connector_builder_mcp.server import app; app.run(transport='sse', host='127.0.0.1', port=8000)"
 ```
 
+### Direct Tool Testing
+
+Test individual MCP tools directly with JSON arguments using the `test-tool` command:
+
+```bash
+# Test manifest validation
+poe test-tool validate_manifest '{"manifest": {"version": "4.6.2", "type": "DeclarativeSource"}, "config": {}}'
+
+# Test secrets listing with local file
+poe test-tool list_dotenv_secrets '{"dotenv_path": "/absolute/path/to/.env"}'
+
+# Test secrets listing with privatebin URL (requires PRIVATEBIN_PASSWORD env var)
+export PRIVATEBIN_PASSWORD="your_password"
+poe test-tool list_dotenv_secrets '{"dotenv_path": "https://privatebin.net/?abc123#passphrase"}'
+
+# Test populating missing secrets
+poe test-tool populate_dotenv_missing_secrets_stubs '{"dotenv_path": "/path/to/.env", "config_paths": "api_key,secret_token"}'
+
+# Test with privatebin URL
+poe test-tool populate_dotenv_missing_secrets_stubs '{"dotenv_path": "https://privatebin.net/?abc123#passphrase", "config_paths": "api_key,secret_token"}'
+```
+
+The `test-tool` command is ideal for:
+- Quick testing of individual tools during development
+- Testing with real data without setting up full MCP client
+- Debugging tool behavior with specific inputs
+- Validating privatebin URL functionality
+
 ### Interactive Testing
 
 Use FastMCP client to test tools interactively:
@@ -165,6 +193,18 @@ def test_validate_manifest():
     result = validate_manifest(manifest, {})
     assert result.is_valid
     assert len(result.errors) == 0
+
+def test_secrets_tools():
+    # Test with local file
+    result = list_dotenv_secrets("/path/to/test.env")
+    assert result.exists
+    assert len(result.secrets) > 0
+    
+    # Test with privatebin URL (requires PRIVATEBIN_PASSWORD)
+    import os
+    if os.getenv("PRIVATEBIN_PASSWORD"):
+        result = list_dotenv_secrets("https://privatebin.net/?test#passphrase")
+        assert result.exists
 ```
 
 ### Integration Testing
@@ -296,6 +336,8 @@ uv run fastmcp inspect connector_builder_mcp/server.py:app --protocol-debug
 2. **Validation Errors**: Check manifest structure against Airbyte CDK requirements
 3. **Network Timeouts**: Use `@pytest.mark.requires_creds` for tests that need external APIs
 4. **Memory Issues**: Monitor memory usage in long-running tests
+5. **Privatebin Authentication**: Set `PRIVATEBIN_PASSWORD` environment variable for privatebin URL testing
+6. **MCP Client vs test-tool**: Use `poe test-tool` for quick testing, MCP client for integration testing
 
 ## Continuous Integration
 
@@ -331,6 +373,8 @@ uv run pre-commit run --all-files
 5. **Real Data**: Use real connector manifests when possible for comprehensive testing
 6. **Isolation**: Ensure tests don't depend on external state or each other
 7. **Documentation**: Document complex test scenarios and their purpose
+8. **Local Testing First**: Use `poe test-tool` to verify changes locally before running full test suite
+9. **Environment Variables**: Set required environment variables (like `PRIVATEBIN_PASSWORD`) for credential-dependent tests
 
 ## Resources
 
