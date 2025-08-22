@@ -277,11 +277,7 @@ def list_dotenv_secrets(
     Returns:
         Information about the secrets files and their contents
     """
-    print(f"DEBUG: list_dotenv_secrets called with dotenv_path: {dotenv_path}")
-    print(f"DEBUG: dotenv_path type: {type(dotenv_path)}")
-    
     validation_errors = _validate_secrets_uris(dotenv_path)
-    print(f"DEBUG: validation_errors: {validation_errors}")
     if validation_errors:
         error_message = "; ".join(validation_errors)
         return SecretsFileInfo(
@@ -289,22 +285,15 @@ def list_dotenv_secrets(
         )
 
     uris = _parse_secrets_uris(dotenv_path)
-    print(f"DEBUG: parsed uris: {uris}")
     if not uris:
         return SecretsFileInfo(file_path="", exists=False, secrets=[])
 
     if len(uris) == 1:
         uri = uris[0]
-        print(f"DEBUG: processing single uri: {uri}")
         secrets_info = []
 
-        is_privatebin = _is_privatebin_url(uri)
-        print(f"DEBUG: _is_privatebin_url({uri}) = {is_privatebin}")
-        
-        if is_privatebin:
-            print(f"DEBUG: Processing as privatebin URL")
+        if _is_privatebin_url(uri):
             content = _fetch_privatebin_content(uri)
-            print(f"DEBUG: privatebin content length: {len(content) if content else 0}")
             if content:
                 try:
                     secrets = dotenv_values(stream=StringIO(content))
@@ -320,9 +309,7 @@ def list_dotenv_secrets(
 
             return SecretsFileInfo(file_path=uri, exists=bool(content), secrets=secrets_info)
         else:
-            print(f"DEBUG: Processing as local file path")
             file_path = Path(uri)
-            print(f"DEBUG: file_path.absolute(): {file_path.absolute()}")
             if file_path.exists():
                 try:
                     secrets = dotenv_values(uri)
