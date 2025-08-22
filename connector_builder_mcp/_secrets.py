@@ -276,7 +276,7 @@ def hydrate_config(
 
 def list_dotenv_secrets(
     dotenv_path: Annotated[
-        str | list[str],
+        str,
         Field(description=DOTENV_FILE_URI_DESCRIPTION.strip()),
     ],
 ) -> SecretsFileInfo:
