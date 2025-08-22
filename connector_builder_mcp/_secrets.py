@@ -288,6 +288,9 @@ def list_dotenv_secrets(
     Returns:
         Information about the secrets files and their contents
     """
+    if isinstance(dotenv_path, str) and dotenv_path.startswith("/home/ubuntu/https:/"):
+        dotenv_path = dotenv_path.replace("/home/ubuntu/https:/", "https://")
+    
     validation_errors = _validate_secrets_uris(dotenv_path)
     if validation_errors:
         error_message = "; ".join(validation_errors)
@@ -392,6 +395,9 @@ def populate_dotenv_missing_secrets_stubs(
     Returns:
         Message about the operation result
     """
+    if isinstance(dotenv_path, str) and dotenv_path.startswith("/home/ubuntu/https:/"):
+        dotenv_path = dotenv_path.replace("/home/ubuntu/https:/", "https://")
+    
     validation_errors = _validate_secrets_uris(dotenv_path)
     if validation_errors:
         return f"Validation failed: {'; '.join(validation_errors)}"
