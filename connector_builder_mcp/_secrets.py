@@ -36,17 +36,23 @@ def _privatebin_password_exists() -> bool:
 
 def _is_privatebin_url(url: str) -> bool:
     """Check if a URL is a privatebin URL by domain pattern.
-
+    
     Args:
         url: URL to check
-
+        
     Returns:
         True if URL is a privatebin URL, False otherwise
     """
+    import sys
+    print(f"DEBUG _is_privatebin_url: url='{url}', type={type(url)}", file=sys.stderr)
+    
     if url.startswith("https://"):
         parsed = urlparse(url)
-        return "privatebin" in parsed.netloc.lower()
-
+        result = "privatebin" in parsed.netloc.lower()
+        print(f"DEBUG _is_privatebin_url: parsed.netloc='{parsed.netloc}', result={result}", file=sys.stderr)
+        return result
+    
+    print(f"DEBUG _is_privatebin_url: URL does not start with https://, returning False", file=sys.stderr)
     return False
 
 
