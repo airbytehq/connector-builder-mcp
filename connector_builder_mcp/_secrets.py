@@ -110,18 +110,26 @@ def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str
         return errors
 
     for uri in uris:
-        if _is_privatebin_url(uri):
-            if not _privatebin_password_exists():
-                errors.append(
-                    f"Privatebin URL '{uri}' requires PRIVATEBIN_PASSWORD environment variable to be set"
-                )
+        if uri.startswith(("http:", "https:")):
+            if _is_privatebin_url(uri):
+                if not _privatebin_password_exists():
+                    errors.append(
+                        f"Privatebin URL '{uri}' requires PRIVATEBIN_PASSWORD environment variable to be set"
+                    )
+                parsed = urlparse(uri)
+                if "password=" in parsed.query:
+                    errors.append(
+                        f"Privatebin URL '{uri}' contains embedded password - this is not allowed for security reasons. You must relaunch the MCP server with an included `PRIVATEBIN_PASSWORD` env var."
+                    )
 
-            parsed = urlparse(uri)
-            if "password=" in parsed.query:
-                errors.append(
-                    f"Privatebin URL '{uri}' contains embedded password - this is not allowed for security reasons. You must relaunch the MCP server with an included `PRIVATEBIN_PASSWORD` env var."
-                )
+            else:
+                raise ValueError(f"Invalid privatebin URL: {uri}")
+
+        elif ":" in uri.split("/", 1)[0] and not uri.startswith("file://"):
+            raise ValueError(f"Invalid URI format: {uri}")
+
         else:
+            # Assume local file path
             path_obj = Path(uri)
             if not path_obj.is_absolute():
                 errors.append(f"Local file path must be absolute, got relative path: {uri}")
