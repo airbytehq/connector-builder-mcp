@@ -43,20 +43,13 @@ def _is_privatebin_url(url: str) -> bool:
     Returns:
         True if URL is a privatebin URL, False otherwise
     """
-    import sys
-    print(f"DEBUG _is_privatebin_url: url='{url}', type={type(url)}", file=sys.stderr)
-    
     if not isinstance(url, str):
-        print(f"DEBUG _is_privatebin_url: not a string, returning False", file=sys.stderr)
         return False
         
     if url.startswith("https://"):
         parsed = urlparse(url)
-        result = "privatebin" in parsed.netloc.lower()
-        print(f"DEBUG _is_privatebin_url: netloc='{parsed.netloc}', result={result}", file=sys.stderr)
-        return result
+        return "privatebin" in parsed.netloc.lower()
     
-    print(f"DEBUG _is_privatebin_url: does not start with https://, returning False", file=sys.stderr)
     return False
 
 
@@ -287,11 +280,7 @@ def list_dotenv_secrets(
     Returns:
         Information about the secrets files and their contents
     """
-    import sys
-    print(f"DEBUG list_dotenv_secrets: dotenv_path={dotenv_path}, type={type(dotenv_path)}", file=sys.stderr)
-    
     validation_errors = _validate_secrets_uris(dotenv_path)
-    print(f"DEBUG list_dotenv_secrets: validation_errors={validation_errors}", file=sys.stderr)
     if validation_errors:
         error_message = "; ".join(validation_errors)
         return SecretsFileInfo(
@@ -299,20 +288,14 @@ def list_dotenv_secrets(
         )
 
     uris = _parse_secrets_uris(dotenv_path)
-    print(f"DEBUG list_dotenv_secrets: uris={uris}", file=sys.stderr)
     if not uris:
         return SecretsFileInfo(file_path="", exists=False, secrets=[])
 
     if len(uris) == 1:
         uri = uris[0]
-        print(f"DEBUG list_dotenv_secrets: processing uri={uri}, type={type(uri)}", file=sys.stderr)
         secrets_info = []
 
-        is_privatebin = _is_privatebin_url(uri)
-        print(f"DEBUG list_dotenv_secrets: _is_privatebin_url({uri}) = {is_privatebin}", file=sys.stderr)
-        
-        if is_privatebin:
-            print(f"DEBUG list_dotenv_secrets: Processing as privatebin URL", file=sys.stderr)
+        if _is_privatebin_url(uri):
             content = _fetch_privatebin_content(uri)
             if content:
                 try:
@@ -329,9 +312,7 @@ def list_dotenv_secrets(
 
             return SecretsFileInfo(file_path=uri, exists=bool(content), secrets=secrets_info)
         else:
-            print(f"DEBUG list_dotenv_secrets: Processing as local file", file=sys.stderr)
             file_path = Path(uri)
-            print(f"DEBUG list_dotenv_secrets: file_path.absolute()={file_path.absolute()}", file=sys.stderr)
             if file_path.exists():
                 try:
                     secrets = dotenv_values(uri)
