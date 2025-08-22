@@ -93,7 +93,7 @@ def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str
         return errors
 
     for uri in uris:
-        if uri.startswith("privatebin://"):
+        if uri.startswith("privatebin://") or uri.startswith("https://"):
             if not _privatebin_password_exists():
                 errors.append(
                     f"Privatebin URL '{uri}' requires PRIVATEBIN_PASSWORD environment variable to be set"
