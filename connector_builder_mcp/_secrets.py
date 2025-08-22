@@ -106,22 +106,14 @@ def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str
     Returns:
         List of error messages (empty if all valid)
     """
-    import sys
-    print(f"DEBUG _validate_secrets_uris: input={dotenv_file_uris}, type={type(dotenv_file_uris)}", file=sys.stderr)
-    
     errors: list[str] = []
     uris = _parse_secrets_uris(dotenv_file_uris)
-    print(f"DEBUG _validate_secrets_uris: parsed_uris={uris}", file=sys.stderr)
 
     if not uris:
         return errors
 
     for uri in uris:
-        print(f"DEBUG _validate_secrets_uris: checking uri='{uri}', type={type(uri)}", file=sys.stderr)
-        is_privatebin = _is_privatebin_url(uri)
-        print(f"DEBUG _validate_secrets_uris: _is_privatebin_url('{uri}') = {is_privatebin}", file=sys.stderr)
-        
-        if is_privatebin:
+        if _is_privatebin_url(uri):
             if not _privatebin_password_exists():
                 errors.append(
                     f"Privatebin URL '{uri}' requires PRIVATEBIN_PASSWORD environment variable to be set"
