@@ -24,6 +24,17 @@ from connector_builder_mcp._util import parse_manifest_input
 logger = logging.getLogger(__name__)
 
 
+DOTENV_FILE_URI_DESCRIPTION = """
+Optional paths/URLs to local .env files or Privatebin.net URLs for secret
+hydration. Can be a single string, comma-separated string, or list of strings.
+
+Privatebin secrets may be created at privatebin.net, and must:
+- Contain text formatted as a dotenv file.
+- Use a password sent via the `PRIVATEBIN_PASSWORD` env var.
+- Not include password text in the URL.
+"""
+
+
 def _privatebin_password_exists() -> bool:
     """Check if PRIVATEBIN_PASSWORD environment variable exists.
 
@@ -249,9 +260,7 @@ def hydrate_config(
 def list_dotenv_secrets(
     dotenv_file_uris: Annotated[
         str | list[str],
-        Field(
-            description="Path to .env file or privatebin URL, or list of paths/URLs, or comma-separated string"
-        ),
+        Field(description=DOTENV_FILE_URI_DESCRIPTION.strip()),
     ],
 ) -> SecretsFileInfo:
     """List all secrets in the specified dotenv files and privatebin URLs without exposing values.
@@ -333,7 +342,8 @@ def populate_dotenv_missing_secrets_stubs(
     dotenv_file_uri: Annotated[
         str,
         Field(
-            description="Absolute path to the .env file to add secrets to, or privatebin URL to check"
+            description="Absolute path to the .env file to add secrets to, or privatebin URL to check. "
+            + DOTENV_FILE_URI_DESCRIPTION.strip()
         ),
     ],
     manifest: Annotated[
