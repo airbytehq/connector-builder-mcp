@@ -36,17 +36,20 @@ def _privatebin_password_exists() -> bool:
 
 def _is_privatebin_url(url: str) -> bool:
     """Check if a URL is a privatebin URL by domain pattern.
-
+    
     Args:
         url: URL to check
-
+        
     Returns:
         True if URL is a privatebin URL, False otherwise
     """
+    if not isinstance(url, str):
+        return False
+        
     if url.startswith("https://"):
         parsed = urlparse(url)
         return "privatebin" in parsed.netloc.lower()
-
+    
     return False
 
 
@@ -273,7 +276,7 @@ def hydrate_config(
 
 def list_dotenv_secrets(
     dotenv_path: Annotated[
-        str | list[str],
+        str,
         Field(description=DOTENV_FILE_URI_DESCRIPTION.strip()),
     ],
 ) -> SecretsFileInfo:
@@ -285,6 +288,14 @@ def list_dotenv_secrets(
     Returns:
         Information about the secrets files and their contents
     """
+    import sys
+    print(f"DEBUG list_dotenv_secrets: received dotenv_path='{dotenv_path}', type={type(dotenv_path)}", file=sys.stderr)
+    
+    if isinstance(dotenv_path, str) and dotenv_path.startswith("/home/ubuntu/https:/"):
+        print(f"DEBUG list_dotenv_secrets: applying workaround, before='{dotenv_path}'", file=sys.stderr)
+        dotenv_path = dotenv_path.replace("/home/ubuntu/https:/", "https://")
+        print(f"DEBUG list_dotenv_secrets: after workaround='{dotenv_path}'", file=sys.stderr)
+    
     validation_errors = _validate_secrets_uris(dotenv_path)
     if validation_errors:
         error_message = "; ".join(validation_errors)
@@ -389,6 +400,9 @@ def populate_dotenv_missing_secrets_stubs(
     Returns:
         Message about the operation result
     """
+    if isinstance(dotenv_path, str) and dotenv_path.startswith("/home/ubuntu/https:/"):
+        dotenv_path = dotenv_path.replace("/home/ubuntu/https:/", "https://")
+    
     validation_errors = _validate_secrets_uris(dotenv_path)
     if validation_errors:
         return f"Validation failed: {'; '.join(validation_errors)}"
