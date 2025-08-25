@@ -8,13 +8,15 @@ This script demonstrates:
 4. Using different LLM providers with mcp-use
 
 Usage:
-    uv run --project=examples examples/run_mcp_use_demo.py
+    uv run --project=examples examples/run_mcp_use_demo.py "Build a connector for Rick and Morty"
+    poe run_mcp_prompt --prompt "Your prompt string here"
 
 Requirements:
     - connector-builder-mcp server available in PATH
     - Optional: OpenAI API key for LLM integration demo
 """
 
+import argparse
 import asyncio
 import importlib
 from pathlib import Path
@@ -165,15 +167,22 @@ async def demo_manifest_validation():
     )
 
 
-async def demo_connector_build(
-    api_name: str = DEFAULT_CONNECTOR_BUILD_API_NAME,
+async def run_connector_build(
+    api_name: str | None = None,
+    instructions: str | None = None,
 ):
     """Demonstrate LLM integration with mcp-use."""
-    print("\n🤖 Demo 2: LLM Integration")
-    print("=" * 50)
+    if not api_name and not instructions:
+        raise ValueError("Either api_name or instructions must be provided.")
+    if api_name:
+        instructions = (
+            f"Fully build and test a connector for '{api_name}'. " + (instructions or "")
+        ).strip()
+
+    print("\n🤖 Building Connector using AI")
 
     prompt = (
-        f"Please use your MCP tools to build a connector for the '{api_name}' API. "
+        "Please use your MCP tools to build a connector for the requested API, as requested below. "
         "This task will require you to create a new manifest.yaml file that meets the requirements "
         "for a perfectly functioning Airbyte source connector."
         "Before you start, use your checklist tool to understand your tasks, then create your own "
@@ -190,6 +199,7 @@ async def demo_connector_build(
         "[-] for in progress tasks and [x] for completed tasks.\n\n"
         "You are done when all of the checklist items are complete, or when you can no longer make "
         "progress."
+        f"\n\n{'=' * 50}\n\nYour user request is as follows: {instructions}"
     )
     if not HUMAN_IN_THE_LOOP:
         prompt += (
@@ -285,6 +295,19 @@ async def demo_multi_tool_workflow():
     print("   connector-builder-mcp tools in a single workflow.")
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run MCP agent with a prompt.",
+    )
+    parser.add_argument(
+        "prompt",
+        nargs="?",
+        default="Build a connector for Rick and Morty.",
+        help="Prompt string to pass to the agent.",
+    )
+    return parser.parse_args()
+
+
 async def main():
     """Run all demo scenarios."""
     print("🚀 mcp-use + connector-builder-mcp Integration Demo")
@@ -294,10 +317,12 @@ async def main():
     print("to provide vendor-neutral access to Airbyte connector development tools.")
     print()
 
+    cli_args: argparse.Namespace = _parse_args()
+
     # await demo_direct_tool_calls()
     # await demo_manifest_validation()
     # await demo_multi_tool_workflow()
-    await demo_connector_build()
+    await run_connector_build(instructions=cli_args.prompt)
 
     print("\n" + "=" * 60)
     print("✨ Demo completed!")
