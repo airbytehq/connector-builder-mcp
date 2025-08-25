@@ -32,5 +32,6 @@ Airbyte Maintainers can execute the following slash commands on your PR:
 
 - `/autofix` - Fixes most formatting and linting issues
 - `/poe <command>` - Runs any poe command in the uv virtual environment
+- `/poe build-connector prompt="Star Wars API"` - Run the connector builder using the Star Wars API.
 
 [📝 _Edit this welcome message._](https://github.com/airbytehq/connector-builder-mcp/blob/main/.github/pr-welcome-internal.md)
