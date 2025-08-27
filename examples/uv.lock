@@ -283,7 +283,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "langchain-openai", specifier = ">=0.3.30" },
-    { name = "mcp-use", git = "https://github.com/mcp-use/mcp-use.git?rev=main" },
+    { name = "mcp-use", specifier = ">=1.3.10" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
 ]
 
@@ -685,8 +685,8 @@ wheels = [
 
 [[package]]
 name = "mcp-use"
-version = "1.3.9"
-source = { git = "https://github.com/mcp-use/mcp-use.git?rev=main#ea61cd31ae2883ab6fd07ef0c0c837e16e14094c" }
+version = "1.3.10"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "jsonschema-pydantic" },
@@ -697,6 +697,10 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "scarf-sdk" },
     { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/47/acd6c5f004d53fb045dbefbd69db4dcdc2c80594b0f783aa5a80547924d7/mcp_use-1.3.10.tar.gz", hash = "sha256:fb1472b649c11af05e39b69c4e0310c0c101b39c165157192617a124c2977aa4", size = 6133373, upload-time = "2025-08-18T17:49:50.196Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/fa/a7c9818f2bfc5282169ad1500a367525dbeb5e76ee7951868ee769679824/mcp_use-1.3.10-py3-none-any.whl", hash = "sha256:d69f5430e4efd49757af671a43f5c702abe10fb3a56443498ad1342dbaf7abcd", size = 88519, upload-time = "2025-08-18T17:49:48.379Z" },
 ]
 
 [[package]]

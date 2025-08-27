@@ -6,6 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "python-dotenv>=1.1.1",
-    "mcp-use @ git+https://github.com/mcp-use/mcp-use.git@main",
+    "mcp-use>=1.3.10",
     "langchain-openai>=0.3.30",
 ]

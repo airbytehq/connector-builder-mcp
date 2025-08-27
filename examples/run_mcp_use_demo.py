@@ -80,8 +80,7 @@ MCP_CONFIG = {
         "filesystem-rw": {
             "command": "npx",
             "args": [
-                "-y",
-                "@modelcontextprotocol/server-filesystem",
+                "mcp-server-filesystem",
                 str(Path() / "ai-generated-files"),
                 # TODO: Research if something like this is supported:
                 # "--allowed-extensions",
@@ -154,19 +153,6 @@ async def demo_direct_tool_calls():
             print(f"  {text}")
 
 
-async def demo_manifest_validation():
-    """Demonstrate LLM integration with mcp-use."""
-    print("\n🤖 Demo 2: LLM Integration")
-    print("=" * 50)
-
-    await run_mcp_use_prompt(
-        prompt="Please validate this connector manifest and provide feedback on its structure:"
-        + SAMPLE_MANIFEST,
-        model="gpt-4o-mini",
-        temperature=0.0,
-    )
-
-
 async def run_connector_build(
     api_name: str | None = None,
     instructions: str | None = None,
@@ -178,34 +164,17 @@ async def run_connector_build(
         instructions = (
             f"Fully build and test a connector for '{api_name}'. " + (instructions or "")
         ).strip()
+    assert instructions, "By now, instructions should be non-null."
 
     print("\n🤖 Building Connector using AI")
 
-    prompt = (
-        "Please use your MCP tools to build a connector for the requested API, as requested below. "
-        "This task will require you to create a new manifest.yaml file that meets the requirements "
-        "for a perfectly functioning Airbyte source connector."
-        "Before you start, use your checklist tool to understand your tasks, then create your own "
-        "checklist.md file to track your progress."
-        "You should use your file tools to create and manage these files resources: \n"
-        " - manifest.yaml (start with an empty file until you know the expected structure)\n"
-        " - checklist.md (mentioned above)\n"
-        "If any of the above files already exist, please delete them before you begin.\n\n"
-        "After you have created these files, use your checklist, the checklist tool, and other "
-        "provided documentation tools for an overview of the steps needed. \n"
-        "Many of your connector builder tools accept a file input or a text input. Always prefer the"
-        "file input when passing your latest manifest.yaml definition.\n"
-        "You MUST update the checklist as follows as you are working: "
-        "[-] for in progress tasks and [x] for completed tasks.\n\n"
-        "You are done when all of the checklist items are complete, or when you can no longer make "
-        "progress."
-        f"\n\n{'=' * 50}\n\nYour user request is as follows: {instructions}"
-    )
+    prompt = Path("./prompts/root-prompt.md").read_text(encoding="utf-8") + "\n\n"
     if not HUMAN_IN_THE_LOOP:
         prompt += (
             "Instead of checking in with the user, as your tools suggest, please try to work "
             "autonomously to complete the task."
         )
+    prompt += instructions
 
     await run_mcp_use_prompt(
         prompt=prompt,
@@ -267,32 +236,6 @@ async def run_mcp_use_prompt(
         # Clean up
         if client and client.sessions:
             await client.close_all_sessions()
-
-
-async def demo_multi_tool_workflow():
-    """Demonstrate a multi-step connector development workflow."""
-    print("\n⚙️  Demo 3: Multi-Tool Workflow")
-    print("=" * 50)
-
-    client = MCPClient.from_dict(MCP_CONFIG)
-
-    session = await client.create_session("connector-builder")
-
-    print("1️⃣  Validating manifest...")
-    await session.call_tool("validate_manifest", {"manifest": SAMPLE_MANIFEST})
-    print("   ✅ Manifest validation complete")
-
-    print("\n2️⃣  Getting development checklist...")
-    await session.call_tool("get_connector_builder_checklist", {})
-    print("   📋 Development checklist retrieved")
-
-    print("\n3️⃣  Getting manifest JSON schema...")
-    await session.call_tool("get_manifest_yaml_json_schema", {})
-    print("   📄 JSON schema retrieved")
-
-    print("\n🎉 Multi-tool workflow completed successfully!")
-    print("   This demonstrates how mcp-use can orchestrate multiple")
-    print("   connector-builder-mcp tools in a single workflow.")
 
 
 def _parse_args() -> argparse.Namespace:
