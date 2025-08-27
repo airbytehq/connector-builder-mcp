@@ -24,8 +24,9 @@ jobs:
 
           commands: |
             autofix
-            test
+            build-connector
             poe
+            test
 
           # TODO: Add 'publish' slash command when we have time to properly map the PR number to git
           #       refs in that workflow:

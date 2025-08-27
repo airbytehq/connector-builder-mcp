@@ -1,0 +1,34 @@
+name: On-Demand Connector Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      comment-id:
+        description: "Optional comment-id of the slash command. Ignore if not applicable."
+        required: false
+      pr:
+        description: "PR Number"
+        required: false
+      prompt:
+        description: "The prompt to pass to the connector builder task."
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  run-poe-build-connector:
+    env:
+      OPENAI_API_ROOT: https://api.openai.com/v1
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Poe Slash Command Processor
+        uses: aaronsteers/poe-command-processor@v1
+        with:
+          pr: ${{ github.event.inputs.pr }}
+          comment-id: ${{ github.event.inputs.comment-id }}
+          start-message: "🛠️ Building connector..."
+          command: "build-connector --prompt='${{ github.event.inputs.prompt }}'"
+          no-commit: true

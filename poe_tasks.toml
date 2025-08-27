@@ -24,3 +24,17 @@ docs-generate = { cmd = "uv run pdoc connector_builder_mcp --output-dir docs/gen
 
 # Combined tasks
 check = { sequence = ["lint", "typecheck", "test"], help = "Run all checks" }
+
+# Run MCP agent with a prompt string
+run_mcp_prompt = { cmd = "uv run --project=examples examples/run_mcp_use_demo.py \"${prompt}\"", help = "Run MCP agent with a prompt string.", args = ["prompt"] }
+
+# Auto-pilot and AI agents
+codex.cmd = "npx @openai/codex --sandbox=workspace-write"
+codex.cwd = "./ai-generated-files"
+codex.help = "Run Codex AI agent with a prompt string."
+build-connector.shell = """
+(cat prompts/root-prompt.md; echo "$prompt") | codex exec \
+    --sandbox=workspace-write \
+    -
+"""
+build-connector.args = ["prompt"]
