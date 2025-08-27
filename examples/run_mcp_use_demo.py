@@ -26,7 +26,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from mcp_use import MCPAgent, MCPClient, set_debug
-from openai_agents_mcp import Agent as OpenAIAgent, Runner, RunnerContext
+
+try:
+    from openai_agents_mcp import Agent as OpenAIAgent, Runner, RunnerContext
+    OPENAI_AGENTS_AVAILABLE = True
+except ImportError:
+    OPENAI_AGENTS_AVAILABLE = False
+    OpenAIAgent = Runner = RunnerContext = None
 
 FRAMEWORK_MCP_USE = "mcp-use"
 FRAMEWORK_OPENAI_AGENTS = "openai-agents"
@@ -258,6 +264,12 @@ async def run_agent_prompt(
                 await client.close_all_sessions()
 
     elif framework == FRAMEWORK_OPENAI_AGENTS:
+        if not OPENAI_AGENTS_AVAILABLE:
+            raise ImportError(
+                "openai-agents-mcp is required for openai-agents framework. "
+                "Install with: uv add openai-agents-mcp openai-agents"
+            )
+        
         agent = OpenAIAgent(
             mcp_servers=["connector-builder", "playwright", "filesystem-rw"],
             model=model,
