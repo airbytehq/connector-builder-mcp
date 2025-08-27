@@ -24,6 +24,8 @@ import importlib
 from pathlib import Path
 
 from dotenv import load_dotenv
+from mcp_use import MCPClient, set_debug
+
 
 FRAMEWORK_MCP_USE = "mcp-use"
 FRAMEWORK_OPENAI_AGENTS = "openai-agents"
@@ -50,9 +52,6 @@ def import_framework_dependencies(framework: str):
 
 
 # Initialize mcp-use for backward compatibility
-from langchain_openai import ChatOpenAI
-from mcp_use import MCPAgent, MCPClient, set_debug
-
 set_debug(1)  # 2=DEBUG level, 1=INFO level
 
 
@@ -191,6 +190,8 @@ async def demo_manifest_validation():
         model="gpt-4o-mini",
         temperature=0.0,
     )
+
+
 async def run_connector_build(
     api_name: str | None = None,
     instructions: str | None = None,
@@ -313,6 +314,8 @@ async def run_agent_prompt(
 
         except KeyboardInterrupt:
             print("Conversation terminated (ctrl+c input received).")
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run MCP agent with a prompt.",
@@ -342,7 +345,7 @@ async def main():
     print()
 
     cli_args: argparse.Namespace = _parse_args()
-    
+
     print(f"Using framework: {cli_args.framework}")
 
     # await demo_direct_tool_calls()
