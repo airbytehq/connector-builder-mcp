@@ -24,32 +24,13 @@ import importlib
 from pathlib import Path
 
 from dotenv import load_dotenv
-from mcp_use import MCPClient, set_debug
-
+from langchain_openai import ChatOpenAI
+from mcp_use import MCPAgent, MCPClient, set_debug
+from openai_agents_mcp import Agent as OpenAIAgent, Runner, RunnerContext
 
 FRAMEWORK_MCP_USE = "mcp-use"
 FRAMEWORK_OPENAI_AGENTS = "openai-agents"
 FRAMEWORK_OPENAI = "openai"  # shorthand
-
-
-def import_framework_dependencies(framework: str):
-    if framework in [FRAMEWORK_MCP_USE]:
-        from langchain_openai import ChatOpenAI
-        from mcp_use import MCPAgent, MCPClient, set_debug
-
-        return ChatOpenAI, MCPAgent, MCPClient, set_debug
-    elif framework in [FRAMEWORK_OPENAI_AGENTS, FRAMEWORK_OPENAI]:
-        try:
-            from openai_agents_mcp import Agent, Runner, RunnerContext
-
-            return None, Agent, Runner, RunnerContext
-        except ImportError as e:
-            raise ImportError(
-                "openai-agents-mcp is required for openai-agents framework. Install with: uv add openai-agents-mcp"
-            ) from e
-    else:
-        raise ValueError(f"Unsupported framework: {framework}")
-
 
 # Initialize mcp-use for backward compatibility
 set_debug(1)  # 2=DEBUG level, 1=INFO level
@@ -234,17 +215,12 @@ async def run_agent_prompt(
     if framework == FRAMEWORK_OPENAI:
         framework = FRAMEWORK_OPENAI_AGENTS
 
-    ChatOpenAI, Agent, Client, extra = import_framework_dependencies(framework)
-
     if framework == FRAMEWORK_MCP_USE:
-        set_debug = extra
         set_debug(1)  # 2=DEBUG level, 1=INFO level
 
-        client = Client.from_dict(MCP_CONFIG)
-        if ChatOpenAI is None:
-            raise RuntimeError("ChatOpenAI should not be None for mcp-use framework")
+        client = MCPClient.from_dict(MCP_CONFIG)
         llm = ChatOpenAI(model=model, temperature=temperature)
-        agent = Agent(
+        agent = MCPAgent(
             client=client,
             llm=llm,
             max_steps=MAX_CONNECTOR_BUILD_STEPS,
@@ -282,9 +258,7 @@ async def run_agent_prompt(
                 await client.close_all_sessions()
 
     elif framework == FRAMEWORK_OPENAI_AGENTS:
-        Runner, RunnerContext = Client, extra
-
-        agent = Agent(
+        agent = OpenAIAgent(
             mcp_servers=["connector-builder", "playwright", "filesystem-rw"],
             model=model,
             temperature=temperature,
