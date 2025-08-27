@@ -118,79 +118,6 @@ MCP_CONFIG = {
 MAX_CONNECTOR_BUILD_STEPS = 100
 client = MCPClient.from_dict(MCP_CONFIG)
 
-SAMPLE_MANIFEST = """
-version: 4.6.2
-type: DeclarativeSource
-check:
-  type: CheckStream
-  stream_names:
-    - users
-definitions:
-  streams:
-    users:
-      type: DeclarativeStream
-      name: users
-      primary_key:
-        - id
-      retriever:
-        type: SimpleRetriever
-        requester:
-          type: HttpRequester
-          url_base: https://jsonplaceholder.typicode.com
-          path: /users
-        record_selector:
-          type: RecordSelector
-          extractor:
-            type: DpathExtractor
-            field_path: []
-spec:
-  type: Spec
-  connection_specification:
-    type: object
-    properties: {}
-"""
-
-
-async def demo_direct_tool_calls():
-    """Demonstrate direct tool calls without LLM integration."""
-    session = await client.create_session("connector-builder")
-    print("🔧 Demo 1: Direct Tool Calls")
-    print("=" * 50)
-
-    print("📋 Available MCP Tools:")
-    tools = await session.list_tools()
-    print(f"\n✅ Found {len(tools)} tools available")
-
-    print("\n🔍 Validating sample manifest...")
-    result = await session.call_tool("validate_manifest", {"manifest": SAMPLE_MANIFEST})
-
-    print("📄 Validation Result:")
-    for content in result.content:
-        if hasattr(content, "text"):
-            print(f"  {content.text}")
-
-    print("\n📚 Getting connector builder documentation...")
-    docs_result = await session.call_tool("get_connector_builder_docs", {})
-
-    print("📖 Documentation Overview:")
-    for content in docs_result.content:
-        if hasattr(content, "text"):
-            text = content.text[:200] + "..." if len(content.text) > 200 else content.text
-            print(f"  {text}")
-
-
-async def demo_manifest_validation():
-    """Demonstrate LLM integration with mcp-use."""
-    print("\n🤖 Demo 2: LLM Integration")
-    print("=" * 50)
-
-    await run_agent_prompt(
-        prompt="Please validate this connector manifest and provide feedback on its structure:"
-        + SAMPLE_MANIFEST,
-        model="gpt-4o-mini",
-        temperature=0.0,
-    )
-
 
 async def run_connector_build(
     api_name: str | None = None,
@@ -348,9 +275,6 @@ async def main():
 
     print(f"Using framework: {cli_args.framework}")
 
-    # await demo_direct_tool_calls()
-    # await demo_manifest_validation()
-    # await demo_multi_tool_workflow()
     await run_connector_build(instructions=cli_args.prompt, framework=cli_args.framework)
 
     print("\n" + "=" * 60)
