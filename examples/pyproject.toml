@@ -10,4 +10,5 @@ dependencies = [
     "langchain-openai>=0.3.30",
     "openai-agents-mcp>=0.0.8",
     "openai-agents>=0.0.9",
+    "mcp-agent>=0.1.13",
 ]

@@ -23,23 +23,17 @@ import asyncio
 import importlib
 from pathlib import Path
 
+from agents import Agent as OpenAIAgent
+from agents import Runner
+from agents.mcp import MCPServerStdio, MCPServerStdioParams
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from mcp_use import MCPAgent, MCPClient, set_debug
 
-try:
-    from openai_agents_mcp import Agent as OpenAIAgent, Runner, RunnerContext
-    OPENAI_AGENTS_AVAILABLE = True
-except ImportError:
-    OPENAI_AGENTS_AVAILABLE = False
-    OpenAIAgent = Runner = RunnerContext = None
 
 FRAMEWORK_MCP_USE = "mcp-use"
 FRAMEWORK_OPENAI_AGENTS = "openai-agents"
 FRAMEWORK_OPENAI = "openai"  # shorthand
-
-# Initialize mcp-use for backward compatibility
-set_debug(1)  # 2=DEBUG level, 1=INFO level
 
 
 # Print loaded versions of mcp-use and langchain
@@ -191,16 +185,36 @@ async def run_agent_prompt(
                 await client.close_all_sessions()
 
     elif framework == FRAMEWORK_OPENAI_AGENTS:
-        if not OPENAI_AGENTS_AVAILABLE:
-            raise ImportError(
-                "openai-agents-mcp is required for openai-agents framework. "
-                "Install with: uv add openai-agents-mcp openai-agents"
-            )
-        
+        mcp_servers = [
+            MCPServerStdio(
+                params=MCPServerStdioParams(
+                    command="uv", args=["run", "connector-builder-mcp"], env={}
+                )
+            ),
+            MCPServerStdio(
+                params=MCPServerStdioParams(
+                    command="npx",
+                    args=["@playwright/mcp@latest"],
+                    env={
+                        "PLAYWRIGHT_HEADLESS": "true",
+                        "BLOCK_PRIVATE_IPS": "true",
+                        "DISABLE_JAVASCRIPT": "false",
+                        "TIMEOUT": "30000",
+                    },
+                )
+            ),
+            MCPServerStdio(
+                params=MCPServerStdioParams(
+                    command="npx", args=["mcp-server-filesystem", "ai-generated-files"], env={}
+                )
+            ),
+        ]
+
         agent = OpenAIAgent(
-            mcp_servers=["connector-builder", "playwright", "filesystem-rw"],
+            name="MCP Connector Builder",
+            instructions="You are a helpful assistant with access to MCP tools for building Airbyte connectors.",
+            mcp_servers=mcp_servers,
             model=model,
-            temperature=temperature,
         )
 
         print("\n===== Interactive MCP Chat (openai-agents) =====")
@@ -208,9 +222,11 @@ async def run_agent_prompt(
         print("==================================\n")
 
         try:
-            context = RunnerContext()
-            response = await Runner.run(agent, input=prompt, context=context)
-            print(response)
+            for server in mcp_servers:
+                await server.connect()
+
+            response = await Runner.run(agent, input=prompt)
+            print(response.final_output)
 
             while True:
                 user_input = input("\nYou: ")
@@ -220,13 +236,19 @@ async def run_agent_prompt(
 
                 print("\nAssistant: ", end="", flush=True)
                 try:
-                    response = await Runner.run(agent, input=user_input, context=context)
-                    print(response)
+                    response = await Runner.run(agent, input=user_input)
+                    print(response.final_output)
                 except Exception as e:
                     print(f"\nError: {e}")
 
         except KeyboardInterrupt:
             print("Conversation terminated (ctrl+c input received).")
+        finally:
+            for server in mcp_servers:
+                try:
+                    await server.cleanup()
+                except Exception as e:
+                    print(f"Warning: Error cleaning up server {server.name}: {e}")
 
 
 def _parse_args() -> argparse.Namespace:
