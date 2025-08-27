@@ -33,6 +33,8 @@ codex.cmd = "npx @openai/codex --sandbox=workspace-write"
 codex.cwd = "./ai-generated-files"
 codex.help = "Run Codex AI agent with a prompt string."
 build-connector.shell = """
-(cat prompts/root-prompt.md; echo "$prompt") | codex exec --sandbox=workspace-write -
+(cat prompts/root-prompt.md; echo "$prompt") | codex exec \
+    --sandbox=workspace-write \
+    -
 """
 build-connector.args = ["prompt"]

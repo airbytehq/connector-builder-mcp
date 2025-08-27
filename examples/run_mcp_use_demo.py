@@ -191,8 +191,6 @@ async def demo_manifest_validation():
         model="gpt-4o-mini",
         temperature=0.0,
     )
-
-
 async def run_connector_build(
     api_name: str | None = None,
     instructions: str | None = None,
@@ -315,8 +313,6 @@ async def run_agent_prompt(
 
         except KeyboardInterrupt:
             print("Conversation terminated (ctrl+c input received).")
-
-
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run MCP agent with a prompt.",
