@@ -10,7 +10,7 @@ import pytest
 import requests
 
 from connector_builder_mcp._guidance import TOPIC_MAPPING
-from connector_builder_mcp._secrets import load_secrets
+from connector_builder_mcp._secrets import _load_secrets
 from connector_builder_mcp.connector_builder import (
     get_connector_builder_docs,
 )
@@ -335,7 +335,7 @@ class TestPrivatebinIntegration:
             "https://privatebin.net/?187565d30322596b#H2VnHSogPPb1jyVzEmM8EaNY5KKzs3M9j8gLJy7pY1Mp"
         )
 
-        secrets = load_secrets(privatebin_url)
+        secrets = _load_secrets(privatebin_url)
 
         assert secrets.get("answer") == "42", (
             f"Expected answer=42, got answer={secrets.get('answer')}"

@@ -163,22 +163,22 @@ def _fetch_privatebin_content(url: str) -> str:
         if "privatebin.net" in https_url:
             paste = privatebin.get(https_url, password=password)
             return paste.text
-        else:
-            parsed = urlparse(https_url)
-            if "password=" not in parsed.query:
-                separator = "&" if parsed.query else "?"
-                https_url = f"{https_url}{separator}password={password}"
 
-            response = requests.get(https_url, timeout=30)
-            response.raise_for_status()
-            return response.text
+        parsed = urlparse(https_url)
+        if "password=" not in parsed.query:
+            separator = "&" if parsed.query else "?"
+            https_url = f"{https_url}{separator}password={password}"
+
+        response = requests.get(https_url, timeout=30)
+        response.raise_for_status()
+        return response.text
 
     except Exception as e:
         logger.error(f"Error fetching privatebin content from {url}: {e}")
         return ""
 
 
-def load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, str]:
+def _load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, str]:
     """Load secrets from the specified dotenv files and privatebin URLs.
 
     Args:
@@ -186,9 +186,10 @@ def load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, s
                               or comma-separated string, or single string
 
     Returns:
-        Dictionary of secret key-value pairs from all sources
+        Dictionary of secret key-value pairs from all sources.
+        Result may be a nested dictionary, e.g. {"credentials": {"password": "secret123"}}
     """
-    validation_errors = _validate_secrets_uris(dotenv_file_uris)
+    validation_errors: list[str] = _validate_secrets_uris(dotenv_file_uris)
     if validation_errors:
         for error in validation_errors:
             logger.error(f"Validation error: {error}")
@@ -201,31 +202,63 @@ def load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, s
     all_secrets = {}
 
     for uri in uris:
-        try:
-            if _is_privatebin_url(uri):
-                content = _fetch_privatebin_content(uri)
-                if content:
-                    secrets = dotenv_values(stream=StringIO(content))
-                    if secrets:
-                        filtered_secrets = {k: v for k, v in secrets.items() if v is not None}
-                        all_secrets.update(filtered_secrets)
-                        logger.info(f"Loaded {len(filtered_secrets)} secrets from privatebin URL")
-            else:
-                if not Path(uri).exists():
-                    logger.warning(f"Secrets file not found: {uri}")
-                    continue
-
-                secrets = dotenv_values(uri)
+        if _is_privatebin_url(uri):
+            content = _fetch_privatebin_content(uri)
+            if content:
+                secrets = dotenv_values(stream=StringIO(content))
                 if secrets:
                     filtered_secrets = {k: v for k, v in secrets.items() if v is not None}
                     all_secrets.update(filtered_secrets)
-                    logger.info(f"Loaded {len(filtered_secrets)} secrets from {uri}")
+                    logger.info(f"Loaded {len(filtered_secrets)} secrets from privatebin URL")
+        else:
+            path = Path(uri)
+            if not path.exists():
+                logger.error(f"Secrets file not found: {uri}")
+                raise FileNotFoundError(f"Secrets file not found: {uri}")
 
-        except Exception as e:
-            logger.error(f"Error loading secrets from {uri}: {e}")
-            continue
+            secrets = dotenv_values(uri)
+            if secrets:
+                count = 0
+                for key_path, value in {
+                    k: v
+                    for k, v in secrets.items()
+                    if (
+                        v is not None
+                        and v != ""  # noqa: PLC1901 # skipping empty strings, but not 0
+                        and not k.startswith("#")
+                        and not v.startswith("#")
+                    )
+                }.items():
+                    count += 1
+                    _set_nested_value(all_secrets, key_path, value)
+
+                logger.info(f"Loaded {count} secrets from {uri}")
 
     return all_secrets
+
+
+def _set_nested_value(obj: dict[str, Any], path_str: str, value: str) -> None:
+    """Set a nested value in a dictionary using a path string."""
+    path = path_str.split(".")
+    current = obj
+    for key in path[:-1]:
+        if key not in current:
+            current[key] = {}
+        elif not isinstance(current[key], dict):
+            return
+        current = current[key]
+    current[path[-1]] = value
+
+
+def _merge_nested_dicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    """Merge two nested dictionaries."""
+    merged = a.copy()
+    for key, value in b.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            merged[key] = _merge_nested_dicts(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def hydrate_config(
@@ -234,9 +267,9 @@ def hydrate_config(
     """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
 
     Dotenv keys are mapped directly to config paths using dot notation:
-    - credentials.password -> credentials.password
-    - api_key -> api_key
-    - oauth.client_secret -> oauth.client_secret
+    - credentials.password=foo   -> {"credentials": {"password": "foo"}}
+    - api_key=value              -> {"api_key": "value"}
+    - oauth.client_secret=value  -> {"oauth": {"client_secret": "value"}}
 
     Args:
         config: Configuration dictionary to hydrate with secrets
@@ -249,29 +282,11 @@ def hydrate_config(
     if not config or not dotenv_file_uris:
         return config
 
-    secrets = load_secrets(dotenv_file_uris)
+    secrets = _load_secrets(dotenv_file_uris)
     if not secrets:
         return config
 
-    def _set_nested_value(obj: dict[str, Any], path: list[str], value: str) -> None:
-        """Set a nested value in a dictionary using a path."""
-        current = obj
-        for key in path[:-1]:
-            if key not in current:
-                current[key] = {}
-            elif not isinstance(current[key], dict):
-                return
-            current = current[key]
-        current[path[-1]] = value
-
-    result = config.copy()
-
-    for dotenv_key, secret_value in secrets.items():
-        if secret_value and not secret_value.startswith("#"):
-            path = dotenv_key.split(".")
-            _set_nested_value(result, path, secret_value)
-
-    return result
+    return _merge_nested_dicts(config, secrets)
 
 
 def list_dotenv_secrets(
@@ -288,7 +303,6 @@ def list_dotenv_secrets(
     Returns:
         Information about the secrets files and their contents
     """
-
     validation_errors = _validate_secrets_uris(dotenv_path)
     if validation_errors:
         error_message = "; ".join(validation_errors)
@@ -339,7 +353,7 @@ def list_dotenv_secrets(
                 file_path=str(file_path.absolute()), exists=file_path.exists(), secrets=secrets_info
             )
 
-    all_secrets = load_secrets(dotenv_path)
+    all_secrets = _load_secrets(dotenv_path)
     secrets_info = []
     for key, value in all_secrets.items():
         secrets_info.append(
@@ -417,7 +431,7 @@ def populate_dotenv_missing_secrets_stubs(
         if not secrets_to_add:
             return "No secrets found to add"
 
-        existing_secrets = load_secrets(dotenv_path)
+        existing_secrets = _load_secrets(dotenv_path)
 
         secrets_info = []
         for key, value in existing_secrets.items():

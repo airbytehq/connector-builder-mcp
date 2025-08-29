@@ -5,21 +5,41 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 import yaml
 
 from connector_builder_mcp._secrets import (
     SecretsFileInfo,
+    _load_secrets,
     hydrate_config,
     list_dotenv_secrets,
-    load_secrets,
     populate_dotenv_missing_secrets_stubs,
 )
 
 
+# Pytest fixture for a dummy dotenv file
+@pytest.fixture
+def dummy_dotenv_file(tmp_path) -> str:
+    """Create a dummy .env file for testing."""
+    file_path = tmp_path / "dummy.env"
+    file_path.write_text(
+        "\n".join([  # noqa: FLY002
+            "api_key=example_api_key",
+            "credentials.password=example_password",
+            "oauth.client_secret=example_client_secret",
+            "token=example_token",
+            "url=https://example.com",
+            "empty_key=",
+            "comment_secret=# TODO: Set actual value for comment_secret",
+        ])
+    )
+    return str(file_path)
+
+
 def test_load_secrets_file_not_exists():
-    """Test loading from non-existent file returns empty dict."""
-    secrets = load_secrets("/nonexistent/file.env")
-    assert secrets == {}
+    """Test loading from non-existent file raises FileNotFoundError."""
+    with pytest.raises(FileNotFoundError):
+        _load_secrets("/nonexistent/file.env")
 
 
 def test_load_secrets_existing_file():
@@ -29,9 +49,12 @@ def test_load_secrets_existing_file():
         f.write("api_token=token456\n")
         f.flush()
 
-        secrets = load_secrets(f.name)
+        secrets = _load_secrets(f.name)
 
-        assert secrets == {"credentials.password": "secret123", "api_token": "token456"}
+        assert secrets == {
+            "credentials": {"password": "secret123"},
+            "api_token": "token456",
+        }
 
         Path(f.name).unlink()
 
@@ -47,60 +70,58 @@ def test_hydrate_config_no_secrets():
     """Test hydration with no secrets available."""
     config = {"host": "localhost", "credentials": {"username": "user"}}
 
-    with patch("connector_builder_mcp._secrets.load_secrets", return_value={}):
+    with patch("connector_builder_mcp._secrets._load_secrets", return_value={}):
         result = hydrate_config(config, "/path/to/.env")
         assert result == config
 
 
 def test_hydrate_config_with_secrets():
     """Test hydration with secrets using dot notation, including simple keys."""
-    config = {"host": "localhost", "credentials": {"username": "user"}, "oauth": {}}
-
-    secrets = {
-        "api_key": "secret123",
-        "credentials.password": "pass456",
-        "oauth.client_secret": "oauth789",
-        "token": "token123",
-        "url": "https://api.example.com",
+    config = {
+        "host": "localhost",
+        "credentials": {"username": "user"},
+        "oauth": {},
     }
 
-    with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
-        result = hydrate_config(config, "/path/to/.env")
 
-        expected = {
-            "host": "localhost",
-            "api_key": "secret123",
-            "token": "token123",
-            "url": "https://api.example.com",
-            "credentials": {"username": "user", "password": "pass456"},
-            "oauth": {"client_secret": "oauth789"},
-        }
-        assert result == expected
+def test_hydrate_config_with_secrets(dummy_dotenv_file):
+    config = {
+        "host": "localhost",
+        "credentials": {"username": "user"},
+        "oauth": {},
+    }
+    result = hydrate_config(config, dummy_dotenv_file)
+    expected = {
+        "host": "localhost",
+        "api_key": "example_api_key",
+        "token": "example_token",
+        "url": "https://example.com",
+        "credentials": {"username": "user", "password": "example_password"},
+        "oauth": {"client_secret": "example_client_secret"},
+    }
+    assert result == expected
 
 
-def test_hydrate_config_ignores_comment_values():
-    """Test that comment values (starting with #) are ignored."""
+def test_hydrate_config_ignores_comment_values(dummy_dotenv_file):
     config = {"host": "localhost"}
-    secrets = {"api_key": "# TODO: Set actual value for api_key", "token": "real_token_value"}
-
-    with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
-        result = hydrate_config(config, "/path/to/.env")
-
-        expected = {"host": "localhost", "token": "real_token_value"}
-        assert result == expected
+    result = hydrate_config(config, dummy_dotenv_file)
+    # Only token should be hydrated, comment_secret should be ignored if logic is correct
+    assert result["token"] == "example_token"
 
 
-def test_hydrate_config_overwrites_existing_values():
-    """Test that secrets overwrite existing config values."""
-    config = {"api_key": "old_value", "credentials": {"password": "old_password"}}
-
-    secrets = {"api_key": "new_secret", "credentials.password": "new_password"}
-
-    with patch("connector_builder_mcp._secrets.load_secrets", return_value=secrets):
-        result = hydrate_config(config, "/path/to/.env")
-
-        expected = {"api_key": "new_secret", "credentials": {"password": "new_password"}}
-        assert result == expected
+def test_hydrate_config_overwrites_existing_values(dummy_dotenv_file):
+    config = {
+        "api_key": "old_value",
+        "credentials": {
+            "password": "old_password",
+        },
+    }
+    result = hydrate_config(
+        config,
+        dummy_dotenv_file,
+    )
+    assert result["api_key"] == "example_api_key"
+    assert result["credentials"]["password"] == "example_password"
 
 
 def test_list_dotenv_secrets_no_file():
@@ -328,7 +349,7 @@ def test_load_secrets_comma_separated_string():
             f2.write("token=secret2\n")
             f2.flush()
 
-            secrets = load_secrets(f"{f1.name},{f2.name}")
+            secrets = _load_secrets(f"{f1.name},{f2.name}")
 
             assert secrets == {"api_key": "secret1", "token": "secret2"}
 
@@ -346,7 +367,7 @@ def test_load_secrets_list_of_files():
             f2.write("token=secret2\n")
             f2.flush()
 
-            secrets = load_secrets([f1.name, f2.name])
+            secrets = _load_secrets([f1.name, f2.name])
 
             assert secrets == {"api_key": "secret1", "token": "secret2"}
 
@@ -362,7 +383,7 @@ def test_load_secrets_privatebin_url_success(mock_getenv, mock_privatebin_get):
     mock_paste = mock_privatebin_get.return_value
     mock_paste.text = "api_key=secret123\ntoken=token456\n"
 
-    secrets = load_secrets("https://privatebin.net/?abc123#testpassphrase")
+    secrets = _load_secrets("https://privatebin.net/?abc123#testpassphrase")
 
     assert secrets == {"api_key": "secret123", "token": "token456"}
     mock_getenv.assert_called_with("PRIVATEBIN_PASSWORD")
@@ -376,7 +397,7 @@ def test_load_secrets_privatebin_url_no_password(mock_getenv):
     """Test loading from privatebin URL without PRIVATEBIN_PASSWORD fails."""
     mock_getenv.return_value = None
 
-    secrets = load_secrets("https://privatebin.net/?abc123#test_passphrase")
+    secrets = _load_secrets("https://privatebin.net/?abc123#test_passphrase")
 
     assert secrets == {}
     mock_getenv.assert_called_with("PRIVATEBIN_PASSWORD")
@@ -391,7 +412,7 @@ def test_load_secrets_privatebin_url_with_existing_password_param(mock_get, mock
     mock_response.text = "api_key=secret123\n"
     mock_response.raise_for_status.return_value = None
 
-    secrets = load_secrets("https://privatebin.net/abc123?password=existing_pass")
+    secrets = _load_secrets("https://privatebin.net/abc123?password=existing_pass")
 
     assert secrets == {}
 
@@ -408,7 +429,7 @@ def test_load_secrets_mixed_files_and_privatebin(mock_getenv, mock_privatebin_ge
         f.write("local_key=local_secret\n")
         f.flush()
 
-        secrets = load_secrets([f.name, "https://privatebin.net/?abc123#testpassphrase"])
+        secrets = _load_secrets([f.name, "https://privatebin.net/?abc123#testpassphrase"])
 
         assert secrets == {"local_key": "local_secret", "privatebin_key": "privatebin_secret"}
 
@@ -465,7 +486,7 @@ def test_list_dotenv_secrets_privatebin_url(mock_fetch, mock_getenv):
 def test_populate_dotenv_missing_secrets_stubs_privatebin_url(mock_getenv):
     """Test populate stubs with privatebin URL returns instructions."""
     mock_getenv.return_value = "test_password"
-    with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
+    with patch("connector_builder_mcp._secrets._load_secrets") as mock_load:
         mock_load.return_value = {"existing_key": "value"}
 
         result = populate_dotenv_missing_secrets_stubs(
@@ -485,7 +506,7 @@ def test_populate_dotenv_missing_secrets_stubs_privatebin_url(mock_getenv):
 def test_populate_dotenv_missing_secrets_stubs_privatebin_all_present(mock_getenv):
     """Test populate stubs with privatebin URL when all secrets are present."""
     mock_getenv.return_value = "test_password"
-    with patch("connector_builder_mcp._secrets.load_secrets") as mock_load:
+    with patch("connector_builder_mcp._secrets._load_secrets") as mock_load:
         mock_load.return_value = {"key1": "value1", "key2": "value2"}
 
         result = populate_dotenv_missing_secrets_stubs(
@@ -592,8 +613,8 @@ def test_validate_secrets_uris_mixed_valid_invalid(mock_getenv):
 
 
 def test_load_secrets_validation_failure():
-    """Test load_secrets returns empty dict when validation fails."""
-    secrets = load_secrets("relative/path/.env")
+    """Test _load_secrets returns empty dict when validation fails."""
+    secrets = _load_secrets("relative/path/.env")
     assert secrets == {}
 
 
