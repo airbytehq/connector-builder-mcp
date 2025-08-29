@@ -97,7 +97,7 @@ dev = [
 requires-dist = [
     { name = "airbyte-cdk", specifier = ">=6.0,<7.0" },
     { name = "fastmcp", specifier = ">=0.2.0" },
-    { name = "jsonschema", specifier = ">=4.0.0" },
+    { name = "jsonschema", specifier = ">=4.17.3,<5.0" },
     { name = "privatebin", specifier = ">=0.2.1" },
     { name = "pydantic", specifier = ">=2.7.0,<3.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
