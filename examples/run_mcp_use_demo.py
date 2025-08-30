@@ -1,19 +1,21 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
-"""Demo script showing how to use mcp-use as a wrapper for connector-builder-mcp.
+"""Demo script showing how to use different agent frameworks with connector-builder-mcp.
 
 This script demonstrates:
 1. Connecting to connector-builder-mcp via STDIO transport
 2. Discovering available MCP tools
 3. Running connector validation workflows
-4. Using different LLM providers with mcp-use
+4. Using different agent frameworks (mcp-use, openai-agents) with MCP
 
 Usage:
     uv run --project=examples examples/run_mcp_use_demo.py "Build a connector for Rick and Morty"
+    uv run --project=examples examples/run_mcp_use_demo.py --framework openai "Build a connector"
     poe run_mcp_prompt --prompt "Your prompt string here"
 
 Requirements:
     - connector-builder-mcp server available in PATH
     - Optional: OpenAI API key for LLM integration demo
+    - For openai-agents: openai-agents-mcp package
 """
 
 import argparse
@@ -21,12 +23,17 @@ import asyncio
 import importlib
 from pathlib import Path
 
+from agents import Agent as OpenAIAgent
+from agents import Runner
+from agents.mcp import MCPServerStdio, MCPServerStdioParams
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from mcp_use import MCPAgent, MCPClient, set_debug
 
 
-set_debug(1)  # 2=DEBUG level, 1=INFO level
+FRAMEWORK_MCP_USE = "mcp-use"
+FRAMEWORK_OPENAI_AGENTS = "openai-agents"
+FRAMEWORK_OPENAI = "openai"  # shorthand
 
 
 # Print loaded versions of mcp-use and langchain
@@ -92,72 +99,13 @@ MCP_CONFIG = {
 MAX_CONNECTOR_BUILD_STEPS = 100
 client = MCPClient.from_dict(MCP_CONFIG)
 
-SAMPLE_MANIFEST = """
-version: 4.6.2
-type: DeclarativeSource
-check:
-  type: CheckStream
-  stream_names:
-    - users
-definitions:
-  streams:
-    users:
-      type: DeclarativeStream
-      name: users
-      primary_key:
-        - id
-      retriever:
-        type: SimpleRetriever
-        requester:
-          type: HttpRequester
-          url_base: https://jsonplaceholder.typicode.com
-          path: /users
-        record_selector:
-          type: RecordSelector
-          extractor:
-            type: DpathExtractor
-            field_path: []
-spec:
-  type: Spec
-  connection_specification:
-    type: object
-    properties: {}
-"""
-
-
-async def demo_direct_tool_calls():
-    """Demonstrate direct tool calls without LLM integration."""
-    session = await client.create_session("connector-builder")
-    print("🔧 Demo 1: Direct Tool Calls")
-    print("=" * 50)
-
-    print("📋 Available MCP Tools:")
-    tools = await session.list_tools()
-    print(f"\n✅ Found {len(tools)} tools available")
-
-    print("\n🔍 Validating sample manifest...")
-    result = await session.call_tool("validate_manifest", {"manifest": SAMPLE_MANIFEST})
-
-    print("📄 Validation Result:")
-    for content in result.content:
-        if hasattr(content, "text"):
-            print(f"  {content.text}")
-
-    print("\n📚 Getting connector builder documentation...")
-    docs_result = await session.call_tool("get_connector_builder_docs", {})
-
-    print("📖 Documentation Overview:")
-    for content in docs_result.content:
-        if hasattr(content, "text"):
-            text = content.text[:200] + "..." if len(content.text) > 200 else content.text
-            print(f"  {text}")
-
 
 async def run_connector_build(
     api_name: str | None = None,
     instructions: str | None = None,
+    framework: str = FRAMEWORK_MCP_USE,
 ):
-    """Demonstrate LLM integration with mcp-use."""
+    """Demonstrate agent integration with specified framework."""
     if not api_name and not instructions:
         raise ValueError("Either api_name or instructions must be provided.")
     if api_name:
@@ -166,7 +114,7 @@ async def run_connector_build(
         ).strip()
     assert instructions, "By now, instructions should be non-null."
 
-    print("\n🤖 Building Connector using AI")
+    print(f"\n🤖 Building Connector using AI ({framework})")
 
     prompt = Path("./prompts/root-prompt.md").read_text(encoding="utf-8") + "\n\n"
     if not HUMAN_IN_THE_LOOP:
@@ -176,66 +124,131 @@ async def run_connector_build(
         )
     prompt += instructions
 
-    await run_mcp_use_prompt(
+    await run_agent_prompt(
         prompt=prompt,
+        framework=framework,
         model="gpt-4o-mini",
         temperature=0.0,
     )
 
 
-async def run_mcp_use_prompt(
+async def run_agent_prompt(
     prompt: str,
+    framework: str = FRAMEWORK_MCP_USE,
     model: str = "gpt-4o-mini",
     temperature: float = 0.0,
 ):
-    """Execute LLM agent with mcp-use."""
-    client = MCPClient.from_dict(MCP_CONFIG)
-    llm = ChatOpenAI(
-        model=model,
-        temperature=temperature,
-    )
-    agent = MCPAgent(
-        client=client,
-        llm=llm,
-        max_steps=MAX_CONNECTOR_BUILD_STEPS,
-        memory_enabled=True,
-        retry_on_error=True,
-        max_retries_per_step=2,
-    )
-    print("\n===== Interactive MCP Chat =====")
-    print("Type 'exit' or 'quit' to end the conversation")
-    print("Type 'clear' to clear conversation history")
-    print("==================================\n")
-    try:
-        response = await agent.run(prompt)
-        print(response)
-        # Main chat loop
-        while True:
-            # Get user input
-            user_input = input("\nYou: ")
+    """Execute agent with specified framework."""
+    if framework == FRAMEWORK_OPENAI:
+        framework = FRAMEWORK_OPENAI_AGENTS
 
-            # Check for exit command
-            if user_input.lower() in {"exit", "quit"}:
-                print("Ending conversation...")
-                break
+    if framework == FRAMEWORK_MCP_USE:
+        set_debug(1)  # 2=DEBUG level, 1=INFO level
 
-            # Get response from agent
-            print("\nAssistant: ", end="", flush=True)
+        client = MCPClient.from_dict(MCP_CONFIG)
+        llm = ChatOpenAI(model=model, temperature=temperature)
+        agent = MCPAgent(
+            client=client,
+            llm=llm,
+            max_steps=MAX_CONNECTOR_BUILD_STEPS,
+            memory_enabled=True,
+            retry_on_error=True,
+            max_retries_per_step=2,
+        )
 
-            try:
-                # Run the agent with the user input (memory handling is automatic)
-                response = await agent.run(user_input)
-                print(response)
+        print("\n===== Interactive MCP Chat (mcp-use) =====")
+        print("Type 'exit' or 'quit' to end the conversation")
+        print("Type 'clear' to clear conversation history")
+        print("==================================\n")
 
-            except Exception as e:
-                print(f"\nError: {e}")
-    except KeyboardInterrupt:
-        print("Conversation terminated (ctrl+c input received).")
+        try:
+            response = await agent.run(prompt)
+            print(response)
 
-    finally:
-        # Clean up
-        if client and client.sessions:
-            await client.close_all_sessions()
+            while True:
+                user_input = input("\nYou: ")
+                if user_input.lower() in {"exit", "quit"}:
+                    print("Ending conversation...")
+                    break
+
+                print("\nAssistant: ", end="", flush=True)
+                try:
+                    response = await agent.run(user_input)
+                    print(response)
+                except Exception as e:
+                    print(f"\nError: {e}")
+
+        except KeyboardInterrupt:
+            print("Conversation terminated (ctrl+c input received).")
+        finally:
+            if client and client.sessions:
+                await client.close_all_sessions()
+
+    elif framework == FRAMEWORK_OPENAI_AGENTS:
+        mcp_servers = [
+            MCPServerStdio(
+                params=MCPServerStdioParams(
+                    command="uv", args=["run", "connector-builder-mcp"], env={}
+                )
+            ),
+            MCPServerStdio(
+                params=MCPServerStdioParams(
+                    command="npx",
+                    args=["@playwright/mcp@latest"],
+                    env={
+                        "PLAYWRIGHT_HEADLESS": "true",
+                        "BLOCK_PRIVATE_IPS": "true",
+                        "DISABLE_JAVASCRIPT": "false",
+                        "TIMEOUT": "30000",
+                    },
+                )
+            ),
+            MCPServerStdio(
+                params=MCPServerStdioParams(
+                    command="npx", args=["mcp-server-filesystem", "ai-generated-files"], env={}
+                )
+            ),
+        ]
+
+        agent = OpenAIAgent(
+            name="MCP Connector Builder",
+            instructions="You are a helpful assistant with access to MCP tools for building Airbyte connectors.",
+            mcp_servers=mcp_servers,
+            model=model,
+        )
+
+        print("\n===== Interactive MCP Chat (openai-agents) =====")
+        print("Type 'exit' or 'quit' to end the conversation")
+        print("==================================\n")
+
+        try:
+            for server in mcp_servers:
+                await server.connect()
+
+            response = await Runner.run(agent, input=prompt)
+            print(response.final_output)
+
+            while True:
+                user_input = input("\nYou: ")
+                if user_input.lower() in {"exit", "quit"}:
+                    print("Ending conversation...")
+                    break
+
+                print("\nAssistant: ", end="", flush=True)
+                try:
+                    response = await Runner.run(agent, input=user_input)
+                    print(response.final_output)
+                except Exception as e:
+                    print(f"\nError: {e}")
+
+        except KeyboardInterrupt:
+            print("Conversation terminated (ctrl+c input received).")
+        finally:
+            for server in mcp_servers:
+                try:
+                    await server.cleanup()
+                except Exception as e:
+                    print(f"Warning: Error cleaning up server {server.name}: {e}")
 
 
 def _parse_args() -> argparse.Namespace:
@@ -248,24 +261,29 @@ def _parse_args() -> argparse.Namespace:
         default="Build a connector for Rick and Morty.",
         help="Prompt string to pass to the agent.",
     )
+    parser.add_argument(
+        "--framework",
+        choices=[FRAMEWORK_MCP_USE, FRAMEWORK_OPENAI_AGENTS, FRAMEWORK_OPENAI],
+        default=FRAMEWORK_MCP_USE,
+        help="Framework to use for MCP integration (default: mcp-use, 'openai' is shorthand for 'openai-agents')",
+    )
     return parser.parse_args()
 
 
 async def main():
     """Run all demo scenarios."""
-    print("🚀 mcp-use + connector-builder-mcp Integration Demo")
+    print("🚀 Multi-Framework MCP + connector-builder-mcp Integration Demo")
     print("=" * 60)
     print()
-    print("This demo shows how mcp-use can wrap connector-builder-mcp")
+    print("This demo shows how different agent frameworks can wrap connector-builder-mcp")
     print("to provide vendor-neutral access to Airbyte connector development tools.")
     print()
 
     cli_args: argparse.Namespace = _parse_args()
 
-    # await demo_direct_tool_calls()
-    # await demo_manifest_validation()
-    # await demo_multi_tool_workflow()
-    await run_connector_build(instructions=cli_args.prompt)
+    print(f"Using framework: {cli_args.framework}")
+
+    await run_connector_build(instructions=cli_args.prompt, framework=cli_args.framework)
 
     print("\n" + "=" * 60)
     print("✨ Demo completed!")
