@@ -328,6 +328,7 @@ class TestMCPServerIntegration:
 class TestPrivatebinIntegration:
     """Integration tests for privatebin functionality with real URLs."""
 
+    @pytest.mark.xfail(reason="External privatebin URL has expired")
     @patch.dict(os.environ, {"PRIVATEBIN_PASSWORD": "PASSWORD"})
     def test_privatebin_integration(self):
         """Test loading secrets from real privatebin URL with expected values."""
