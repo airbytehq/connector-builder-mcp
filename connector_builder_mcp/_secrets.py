@@ -279,7 +279,7 @@ def hydrate_config(
     Returns:
         Configuration with secrets injected from .env files and privatebin URLs
     """
-    if not config or not dotenv_file_uris:
+    if not dotenv_file_uris:
         return config
 
     secrets = _load_secrets(dotenv_file_uris)
