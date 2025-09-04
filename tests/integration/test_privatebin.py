@@ -1,4 +1,5 @@
 """Test Privatebin integration."""
+
 import os
 from unittest.mock import patch
 
@@ -17,9 +18,7 @@ def test_privatebin_integration() -> None:
 
     secrets = _load_secrets(privatebin_url)
 
-    assert secrets.get("answer") == "42", (
-        f"Expected answer=42, got answer={secrets.get('answer')}"
-    )
+    assert secrets.get("answer") == "42", f"Expected answer=42, got answer={secrets.get('answer')}"
     assert secrets.get("foo") == "bar", f"Expected foo=bar, got foo={secrets.get('foo')}"
 
     expected_keys = {"answer", "foo"}

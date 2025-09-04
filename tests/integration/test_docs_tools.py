@@ -19,15 +19,13 @@ def test_get_connector_builder_docs_overview() -> None:
 
 
 @pytest.mark.parametrize("topic", list(TOPIC_MAPPING.keys()))
-def test_topic_urls_are_accessible( topic) -> None:
+def test_topic_urls_are_accessible(topic) -> None:
     """Test that all topic URLs in the mapping are accessible."""
     if topic in ["stream-templates-yaml", "dynamic-streams-yaml"]:
         pytest.skip(f"Skipping {topic} - URL points to non-existent branch")
 
     relative_path, _ = TOPIC_MAPPING[topic]
-    raw_github_url = (
-        f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{relative_path}"
-    )
+    raw_github_url = f"https://raw.githubusercontent.com/airbytehq/airbyte/master/{relative_path}"
 
     response = requests.get(raw_github_url, timeout=30)
     assert response.status_code == 200, (
