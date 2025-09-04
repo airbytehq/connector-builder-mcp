@@ -27,7 +27,6 @@ import time
 from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
-from winreg import FlushKey
 
 from agents import Agent as OpenAIAgent
 from agents import Runner, SQLiteSession, gen_trace_id, trace
