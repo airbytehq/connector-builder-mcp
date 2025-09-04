@@ -22,10 +22,12 @@ Requirements:
 import argparse
 import asyncio
 import os
+import sys
 import time
 from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
+from winreg import FlushKey
 
 from agents import Agent as OpenAIAgent
 from agents import Runner, SQLiteSession, gen_trace_id, trace
@@ -183,9 +185,9 @@ async def run_agent_prompt(
                     break
 
             except KeyboardInterrupt:
-                print("Conversation terminated (ctrl+c input received).")
-                print(f"  🪵 Review trace logs at: {trace_url}")
-                break
+                print("\n🛑 Conversation terminated (ctrl+c input received).", flush=True)
+                print(f"  🪵 Review trace logs at: {trace_url}", flush=True)
+                sys.exit(0)
 
 
 def _parse_args() -> argparse.Namespace:
