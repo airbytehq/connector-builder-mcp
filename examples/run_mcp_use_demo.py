@@ -24,7 +24,7 @@ import importlib
 from pathlib import Path
 
 from agents import Agent as OpenAIAgent
-from agents import Runner
+from agents import Runner, gen_trace_id, trace
 from agents.mcp import MCPServerStdio, MCPServerStdioParams
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -32,8 +32,8 @@ from mcp_use import MCPAgent, MCPClient, set_debug
 
 
 FRAMEWORK_MCP_USE = "mcp-use"
-FRAMEWORK_OPENAI_AGENTS = "openai-agents"
 FRAMEWORK_OPENAI = "openai"  # shorthand
+DEFAULT_FRAMEWORK = FRAMEWORK_OPENAI
 
 
 # Print loaded versions of mcp-use and langchain
@@ -134,19 +134,19 @@ async def run_connector_build(
 
 async def run_agent_prompt(
     prompt: str,
-    framework: str = FRAMEWORK_MCP_USE,
+    framework: str = DEFAULT_FRAMEWORK,
     model: str = "gpt-4o-mini",
     temperature: float = 0.0,
 ):
     """Execute agent with specified framework."""
-    if framework == FRAMEWORK_OPENAI:
-        framework = FRAMEWORK_OPENAI_AGENTS
-
     if framework == FRAMEWORK_MCP_USE:
         set_debug(1)  # 2=DEBUG level, 1=INFO level
 
         client = MCPClient.from_dict(MCP_CONFIG)
-        llm = ChatOpenAI(model=model, temperature=temperature)
+        llm = ChatOpenAI(
+            model=model,
+            temperature=temperature,
+        )
         agent = MCPAgent(
             client=client,
             llm=llm,
@@ -184,12 +184,13 @@ async def run_agent_prompt(
             if client and client.sessions:
                 await client.close_all_sessions()
 
-    elif framework == FRAMEWORK_OPENAI_AGENTS:
+    elif framework == FRAMEWORK_OPENAI:
         mcp_servers = [
             MCPServerStdio(
                 params=MCPServerStdioParams(
                     command="uv", args=["run", "connector-builder-mcp"], env={}
-                )
+                ),
+                cache_tools_list=True,
             ),
             MCPServerStdio(
                 params=MCPServerStdioParams(
@@ -201,12 +202,16 @@ async def run_agent_prompt(
                         "DISABLE_JAVASCRIPT": "false",
                         "TIMEOUT": "30000",
                     },
-                )
+                ),
+                cache_tools_list=True,
             ),
             MCPServerStdio(
                 params=MCPServerStdioParams(
-                    command="npx", args=["mcp-server-filesystem", "ai-generated-files"], env={}
-                )
+                    command="npx",
+                    args=["mcp-server-filesystem", "ai-generated-files"],
+                    env={},
+                ),
+                cache_tools_list=True,
             ),
         ]
 
@@ -225,30 +230,27 @@ async def run_agent_prompt(
             for server in mcp_servers:
                 await server.connect()
 
-            response = await Runner.run(agent, input=prompt)
-            print(response.final_output)
+            trace_id = gen_trace_id()
+            with trace(workflow_name="Connector Builder Session", trace_id=trace_id):
+                print(f"View trace: https://platform.openai.com/traces/trace?trace_id={trace_id}\n")
+                response = await Runner.run(agent, input=prompt)
+                print(response.final_output)
 
-            while True:
-                user_input = input("\nYou: ")
-                if user_input.lower() in {"exit", "quit"}:
-                    print("Ending conversation...")
-                    break
+                while True:
+                    user_input = input("\nYou: ")
+                    if user_input.lower() in {"exit", "quit"}:
+                        print("Ending conversation...")
+                        break
 
-                print("\nAssistant: ", end="", flush=True)
-                try:
-                    response = await Runner.run(agent, input=user_input)
-                    print(response.final_output)
-                except Exception as e:
-                    print(f"\nError: {e}")
+                    print("\nAssistant: ", end="", flush=True)
+                    try:
+                        response = await Runner.run(agent, input=user_input)
+                        print(response.final_output)
+                    except Exception as e:
+                        print(f"\nError: {e}")
 
         except KeyboardInterrupt:
             print("Conversation terminated (ctrl+c input received).")
-        finally:
-            for server in mcp_servers:
-                try:
-                    await server.cleanup()
-                except Exception as e:
-                    print(f"Warning: Error cleaning up server {server.name}: {e}")
 
 
 def _parse_args() -> argparse.Namespace:
@@ -263,9 +265,9 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--framework",
-        choices=[FRAMEWORK_MCP_USE, FRAMEWORK_OPENAI_AGENTS, FRAMEWORK_OPENAI],
-        default=FRAMEWORK_MCP_USE,
-        help="Framework to use for MCP integration (default: mcp-use, 'openai' is shorthand for 'openai-agents')",
+        choices=[FRAMEWORK_MCP_USE, FRAMEWORK_OPENAI],
+        default=DEFAULT_FRAMEWORK,
+        help="Framework to use for MCP integration (default: 'mcp-use', 'openai')",
     )
     return parser.parse_args()
 
