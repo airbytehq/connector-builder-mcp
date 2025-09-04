@@ -17,22 +17,42 @@ from connector_builder_mcp._secrets import (
 )
 
 
+@pytest.fixture
+def dummy_dotenv_file_expected_dict() -> dict[str, str | dict[str, str]]:
+    """Create a dummy .env file dictionary for testing."""
+    return {
+        "api_key": "example_api_key",
+        "credentials": {
+            "password": "example_password",
+        },
+        "oauth": {
+            "client_secret": "example_client_secret",
+        },
+        "token": "example_token",
+        "url": "https://example.com",
+    }
+
+
+@pytest.fixture
+def dummy_dotenv_file_keypairs() -> dict[str, str]:
+    """Create a dummy .env file dictionary for testing."""
+    return {
+        "api_key": "example_api_key",
+        "credentials.password": "example_password",
+        "oauth.client_secret": "example_client_secret",
+        "token": "example_token",
+        "url": "https://example.com",
+        "empty_key": "",
+        "comment_secret": "# TODO: Set actual value for comment_secret",
+    }
+
+
 # Pytest fixture for a dummy dotenv file
 @pytest.fixture
-def dummy_dotenv_file(tmp_path) -> str:
+def dummy_dotenv_file(tmp_path, dummy_dotenv_file_keypairs) -> str:
     """Create a dummy .env file for testing."""
     file_path = tmp_path / "dummy.env"
-    file_path.write_text(
-        "\n".join([  # noqa: FLY002
-            "api_key=example_api_key",
-            "credentials.password=example_password",
-            "oauth.client_secret=example_client_secret",
-            "token=example_token",
-            "url=https://example.com",
-            "empty_key=",
-            "comment_secret=# TODO: Set actual value for comment_secret",
-        ])
-    )
+    file_path.write_text("\n".join([f"{k}={v}" for k, v in dummy_dotenv_file_keypairs.items()]))
     return str(file_path)
 
 
@@ -66,6 +86,12 @@ def test_hydrate_config_no_dotenv_file_uris():
     assert result == config
 
 
+def test_hydrate_with_no_config(dummy_dotenv_file, dummy_dotenv_file_expected_dict):
+    """Test hydration with no dotenv file uris returns config unchanged."""
+    result = hydrate_config({}, dummy_dotenv_file)
+    assert result == dummy_dotenv_file_expected_dict
+
+
 def test_hydrate_config_no_secrets():
     """Test hydration with no secrets available."""
     config = {"host": "localhost", "credentials": {"username": "user"}}
@@ -73,15 +99,6 @@ def test_hydrate_config_no_secrets():
     with patch("connector_builder_mcp._secrets._load_secrets", return_value={}):
         result = hydrate_config(config, "/path/to/.env")
         assert result == config
-
-
-def test_hydrate_config_with_secrets():
-    """Test hydration with secrets using dot notation, including simple keys."""
-    config = {
-        "host": "localhost",
-        "credentials": {"username": "user"},
-        "oauth": {},
-    }
 
 
 def test_hydrate_config_with_secrets(dummy_dotenv_file):

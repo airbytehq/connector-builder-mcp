@@ -252,7 +252,7 @@ def _set_nested_value(obj: dict[str, Any], path_str: str, value: str) -> None:
 
 def _merge_nested_dicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     """Merge two nested dictionaries."""
-    merged = a.copy()
+    merged: dict[str, Any] = a.copy()
     for key, value in b.items():
         if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
             merged[key] = _merge_nested_dicts(merged[key], value)
@@ -262,7 +262,8 @@ def _merge_nested_dicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
 
 
 def hydrate_config(
-    config: dict[str, Any], dotenv_file_uris: str | list[str] | None = None
+    config: dict[str, Any],
+    dotenv_file_uris: str | list[str] | None = None,
 ) -> dict[str, Any]:
     """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
 
@@ -279,6 +280,10 @@ def hydrate_config(
     Returns:
         Configuration with secrets injected from .env files and privatebin URLs
     """
+    config = config or {}
+    if not isinstance(config, dict):
+        raise TypeError(f"Expected config to be a dictionary, got {type(config)}")
+
     if not dotenv_file_uris:
         return config
 
@@ -407,7 +412,6 @@ def populate_dotenv_missing_secrets_stubs(
     Returns:
         Message about the operation result
     """
-
     validation_errors = _validate_secrets_uris(dotenv_path)
     if validation_errors:
         return f"Validation failed: {'; '.join(validation_errors)}"

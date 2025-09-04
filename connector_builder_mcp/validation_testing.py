@@ -3,7 +3,7 @@
 import logging
 import pkgutil
 import time
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel, Field
@@ -29,7 +29,6 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
-
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import (
     filter_config_secrets,
@@ -91,7 +90,32 @@ class MultiStreamSmokeTest(BaseModel):
     stream_results: dict[str, StreamSmokeTest]
 
 
-def _calculate_record_stats(records_data: list[dict[str, Any]]) -> dict[str, Any]:
+def _as_bool(
+    val: bool | str | None,  # noqa: FBT001
+    /,
+    default: bool = False,  # noqa: FBT001, FBT002
+) -> bool:
+    """Convert a string, boolean, or None value to a boolean.
+
+    Args:
+        val: The value to convert.
+        default: The default boolean value to return if the value is None.
+
+    Returns:
+        The converted boolean value.
+    """
+    if isinstance(val, bool):
+        return val
+
+    if isinstance(val, str):
+        return val.lower() == "true"
+
+    return default
+
+
+def _calculate_record_stats(
+    records_data: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Calculate statistics for record properties.
 
     Args:
@@ -124,7 +148,9 @@ def _calculate_record_stats(records_data: list[dict[str, Any]]) -> dict[str, Any
     }
 
 
-def _get_dummy_catalog(stream_name: str) -> ConfiguredAirbyteCatalog:
+def _get_dummy_catalog(
+    stream_name: str,
+) -> ConfiguredAirbyteCatalog:
     """Create a dummy configured catalog for one stream.
 
     We shouldn't have to do this. We should push it into the CDK code instead.
@@ -166,7 +192,9 @@ def _get_declarative_component_schema() -> dict[str, Any]:
         return {}
 
 
-def _format_validation_error(error: ValidationError) -> str:
+def _format_validation_error(
+    error: ValidationError,
+) -> str:
     """Format a validation error with context."""
     path = " -> ".join(str(p) for p in error.absolute_path) if error.absolute_path else "root"
 
@@ -308,15 +336,15 @@ def execute_stream_test_read(
         Field(description="Maximum number of records to read", ge=1),
     ] = 10,
     include_records_data: Annotated[
-        bool,
+        bool | str,
         Field(description="Include actual record data from the stream read"),
     ] = True,
     include_record_stats: Annotated[
-        bool,
+        bool | str,
         Field(description="Include basic statistics on record properties"),
     ] = True,
     include_raw_responses_data: Annotated[
-        bool | None,
+        bool | str | None,
         Field(
             description="Include raw API responses and request/response metadata. "
             "Defaults to 'None', which means raw data is included only if an error occurs. "
@@ -336,105 +364,110 @@ def execute_stream_test_read(
     We attempt to automatically sanitize raw data to prevent exposure of secrets.
     We do not attempt to sanitize record data, as it is expected to be user-defined.
     """
+    success: bool = True
+    include_records_data = _as_bool(
+        include_records_data,
+        default=False,
+    )
+    include_record_stats = _as_bool(
+        include_record_stats,
+        default=False,
+    )
+    include_raw_responses_data = _as_bool(
+        include_raw_responses_data,
+        default=False,
+    )
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = config or {}
 
-    try:
-        manifest_dict = parse_manifest_input(manifest)
+    manifest_dict = parse_manifest_input(manifest)
 
-        config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
-        config_with_manifest = {
-            **config,
-            "__injected_declarative_manifest": manifest_dict,
-            "__test_read_config": {
-                "max_streams": 1,
-                "max_records": max_records,
-                # We actually don't want to limit pages or slices.
-                # But if we don't provide a value they default
-                # to very low limits, which is not what we want.
-                "max_pages_per_slice": max_records,
-                "max_slices": max_records,
-            },
-        }
+    config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
+    config_with_manifest = {
+        **config,
+        "__injected_declarative_manifest": manifest_dict,
+        "__test_read_config": {
+            "max_streams": 1,
+            "max_records": max_records,
+            # We actually don't want to limit pages or slices.
+            # But if we don't provide a value they default
+            # to very low limits, which is not what we want.
+            "max_pages_per_slice": max_records,
+            "max_slices": max_records,
+        },
+    }
 
-        limits = get_limits(config_with_manifest)
-        source = create_source(config_with_manifest, limits)
-        catalog = _get_dummy_catalog(stream_name)
+    limits = get_limits(config_with_manifest)
+    source = create_source(config_with_manifest, limits)
+    catalog = _get_dummy_catalog(stream_name)
 
-        result = read_stream(
-            source=source,
-            config=config_with_manifest,
-            configured_catalog=catalog,
-            state=[],
-            limits=limits,
-        )
+    result = read_stream(
+        source=source,
+        config=config_with_manifest,
+        configured_catalog=catalog,
+        state=[],
+        limits=limits,
+    )
 
-        if not (result.type.value == "RECORD" and result.record and result.record.data):
-            error_msg = "Failed to read from stream"
-            if hasattr(result, "trace") and result.trace:
-                error_msg = result.trace.error.message
+    error_msgs: list[str] = []
+    execution_logs: list[dict[str, Any]] = []
+    if hasattr(result, "trace") and result.trace and result.trace.error:
+        # We received a trace message instead of a record message.
+        # Probably this was fatal, but we defer setting 'success=False', just in case.
+        error_msgs.append(result.trace.error.message)
 
-            return StreamTestResult(
-                success=False,
-                message=error_msg,
-                errors=[error_msg],
-            )
-
+    slices: list[dict[str, Any]] = []
+    stream_data: dict[str, Any] = {}
+    if result.record and result.record.data:
         stream_data = result.record.data
-        slices = stream_data.get("slices", None)
-        if not slices:
-            logs = stream_data.pop("logs", [])
-            return StreamTestResult(
-                success=False,
-                message=f"No API output returned for stream '{stream_name}'.",
-                errors=[
-                    f"No API output returned for stream '{stream_name}'.",
-                    f"Result object: {stream_data!s}",
-                ],
-                logs=logs,
-            )
+        slices = cast(
+            list[dict[str, Any]],
+            filter_config_secrets(
+                stream_data.get("slices", []),
+            ),
+        )
+    else:
+        success = False
+        error_msgs.append("Source failed to return a test read response record.")
 
-        slices = stream_data.get("slices", []) if isinstance(stream_data, dict) else []
-        slices = filter_config_secrets(slices)
+    if not slices:
+        error_msgs.extend(f"No API output returned for stream '{stream_name}'.")
 
-        records_data = []
-        for slice_obj in slices:
-            if isinstance(slice_obj, dict) and "pages" in slice_obj:
-                for page in slice_obj["pages"]:
-                    if isinstance(page, dict) and "records" in page:
-                        records_data.extend(page.pop("records"))
+        logs = stream_data.pop("logs", [])
+        error_msgs.extend(f"ERROR from logs: {log}" for log in logs if "ERROR" in str(log))
+        execution_logs.extend(log for log in logs if "ERROR" not in str(log))
 
-        raw_responses_data = None
-        if include_raw_responses_data is True and slices and isinstance(slices, list):
-            raw_responses_data = slices
-
-        record_stats = None
-        if include_record_stats and records_data:
-            record_stats = _calculate_record_stats(records_data)
-
+    if success is False:
         return StreamTestResult(
-            success=True,
-            message=f"Successfully read {len(records_data)} records from stream {stream_name}",
-            records_read=len(records_data),
-            records=records_data if include_records_data else None,
-            raw_api_responses=raw_responses_data,
-            record_stats=record_stats,
+            success=success,
+            message=error_msgs[0] if error_msgs else "Unknown error occurred.",
+            errors=error_msgs,
+            logs=execution_logs,
         )
 
-    except Exception as e:
-        logger.error(f"Error testing stream read: {e}")
-        error_msg = f"Stream test error: {str(e)}"
+    records_data: list[dict[str, Any]] = []
+    for slice_obj in slices:
+        if isinstance(slice_obj, dict) and "pages" in slice_obj:
+            for page in slice_obj["pages"]:
+                if isinstance(page, dict) and "records" in page:
+                    records_data.extend(page.pop("records"))
 
-        raw_responses_data = None
-        if include_raw_responses_data is not False:
-            raw_responses_data = [{"error": error_msg, "context": "Failed to read stream"}]
+    raw_responses_data = None
+    if include_raw_responses_data is True and slices and isinstance(slices, list):
+        raw_responses_data = slices
 
-        return StreamTestResult(
-            success=False,
-            message=error_msg,
-            errors=[error_msg],
-            raw_api_responses=raw_responses_data,
-        )
+    record_stats = None
+    if include_record_stats and records_data:
+        record_stats = _calculate_record_stats(records_data)
+
+    return StreamTestResult(
+        success=success,
+        message=f"Successfully read {len(records_data)} records from stream {stream_name}",
+        records_read=len(records_data),
+        records=records_data if include_records_data else None,
+        raw_api_responses=raw_responses_data,
+        record_stats=record_stats,
+    )
 
 
 def run_connector_readiness_test_report(
