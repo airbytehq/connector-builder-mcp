@@ -29,7 +29,6 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
-
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import (
     filter_config_secrets,
@@ -477,14 +476,14 @@ def run_connector_readiness_test_report(
         Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
     ],
     config: Annotated[
-        dict[str, Any],
+        dict[str, Any] | None,
         Field(description="Connector configuration"),
-    ],
+    ] = None,
     streams: Annotated[
         str | None,
         Field(
             description="Optional CSV-delimited list of streams to test."
-            "If not provided, tests all streams in the manifest."
+            "If not provided, tests all streams in the manifest (recommended)."
         ),
     ] = None,
     *,

@@ -2,7 +2,7 @@ mcp:
   servers:
     connector-builder:
       command: "uv"
-      args: ["run", "connector-builder-mcp"]
+      args: ["run", "airbyte-connector-builder-mcp"]
       env: {}
     playwright:
       command: "npx"
