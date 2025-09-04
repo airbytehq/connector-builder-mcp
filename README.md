@@ -56,10 +56,9 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 ```json
 {
   "mcpServers": {
-    "connector-builder-mcp": {
+    "connector-builder-mcp--stable": {
       "command": "uvx",
       "args": [
-        "--upgrade",
         "airbyte-connector-builder-mcp",
       ]
     }
@@ -72,13 +71,11 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 ```json
 {
   "mcpServers": {
-    "connector-builder-mcp": {
+    "connector-builder-mcp--dev-main": {
       "command": "uvx",
       "args": [
-        "--upgrade",
-        "--from",
-        "git+https://github.com/airbytehq/connector-builder-mcp.git@main",
-        "connector-builder-mcp"
+        "--from=git+https://github.com/airbytehq/connector-builder-mcp.git@main",
+        "airbyte-connector-builder-mcp"
       ]
     }
   }
@@ -90,13 +87,13 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 ```json
 {
   "mcpServers": {
-    "connector-builder-mcp": {
+    "connector-builder-mcp--local-dev": {
       "command": "uv",
       "args": [
         "run",
         "--project",
         "/path/to/repos/connector-builder-mcp",
-        "connector-builder-mcp"
+        "airbyte-connector-builder-mcp"
       ]
     }
   }

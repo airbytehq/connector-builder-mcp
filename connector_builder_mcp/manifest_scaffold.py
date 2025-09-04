@@ -1,6 +1,7 @@
 """Manifest scaffold generation tools for Airbyte connectors."""
 
 import logging
+import re
 from enum import Enum
 from typing import Annotated
 
@@ -107,21 +108,25 @@ def _generate_authenticator_yaml(auth_type: AuthenticationType) -> str:
     """Generate authenticator YAML configuration with proper indentation."""
     if auth_type == AuthenticationType.NO_AUTH:
         return "    type: NoAuth"
-    elif auth_type == AuthenticationType.API_KEY:
+
+    if auth_type == AuthenticationType.API_KEY:
         return """    type: ApiKeyAuthenticator
     api_token: "{{ config['api_key'] }}"
     inject_into:
       type: RequestOption
       inject_into: header
       field_name: Authorization"""
-    elif auth_type == AuthenticationType.BEARER_TOKEN:
+
+    if auth_type == AuthenticationType.BEARER_TOKEN:
         return """    type: BearerAuthenticator
     api_token: "{{ config['api_token'] }}\""""
-    elif auth_type == AuthenticationType.BASIC_HTTP:
+
+    if auth_type == AuthenticationType.BASIC_HTTP:
         return """    type: BasicHttpAuthenticator
     username: "{{ config['username'] }}"
     password: "{{ config['password'] }}\""""
-    elif auth_type == AuthenticationType.OAUTH:
+
+    if auth_type == AuthenticationType.OAUTH:
         return """    type: OAuthAuthenticator
     client_id: "{{ config['client_id'] }}"
     client_secret: "{{ config['client_secret'] }}"
@@ -234,8 +239,6 @@ def create_connector_manifest_scaffold(
     logger.info(f"Creating connector manifest scaffold for {connector_name}")
 
     try:
-        import re
-
         if not re.match(r"^source-[a-z0-9]+(-[a-z0-9]+)*$", connector_name):
             return "ERROR: Input validation error: Connector name must be in kebab-case starting with 'source-'"
 
