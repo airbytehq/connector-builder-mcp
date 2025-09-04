@@ -3,7 +3,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -17,21 +17,19 @@ def initialize_logging() -> None:
     )
 
 
-def filter_config_secrets(
-    config: dict[str, Any] | list[Any] | Any,
-) -> dict[str, Any] | list[Any] | Any:
-    """Filter sensitive information from configuration for logging.
-
-    Note: For config hydration with secrets, see _secrets.hydrate_config()
+def _filter_config_secrets_recursive(
+    config_obj: dict[str, Any] | list[Any] | Any,  # noqa: ANN401
+) -> dict[str, Any] | list[Any] | Any:  # noqa: ANN401
+    """Recursively filter sensitive information from configuration.
 
     Args:
-        config: Configuration dictionary, list, or other value that may contain secrets
+        config_obj: Configuration object (dict, list, or any other type)
 
     Returns:
-        Configuration with sensitive values masked
+        Configuration object with sensitive values masked
     """
-    if isinstance(config, dict):
-        filtered = config.copy()
+    if isinstance(config_obj, dict):
+        filtered = config_obj.copy()
         sensitive_keys = {
             "password",
             "token",
@@ -46,15 +44,36 @@ def filter_config_secrets(
 
         for key, value in filtered.items():
             if isinstance(value, dict | list):
-                filtered[key] = filter_config_secrets(value)
+                filtered[key] = _filter_config_secrets_recursive(value)
             elif any(sensitive in key.lower() for sensitive in sensitive_keys):
                 filtered[key] = "***REDACTED***"
 
         return filtered
-    elif isinstance(config, list):
-        return [filter_config_secrets(item) for item in config]
-    else:
-        return config
+
+    if isinstance(config_obj, list):
+        return [_filter_config_secrets_recursive(item) for item in config_obj]
+
+    return config_obj
+
+
+def filter_config_secrets(
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Filter sensitive information from configuration for logging.
+
+    This function calls a recursive implementation which works on any input type.
+    However, the return type of this function is always the same as its input (a dictionary).
+
+    Args:
+        config: Configuration dictionary, list, or other value that may contain secrets
+
+    Returns:
+        Configuration dictionary with sensitive values masked
+    """
+    return cast(
+        dict[str, Any],  # noqa: TC006
+        _filter_config_secrets_recursive(config),
+    )
 
 
 def parse_manifest_input(manifest: str) -> dict[str, Any]:
@@ -77,13 +96,15 @@ def parse_manifest_input(manifest: str) -> dict[str, Any]:
         # If the manifest is a single line, treat it as a file path
         path = Path(manifest)
         if path.exists() and path.is_file():
-            with path.open("r", encoding="utf-8") as f:
-                result = yaml.safe_load(f)
-                if not isinstance(result, dict):
-                    raise ValueError(
-                        f"YAML file content must be a dictionary/object, got {type(result)}"
-                    )
-                return result
+            contents = path.read_text(encoding="utf-8")
+            result = yaml.safe_load(contents)
+            if not isinstance(result, dict):
+                raise ValueError(
+                    f"YAML file content must be a dictionary/object, got {type(result)}\n"
+                    f" File path: {manifest}\n"
+                    f" File content: \n{contents.splitlines()[:25]}\n..."  # Show first 100 chars
+                )
+            return result
 
     try:
         # Otherwise, treat it as a YAML string
