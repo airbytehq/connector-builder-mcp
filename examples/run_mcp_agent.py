@@ -19,6 +19,7 @@ Usage:
 Requirements:
     - OpenAI API key (OPENAI_API_KEY in a local '.env')
 """
+
 import argparse
 import asyncio
 import os
@@ -208,11 +209,13 @@ def _parse_args() -> argparse.Namespace:
         "--model",
         default=DEFAULT_LLM_MODEL,
         help=(
-            "".join([
-                "LLM model to use for the agent. ",
-                "Examples: o4-mini, gpt-4o-mini. ",
-                f"Default: {DEFAULT_LLM_MODEL}",
-            ])
+            "".join(
+                [
+                    "LLM model to use for the agent. ",
+                    "Examples: o4-mini, gpt-4o-mini. ",
+                    f"Default: {DEFAULT_LLM_MODEL}",
+                ]
+            )
         ),
     )
     return parser.parse_args()

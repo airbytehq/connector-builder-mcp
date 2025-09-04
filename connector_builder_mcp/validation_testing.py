@@ -29,6 +29,7 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
+
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import (
     filter_config_secrets,
@@ -525,7 +526,10 @@ def run_connector_readiness_test_report(
 
     manifest_dict = parse_manifest_input(manifest)
 
-    config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
+    config = hydrate_config(
+        config or {},
+        dotenv_file_uris=dotenv_file_uris,
+    )
 
     available_streams = manifest_dict.get("streams", [])
     total_available_streams = len(available_streams)
