@@ -180,13 +180,13 @@ async def run_agent_prompt(
 
                 input_prompt = input("\n👤  You: ")
                 if input_prompt.lower() in {"exit", "quit"}:
-                    print("Ending conversation...")
-                    print(f"  🪵 Review trace logs at: {trace_url}")
+                    print("☑️ Ending conversation...")
+                    print(f"🪵 Review trace logs at: {trace_url}")
                     break
 
             except KeyboardInterrupt:
                 print("\n🛑 Conversation terminated (ctrl+c input received).", flush=True)
-                print(f"  🪵 Review trace logs at: {trace_url}", flush=True)
+                print(f"🪵 Review trace logs at: {trace_url}", flush=True)
                 sys.exit(0)
 
 
