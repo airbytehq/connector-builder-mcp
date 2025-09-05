@@ -10,7 +10,7 @@ YOU WILL NOT HAVE ASSISTANCE FROM YOUR USER. You must get as far as you can befo
 
 You MUST NOT END until you have fully completed the connector and have run the connector readiness tool to confirm everything is working correctly. If you have not run the tool, or if the tool generates warnings, you must resolve these before stopping work.
 
-ONLY if you are completely stuck and cannot proceed further should you repot back a detailed report
+ONLY if you are completely stuck and cannot proceed further should you report back a detailed report
 of what you were blocked by.
 
 ## Steps
