@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from jsonschema import ValidationError, validate
-from numpy import save
 from pydantic import BaseModel, Field
 
 from airbyte_cdk import ConfiguredAirbyteStream
@@ -559,7 +558,11 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
     manifest_dict, manifest_path = parse_manifest_input(manifest)
     if not save_to_project_dir and manifest_path:
-        save_to_project_dir = manifest_path.parent / "connector-readiness-report.md"
+        save_to_project_dir = Path(manifest_path).parent
+
+    report_output_path: Path | None = (
+        Path(save_to_project_dir) / "connector-readiness-report.md" if save_to_project_dir else None
+    )
 
     config = hydrate_config(
         config or {},
@@ -664,7 +667,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
         ]
         return _as_saved_report(
             report_text="\n".join(report_lines),
-            file_path=save_to_project_dir,
+            file_path=report_output_path,
         )
 
     report_lines = [
