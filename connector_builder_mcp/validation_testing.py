@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from jsonschema import ValidationError, validate
+from numpy import save
 from pydantic import BaseModel, Field
 
 from airbyte_cdk import ConfiguredAirbyteStream
@@ -30,7 +31,6 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
-
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import (
     filter_config_secrets,
@@ -250,7 +250,7 @@ def validate_manifest(
     resolved_manifest = None
 
     try:
-        manifest_dict = parse_manifest_input(manifest)
+        manifest_dict, _ = parse_manifest_input(manifest)
 
         if not validate_manifest_structure(manifest_dict):
             errors.append(
@@ -382,7 +382,7 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = config or {}
 
-    manifest_dict = parse_manifest_input(manifest)
+    manifest_dict, _ = parse_manifest_input(manifest)
 
     config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
     config_with_manifest = {
@@ -557,7 +557,9 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     total_records_count = 0
     stream_results: dict[str, StreamSmokeTest] = {}
 
-    manifest_dict = parse_manifest_input(manifest)
+    manifest_dict, manifest_path = parse_manifest_input(manifest)
+    if not save_to_project_dir and manifest_path:
+        save_to_project_dir = manifest_path.parent / "connector-readiness-report.md"
 
     config = hydrate_config(
         config or {},
@@ -758,7 +760,7 @@ def execute_dynamic_manifest_resolution_test(
     logger.info("Getting resolved manifest")
 
     try:
-        manifest_dict = parse_manifest_input(manifest)
+        manifest_dict, _ = parse_manifest_input(manifest)
 
         if config is None:
             config = {}

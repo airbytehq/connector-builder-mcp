@@ -76,19 +76,29 @@ def filter_config_secrets(
     )
 
 
-def parse_manifest_input(manifest: str) -> dict[str, Any]:
+def parse_manifest_input(
+    manifest: str,
+) -> tuple[dict[str, Any], Path | None]:
     """Parse manifest input from YAML string or file path.
 
     Args:
         manifest: Either a YAML string or a file path to a YAML file
 
     Returns:
-        Parsed manifest as dictionary
+        A tuple containing the parsed manifest as a dictionary and the file path (if applicable)
 
     Raises:
         ValueError: If input cannot be parsed or file doesn't exist
         yaml.YAMLError: If YAML parsing fails
     """
+    resolved_path: Path | None = None
+    if not isinstance(manifest, str):
+        raise ValueError(f"manifest must be a string, got {type(manifest)}")
+
+    if len(manifest.splitlines()) == 1:
+        # If the manifest is a single line, treat it as a file path
+        path = Path(manifest)
+
     if not isinstance(manifest, str):
         raise ValueError(f"manifest must be a string, got {type(manifest)}")
 
@@ -96,6 +106,7 @@ def parse_manifest_input(manifest: str) -> dict[str, Any]:
         # If the manifest is a single line, treat it as a file path
         path = Path(manifest)
         if path.exists() and path.is_file():
+            resolved_path = path.expanduser().resolve()
             contents = path.read_text(encoding="utf-8")
             result = yaml.safe_load(contents)
             if not isinstance(result, dict):
@@ -104,7 +115,7 @@ def parse_manifest_input(manifest: str) -> dict[str, Any]:
                     f" File path: {manifest}\n"
                     f" File content: \n{contents.splitlines()[:25]}\n..."  # Show first 100 chars
                 )
-            return result
+            return result, resolved_path
 
     try:
         # Otherwise, treat it as a YAML string
@@ -119,7 +130,7 @@ def parse_manifest_input(manifest: str) -> dict[str, Any]:
         raise ValueError(f"Invalid YAML string: {e}") from e
     else:
         # No exceptions, return parsed result
-        return result
+        return result, resolved_path
 
 
 def validate_manifest_structure(manifest: dict[str, Any]) -> bool:
