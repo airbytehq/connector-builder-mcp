@@ -424,7 +424,7 @@ def populate_dotenv_missing_secrets_stubs(
         secrets_to_add = []
 
         if manifest:
-            manifest_dict = parse_manifest_input(manifest)
+            manifest_dict, _ = parse_manifest_input(manifest)
             secrets_to_add.extend(_extract_secrets_names_from_manifest(manifest_dict))
 
         if config_paths_list:
@@ -489,7 +489,7 @@ def populate_dotenv_missing_secrets_stubs(
         secrets_to_add = []
 
         if manifest:
-            manifest_dict = parse_manifest_input(manifest)
+            manifest_dict, _ = parse_manifest_input(manifest)
             secrets_to_add.extend(_extract_secrets_names_from_manifest(manifest_dict))
 
         if config_paths_list:

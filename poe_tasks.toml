@@ -1,17 +1,31 @@
 [tool.poe.tasks]
-# Development tasks
+
+# Development Tasks
 build = { cmd = "bin/build_connector_feature_index.py", help = "Build connector feature index from Airbyte manifests" }
 install = { cmd = "uv sync --all-extras", help = "Install and sync project dependencies." }
 sync = { cmd = "uv sync --all-extras", help = "Sync project dependencies. (Alias for install.)" }
 format = { cmd = "uv run ruff format .", help = "Format code with ruff" }
+format-check = { cmd = "uv run ruff format --check .", help = "Format check with ruff" }
 lint = { cmd = "uv run ruff check .", help = "Lint code with ruff" }
 lint-fix = { cmd = "uv run ruff check --fix .", help = "Lint and fix code with ruff" }
 lock = { cmd = "uv lock", help = "Lock dependencies." }
-typecheck = { cmd = "uv run mypy connector_builder_mcp", help = "Type check code with mypy" }
+mypy = { cmd = "uv run mypy connector_builder_mcp", help = "Type check code with mypy" }
 test = { cmd = "uv run pytest tests/ -v", help = "Run tests with verbose output" }
 test-fast = { cmd = "uv run pytest --exitfirst tests", help = "Run tests, stop on first failure" }
 
-# MCP server tasks
+# Aliases
+check-types = ["mypy"]
+format-fix = ["format"]
+
+# Composite Tasks
+fix-ruff = ["format", "lint-fix"]
+fix = ["fix-ruff"]
+check = { sequence = ["lint", "check-types"], help = "Run all checks" }
+check-fast = ["check"]  # If we later add slow checks, this can exclude them.
+autofix = ["fix", "check-fast"]
+pre-commit = ["autofix"]
+
+# MCP Server Tasks
 server = { cmd = "uv run connector-builder-mcp", help = "Start the MCP server" }
 mcp-serve-local = { cmd = "uv run connector-builder-mcp", help = "Start the MCP server with STDIO transport" }
 mcp-serve-http = { cmd = "uv run python -c \"from connector_builder_mcp.server import app; app.run(transport='http', host='127.0.0.1', port=8000)\"", help = "Start the MCP server with HTTP transport" }
@@ -19,23 +33,22 @@ mcp-serve-sse = { cmd = "uv run python -c \"from connector_builder_mcp.server im
 inspect = { cmd = "uv run fastmcp inspect connector_builder_mcp/server.py:app", help = "Inspect MCP tools and resources (supports --tools, --health, etc.)" }
 test-tool = { cmd = "uv run python bin/test_mcp_tool.py", help = "Test MCP tools directly with JSON arguments: poe test-tool <tool_name> '<json_args>'" }
 
-# Documentation tasks
-docs-generate = { cmd = "uv run pdoc connector_builder_mcp --output-dir docs/generated", help = "Generate API documentation" }
+# Documentation Tasks
+docs-generate.cmd = "uv run pdoc connector_builder_mcp --output-dir docs/generated"
+docs-generate.help = "Generate API documentation"
 
-# Combined tasks
-check = { sequence = ["lint", "typecheck", "test"], help = "Run all checks" }
+# Agentic Connector Build Testing
+agent-run = { cmd = "uv run --project=examples examples/run_mcp_agent.py", help = "Run MCP agent with an optional prompt string." }
 
-# Run MCP agent with a prompt string
-run_mcp_prompt = { cmd = "uv run --project=examples examples/run_mcp_use_demo.py \"${prompt}\"", help = "Run MCP agent with a prompt string.", args = ["prompt"] }
-
-# Auto-pilot and AI agents
+# Codex Tests
 codex.cmd = "npx @openai/codex --sandbox=workspace-write"
 codex.cwd = "./ai-generated-files"
 codex.help = "Run Codex AI agent with a prompt string."
-build-connector.shell = """
-(cat prompts/root-prompt.md; echo "$prompt") | codex exec \
+codex-run.shell = """
+(cat prompts/root-prompt-headless.md; echo "$prompt") | codex exec \
     --sandbox=workspace-write \
     --cd=ai-generated-files \
+    --headless \
     -
 """
-build-connector.args = ["prompt"]
+codex-run.args = ["prompt"]

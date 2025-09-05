@@ -3,6 +3,7 @@
 import logging
 import pkgutil
 import time
+from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from jsonschema import ValidationError, validate
@@ -249,7 +250,7 @@ def validate_manifest(
     resolved_manifest = None
 
     try:
-        manifest_dict = parse_manifest_input(manifest)
+        manifest_dict, _ = parse_manifest_input(manifest)
 
         if not validate_manifest_structure(manifest_dict):
             errors.append(
@@ -381,7 +382,7 @@ def execute_stream_test_read(
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = config or {}
 
-    manifest_dict = parse_manifest_input(manifest)
+    manifest_dict, _ = parse_manifest_input(manifest)
 
     config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
     config_with_manifest = {
@@ -471,20 +472,53 @@ def execute_stream_test_read(
     )
 
 
-def run_connector_readiness_test_report(
+def _as_saved_report(
+    report_text: str,
+    file_path: str | Path | None,
+) -> str:
+    """Save the test report to a file."""
+    if file_path:
+        file_path = Path(file_path)
+        try:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text(report_text)
+        except Exception:
+            logger.exception(f"Failed to save report to {file_path}")
+            report_text = "\n".join(
+                [
+                    f"Failed to save report to: {file_path.expanduser().resolve()}",
+                    "=" * 40,
+                    report_text,
+                ]
+            )
+        else:
+            # No error occurred
+            logger.info(f"Report saved to: {file_path.expanduser().resolve()}")
+            report_text = "\n".join(
+                [
+                    f"Report saved to: {file_path.expanduser().resolve()}",
+                    "=" * 40,
+                    report_text,
+                ]
+            )
+
+    return report_text
+
+
+def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too complex)
     manifest: Annotated[
         str,
         Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
     ],
     config: Annotated[
-        dict[str, Any],
+        dict[str, Any] | None,
         Field(description="Connector configuration"),
-    ],
+    ] = None,
     streams: Annotated[
         str | None,
         Field(
             description="Optional CSV-delimited list of streams to test."
-            "If not provided, tests all streams in the manifest."
+            "If not provided, tests all streams in the manifest (recommended)."
         ),
     ] = None,
     *,
@@ -498,6 +532,12 @@ def run_connector_readiness_test_report(
             description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
         ),
     ] = None,
+    save_to_project_dir: Annotated[
+        str | Path | None,
+        Field(
+            description="Optional path to the project directory where the report should be saved."
+        ),
+    ] = None,
 ) -> str:
     """Execute a connector readiness test and generate a comprehensive markdown report.
 
@@ -506,13 +546,6 @@ def run_connector_readiness_test_report(
 
     It tests all available streams by reading records up to the specified limit and returns a
     markdown-formatted readiness report with validation warnings and statistics.
-
-    Args:
-        manifest: The connector manifest (YAML string or file path)
-        config: Connector configuration
-        streams: Optional CSV-delimited list of streams to test
-        max_records: Maximum number of records to read per stream (default: 10000)
-        dotenv_file_uris: Optional paths/URLs to .env files or privatebin URLs for secret hydration
 
     Returns:
         Markdown-formatted readiness report with per-stream statistics and validation warnings
@@ -524,9 +557,18 @@ def run_connector_readiness_test_report(
     total_records_count = 0
     stream_results: dict[str, StreamSmokeTest] = {}
 
-    manifest_dict = parse_manifest_input(manifest)
+    manifest_dict, manifest_path = parse_manifest_input(manifest)
+    if not save_to_project_dir and manifest_path:
+        save_to_project_dir = Path(manifest_path).parent
 
-    config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
+    report_output_path: Path | None = (
+        Path(save_to_project_dir) / "connector-readiness-report.md" if save_to_project_dir else None
+    )
+
+    config = hydrate_config(
+        config or {},
+        dotenv_file_uris=dotenv_file_uris,
+    )
 
     available_streams = manifest_dict.get("streams", [])
     total_available_streams = len(available_streams)
@@ -591,17 +633,15 @@ def run_connector_readiness_test_report(
                 )
                 logger.warning(f"✗ {stream_name}: Failed - {error_message}")
 
-        except Exception as e:
-            stream_duration = time.time() - stream_start_time
-            error_message = f"Unexpected error: {str(e)}"
+        except Exception as ex:
+            logger.exception(f"❌ {stream_name}: Exception occurred.")
             stream_results[stream_name] = StreamSmokeTest(
                 stream_name=stream_name,
                 success=False,
                 records_read=0,
-                duration_seconds=stream_duration,
-                error_message=error_message,
+                duration_seconds=time.time() - stream_start_time,
+                error_message=str(ex),
             )
-            logger.error(f"✗ {stream_name}: Exception - {error_message}")
 
     total_duration = time.time() - start_time
     overall_success = total_streams_successful == total_streams_tested
@@ -619,14 +659,17 @@ def run_connector_readiness_test_report(
                 error_msg = getattr(smoke_result, "error_message", "Unknown error")
                 error_details.append(f"- **{name}**: {error_msg}")
 
-        return f"""# Connector Readiness Test Report - FAILED
-
-**Status**: {total_streams_successful}/{total_streams_tested} streams successful
-**Failed streams**: {", ".join(failed_streams)}
-**Total duration**: {total_duration:.2f}s
-
-{chr(10).join(error_details)}
-"""
+        report_lines: list[str] = [
+            "# Connector Readiness Test Report - FAILED",
+            f"**Status**: {total_streams_successful}/{total_streams_tested} streams successful",
+            f"**Failed streams**: {', '.join(failed_streams)}",
+            f"**Total duration**: {total_duration:.2f}s",
+            "\n".join(error_details),
+        ]
+        return _as_saved_report(
+            report_text="\n".join(report_lines),
+            file_path=report_output_path,
+        )
 
     report_lines = [
         "# Connector Readiness Test Report",
@@ -683,7 +726,10 @@ def run_connector_readiness_test_report(
                 ]
             )
 
-    return "\n".join(report_lines)
+    return _as_saved_report(
+        report_text="\n".join(report_lines),
+        file_path=save_to_project_dir,
+    )
 
 
 def execute_dynamic_manifest_resolution_test(
@@ -718,7 +764,7 @@ def execute_dynamic_manifest_resolution_test(
     logger.info("Getting resolved manifest")
 
     try:
-        manifest_dict = parse_manifest_input(manifest)
+        manifest_dict, _ = parse_manifest_input(manifest)
 
         if config is None:
             config = {}

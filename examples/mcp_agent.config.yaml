@@ -1,0 +1,17 @@
+mcp:
+  servers:
+    connector-builder:
+      command: "uv"
+      args: ["run", "airbyte-connector-builder-mcp"]
+      env: {}
+    playwright:
+      command: "npx"
+      args: ["@playwright/mcp@latest"]
+      env:
+        PLAYWRIGHT_HEADLESS: "true"
+        BLOCK_PRIVATE_IPS: "true"
+        DISABLE_JAVASCRIPT: "false"
+        TIMEOUT: "30000"
+    filesystem-rw:
+      command: "npx"
+      args: ["mcp-server-filesystem", "ai-generated-files"]
