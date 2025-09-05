@@ -379,7 +379,7 @@ def populate_dotenv_missing_secrets_stubs(
     dotenv_path: Annotated[
         str,
         Field(
-            description="Absolute path to the .env file to add secrets to, or privatebin URL to check. "
+            description="Absolute path to the .env file to add secrets to, or privatebin URL to check."
             + DOTENV_FILE_URI_DESCRIPTION.strip()
         ),
     ],
@@ -396,7 +396,11 @@ def populate_dotenv_missing_secrets_stubs(
             "'credentials.password,oauth.client_secret'"
         ),
     ] = None,
-    allow_create: Annotated[bool, Field(description="Create the file if it doesn't exist")] = True,
+    *,
+    allow_create: Annotated[
+        bool,
+        Field(description="Create the file if it doesn't exist"),
+    ] = True,
 ) -> str:
     """Add secret stubs to the specified dotenv file for the user to fill in, or check privatebin URLs.
 

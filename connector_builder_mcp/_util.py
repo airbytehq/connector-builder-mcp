@@ -1,9 +1,10 @@
 """Utility functions for Builder MCP server."""
 
+import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, overload
 
 import yaml
 
@@ -144,7 +145,68 @@ def validate_manifest_structure(manifest: dict[str, Any]) -> bool:
     """
     required_fields = ["version", "type", "check"]
     has_required = all(field in manifest for field in required_fields)
-
     has_streams = "streams" in manifest or "dynamic_streams" in manifest
 
     return has_required and has_streams
+
+
+def as_bool(
+    val: bool | str | None,  # noqa: FBT001
+    /,
+    default: bool = False,  # noqa: FBT001, FBT002
+) -> bool:
+    """Convert a string, boolean, or None value to a boolean.
+
+    Args:
+        val: The value to convert.
+        default: The default boolean value to return if the value is None.
+
+    Returns:
+        The converted boolean value.
+    """
+    if isinstance(val, bool):
+        return val
+
+    if isinstance(val, str):
+        return val.lower() == "true"
+
+    return default
+
+
+# Overload signatures predict nullability of output
+@overload
+def as_dict(
+    val: dict[str, Any] | str | None,
+    default: dict[str, Any],
+) -> dict[str, Any]: ...
+@overload
+def as_dict(
+    val: dict[str, Any] | str,
+) -> dict[str, Any]: ...
+@overload
+def as_dict(
+    val: None,
+) -> None: ...
+
+
+def as_dict(
+    val: dict[str, Any] | str | None,
+    default: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Convert a dict, str, or None value to a dict.
+
+    If the value is a string, it will be assumed to be a JSON string.
+
+    Returns:
+        The converted dictionary value.
+    """
+    if isinstance(val, dict):
+        return val
+
+    if val is None:
+        return default
+
+    if isinstance(val, str):
+        return cast("dict[str, Any]", json.loads(val))
+
+    raise TypeError("Could not convert value to a dictionary.")
