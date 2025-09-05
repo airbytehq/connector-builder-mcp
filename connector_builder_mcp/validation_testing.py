@@ -33,6 +33,8 @@ from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import 
 
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import (
+    as_bool,
+    as_dict,
     filter_config_secrets,
     parse_manifest_input,
     validate_manifest_structure,
@@ -90,29 +92,6 @@ class MultiStreamSmokeTest(BaseModel):
     total_records_count: int
     duration_seconds: float
     stream_results: dict[str, StreamSmokeTest]
-
-
-def _as_bool(
-    val: bool | str | None,  # noqa: FBT001
-    /,
-    default: bool = False,  # noqa: FBT001, FBT002
-) -> bool:
-    """Convert a string, boolean, or None value to a boolean.
-
-    Args:
-        val: The value to convert.
-        default: The default boolean value to return if the value is None.
-
-    Returns:
-        The converted boolean value.
-    """
-    if isinstance(val, bool):
-        return val
-
-    if isinstance(val, str):
-        return val.lower() == "true"
-
-    return default
 
 
 def _calculate_record_stats(
@@ -319,7 +298,7 @@ def validate_manifest(
     )
 
 
-def execute_stream_test_read(
+def execute_stream_test_read(  # noqa: PLR0914
     manifest: Annotated[
         str,
         Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
@@ -329,8 +308,8 @@ def execute_stream_test_read(
         Field(description="Name of the stream to test"),
     ],
     config: Annotated[
-        dict[str, Any] | None,
-        Field(description="Connector configuration"),
+        dict[str, Any] | str | None,
+        Field(description="Connector configuration dictionary."),
     ] = None,
     *,
     max_records: Annotated[
@@ -354,7 +333,7 @@ def execute_stream_test_read(
         ),
     ] = None,
     dotenv_file_uris: Annotated[
-        str | list[str] | None,
+        list[str] | str | None,
         Field(
             description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
         ),
@@ -367,20 +346,20 @@ def execute_stream_test_read(
     We do not attempt to sanitize record data, as it is expected to be user-defined.
     """
     success: bool = True
-    include_records_data = _as_bool(
+    include_records_data = as_bool(
         include_records_data,
         default=False,
     )
-    include_record_stats = _as_bool(
+    include_record_stats = as_bool(
         include_record_stats,
         default=False,
     )
-    include_raw_responses_data = _as_bool(
+    include_raw_responses_data = as_bool(
         include_raw_responses_data,
         default=False,
     )
     logger.info(f"Testing stream read for stream: {stream_name}")
-    config = config or {}
+    config = as_dict(config, default={})
 
     manifest_dict, _ = parse_manifest_input(manifest)
 
@@ -455,7 +434,7 @@ def execute_stream_test_read(
                     records_data.extend(page.pop("records"))
 
     raw_responses_data = None
-    if include_raw_responses_data is True and slices and isinstance(slices, list):
+    if include_raw_responses_data is True and slices:
         raw_responses_data = slices
 
     record_stats = None
