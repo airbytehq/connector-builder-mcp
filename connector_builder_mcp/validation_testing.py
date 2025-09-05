@@ -632,6 +632,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                 )
                 logger.warning(f"✗ {stream_name}: Failed - {error_message}")
 
+        except Exception as ex:
             logger.exception(f"❌ {stream_name}: Exception occurred: {ex}")
             stream_results[stream_name] = StreamSmokeTest(
                 stream_name=stream_name,
