@@ -8,6 +8,7 @@ format = { cmd = "uv run ruff format .", help = "Format code with ruff" }
 format-check = { cmd = "uv run ruff format --check .", help = "Format check with ruff" }
 lint = { cmd = "uv run ruff check .", help = "Lint code with ruff" }
 lint-fix = { cmd = "uv run ruff check --fix .", help = "Lint and fix code with ruff" }
+check-gh-actions = { cmd = "actionlint", help = "Lint GitHub Actions workflows" }
 lock = { cmd = "uv lock", help = "Lock dependencies." }
 mypy = { cmd = "uv run mypy connector_builder_mcp", help = "Type check code with mypy" }
 test = { cmd = "uv run pytest tests/ -v", help = "Run tests with verbose output" }
