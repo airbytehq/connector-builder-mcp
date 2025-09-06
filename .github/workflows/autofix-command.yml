@@ -81,7 +81,7 @@ jobs:
             [1]: ${{ steps.vars.outputs.run-url }}
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6.4.3
+        uses: astral-sh/setup-uv@v6.6.1
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
