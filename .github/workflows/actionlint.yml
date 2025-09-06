@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   actionlint:
-    name: actionlint
+    name: Lint Github Actions
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
