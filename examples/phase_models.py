@@ -1,7 +1,6 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Data models for phase-specific handoffs between manager and developer agents."""
 
-
 from pydantic import BaseModel
 
 
