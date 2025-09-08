@@ -1,20 +1,18 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
-"""Demo script showing how to use different agent frameworks with connector-builder-mcp.
+"""Unified agent script for connector building with transparent mode selection.
 
-This script demonstrates connecting to connector-builder-mcp via STDIO transport and using
-the `openai-agents` library with MCP.
+This script automatically chooses between single-agent (interactive) and manager-developer
+(headless) architectures based on the execution mode. It demonstrates connecting to
+connector-builder-mcp via STDIO transport and using the `openai-agents` library with MCP.
 
 Usage:
-    # To just test with all the defaults:
     uv run --project=examples examples/run_mcp_agent.py
-
-    # Sending a custom prompt:
     uv run --project=examples examples/run_mcp_agent.py "Build a connector for the JSONPlaceholder API"
-    uv run --project=examples examples/run_mcp_agent.py "Build a connector for Rick and Morty"
-    uv run --project=examples examples/run_mcp_agent.py "Hubspot API"
 
-    # As a poe task:
-    poe run-agent "Your prompt string here"
+    uv run --project=examples examples/run_mcp_agent.py --headless "Build a connector for the JSONPlaceholder API"
+
+    poe run-mcp-agent "Your prompt string here"
+    poe run-manager-developer "Your API name"
 
 Requirements:
     - OpenAI API key (OPENAI_API_KEY in a local '.env')
@@ -30,19 +28,62 @@ from functools import lru_cache
 from pathlib import Path
 
 from agents import Agent as OpenAIAgent
-from agents import Runner, SQLiteSession, gen_trace_id, trace
+from agents import Runner, SQLiteSession, gen_trace_id, handoff, trace
 from agents.mcp import MCPServer, MCPServerStdio, MCPServerStdioParams
-
-# from agents import OpenAIConversationsSession
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 
 # Initialize env vars:
 load_dotenv()
 
+
+class Phase1Data(BaseModel):
+    """Data for Phase 1: First successful stream read."""
+
+    api_name: str
+    additional_instructions: str = ""
+    phase_description: str = "Phase 1: First Successful Stream Read"
+    objectives: list[str] = [
+        "Research the target API and understand its structure",
+        "Create initial manifest using the scaffold tool",
+        "Set up proper authentication (request secrets from user if needed)",
+        "Configure one stream without pagination initially",
+        "Validate that you can read records from this stream",
+    ]
+
+
+class Phase2Data(BaseModel):
+    """Data for Phase 2: Working pagination."""
+
+    api_name: str
+    phase_description: str = "Phase 2: Working Pagination"
+    objectives: list[str] = [
+        "Add pagination configuration to the manifest",
+        "Test reading multiple pages of data",
+        "Confirm you can reach the end of the stream",
+        "Verify record counts are not suspicious multiples",
+        "Update checklist.md with progress",
+    ]
+
+
+class Phase3Data(BaseModel):
+    """Data for Phase 3: Add remaining streams."""
+
+    api_name: str
+    phase_description: str = "Phase 3: Add Remaining Streams"
+    objectives: list[str] = [
+        "Identify all available streams from API documentation",
+        "Add each stream to the manifest one by one",
+        "Test each stream individually",
+        "Run full connector readiness test",
+        "Update checklist.md with final results",
+    ]
+
+
 MAX_CONNECTOR_BUILD_STEPS = 100
 DEFAULT_CONNECTOR_BUILD_API_NAME: str = "JSONPlaceholder API"
-SESSION_ID: str = f"builder-mcp-session-{int(time.time())}"
+SESSION_ID: str = f"unified-mcp-session-{int(time.time())}"
 WORKSPACE_WRITE_DIR: Path = Path() / "ai-generated-files" / SESSION_ID
 WORKSPACE_WRITE_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_LLM_MODEL: str = "o4-mini"  # "gpt-4o-mini"
@@ -109,6 +150,69 @@ def _open_if_browser_available(url: str) -> None:
         webbrowser.open(url=url)
 
 
+def create_developer_agent(session_id: str, model: str) -> OpenAIAgent:
+    """Create the developer agent that executes specific phases."""
+    return OpenAIAgent(
+        name="MCP Connector Developer",
+        instructions=(
+            "You are a specialized developer agent that executes specific phases of Airbyte connector building. "
+            "You work under the coordination of a manager agent and focus on implementing the technical details "
+            "of connector development using MCP tools. Follow the provided phase instructions precisely. "
+            "Always update checklist.md as you complete each step."
+        ),
+        mcp_servers=MCP_SERVERS,
+        model=model,
+    )
+
+
+def create_manager_agent(developer_agent: OpenAIAgent, session_id: str, model: str) -> OpenAIAgent:
+    """Create the manager agent that orchestrates the 3-phase workflow."""
+
+    async def on_phase1_handoff(ctx, input_data: Phase1Data):
+        print(f"🚀 Starting {input_data.phase_description} for {input_data.api_name}")
+
+    async def on_phase2_handoff(ctx, input_data: Phase2Data):
+        print(f"🔄 Starting {input_data.phase_description} for {input_data.api_name}")
+
+    async def on_phase3_handoff(ctx, input_data: Phase3Data):
+        print(f"🎯 Starting {input_data.phase_description} for {input_data.api_name}")
+
+    return OpenAIAgent(
+        name="MCP Connector Manager",
+        instructions=(
+            "You are a manager agent that orchestrates connector building by delegating "
+            "work to a developer agent across 3 phases: stream read, pagination, remaining streams. "
+            "Monitor progress and ensure each phase completes successfully before moving to the next. "
+            "Use the handoff tools to delegate specific phases to the developer agent."
+        ),
+        handoffs=[
+            handoff(
+                agent=developer_agent,
+                tool_name_override="start_phase_1_stream_read",
+                tool_description_override="Start Phase 1: First successful stream read",
+                input_type=Phase1Data,
+                on_handoff=on_phase1_handoff,
+            ),
+            handoff(
+                agent=developer_agent,
+                tool_name_override="start_phase_2_pagination",
+                tool_description_override="Start Phase 2: Working pagination",
+                input_type=Phase2Data,
+                on_handoff=on_phase2_handoff,
+            ),
+            handoff(
+                agent=developer_agent,
+                tool_name_override="start_phase_3_remaining_streams",
+                tool_description_override="Start Phase 3: Add remaining streams",
+                input_type=Phase3Data,
+                on_handoff=on_phase3_handoff,
+            ),
+        ],
+        mcp_servers=MCP_SERVERS,
+        model=model,
+    )
+
+
 async def run_connector_build(
     api_name: str | None = None,
     instructions: str | None = None,
@@ -116,7 +220,7 @@ async def run_connector_build(
     *,
     headless: bool = False,
 ) -> None:
-    """Run an agentic AI connector build session."""
+    """Run an agentic AI connector build session with automatic mode selection."""
     if not api_name and not instructions:
         raise ValueError("Either api_name or instructions must be provided.")
     if api_name:
@@ -125,26 +229,36 @@ async def run_connector_build(
         ).strip()
     assert instructions, "By now, instructions should be non-null."
 
-    print("\n🤖 Building Connector using AI", flush=True)
-    print("=" * 30, flush=True)
-    print(f"USER PROMPT: {instructions}", flush=True)
-    print("=" * 30, flush=True)
+    if headless:
+        print("\n🤖 Building Connector using Manager-Developer Architecture", flush=True)
+        print("=" * 60, flush=True)
+        print(f"API: {api_name}")
+        print(f"USER PROMPT: {instructions}", flush=True)
+        print("=" * 60, flush=True)
+        await run_manager_developer_build(
+            api_name=api_name,
+            instructions=instructions,
+            model=model,
+        )
+    else:
+        print("\n🤖 Building Connector using Interactive AI", flush=True)
+        print("=" * 30, flush=True)
+        print(f"USER PROMPT: {instructions}", flush=True)
+        print("=" * 30, flush=True)
+        prompt_file = Path("./prompts") / "root-prompt.md"
+        prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
+        prompt += instructions
+        await run_interactive_build(
+            prompt=prompt,
+            model=model,
+        )
 
-    prompt_file = Path("./prompts") / ("root-prompt-headless.md" if headless else "root-prompt.md")
-    prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
-    prompt += instructions
-    await run_agent_prompt(
-        prompt=prompt,
-        model=model,
-    )
 
-
-async def run_agent_prompt(
+async def run_interactive_build(
     prompt: str,
     model: str,
 ) -> None:
-    """Run the agent using a given prompt."""
-    # session = OpenAIConversationsSession()  # Not able to import this for some reason
+    """Run the agent using interactive mode with conversation loop."""
     session = SQLiteSession(session_id=SESSION_ID)
     agent = OpenAIAgent(
         name="MCP Connector Builder",
@@ -159,10 +273,9 @@ async def run_agent_prompt(
         await server.connect()
 
     trace_id = gen_trace_id()
-    with trace(workflow_name="Connector Builder Session", trace_id=trace_id):
+    with trace(workflow_name="Interactive Connector Builder Session", trace_id=trace_id):
         trace_url = f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
 
-        # Start with the full prompt as input. Next iterations will apply user input.
         input_prompt: str = prompt
         while True:
             print("\n⚙️  AI Agent is working...", flush=True)
@@ -190,20 +303,71 @@ async def run_agent_prompt(
                 sys.exit(0)
 
 
+async def run_manager_developer_build(
+    api_name: str | None = None,
+    instructions: str | None = None,
+    model: str = DEFAULT_LLM_MODEL,
+) -> None:
+    """Run a 3-phase connector build using manager-developer architecture."""
+    session = SQLiteSession(session_id=SESSION_ID)
+
+    developer_agent = create_developer_agent(SESSION_ID, model)
+    manager_agent = create_manager_agent(developer_agent, SESSION_ID, model)
+
+    for server in MCP_SERVERS:
+        await server.connect()
+
+    trace_id = gen_trace_id()
+    with trace(workflow_name="Manager-Developer Connector Build", trace_id=trace_id):
+        trace_url = f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
+
+        manager_prompt = f"""
+        You are orchestrating a 3-phase connector building process for: {api_name}
+
+        Instructions: {instructions}
+
+        Execute the phases in order:
+        1. Use start_phase_1_stream_read to delegate Phase 1 (first successful stream read)
+        2. After Phase 1 completes, use start_phase_2_pagination to delegate Phase 2 (working pagination)
+        3. After Phase 2 completes, use start_phase_3_remaining_streams to delegate Phase 3 (add remaining streams)
+
+        Monitor progress and ensure each phase completes successfully before moving to the next.
+        """
+
+        print("\n⚙️  Manager Agent is orchestrating the build...", flush=True)
+        print(f"🔗 Follow along at: {trace_url}")
+        _open_if_browser_available(trace_url)
+
+        try:
+            response = await Runner.run(
+                starting_agent=manager_agent,
+                input=manager_prompt,
+                max_turns=MAX_CONNECTOR_BUILD_STEPS,
+                session=session,
+            )
+            print("\n🤖  Manager Agent: ", end="", flush=True)
+            print(response.final_output)
+
+        except KeyboardInterrupt:
+            print("\n🛑 Build terminated (ctrl+c input received).", flush=True)
+            print(f"🪵 Review trace logs at: {trace_url}", flush=True)
+            sys.exit(0)
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run MCP agent with a prompt.",
+        description="Run unified MCP agent with automatic mode selection.",
     )
     parser.add_argument(
         "prompt",
         nargs="?",
         default=DEFAULT_CONNECTOR_BUILD_API_NAME,
-        help="Prompt string to pass to the agent.",
+        help="API name or prompt string to pass to the agent.",
     )
     parser.add_argument(
         "--headless",
         action="store_true",
-        help="Run in headless mode without user interaction.",
+        help="Run in headless mode using manager-developer architecture.",
     )
     parser.add_argument(
         "--model",
@@ -222,12 +386,13 @@ def _parse_args() -> argparse.Namespace:
 
 
 async def main() -> None:
-    """Run all demo scenarios."""
-    print("🚀 Multi-Framework MCP + connector-builder-mcp Integration Demo")
+    """Run unified MCP agent with automatic mode selection."""
+    print("🚀 Unified MCP Connector Builder")
     print("=" * 60)
     print()
-    print("This demo shows how different agent frameworks can wrap connector-builder-mcp")
-    print("to provide vendor-neutral access to Airbyte connector development tools.")
+    print("This script automatically chooses between:")
+    print("- Interactive mode (single-agent with conversation loop)")
+    print("- Headless mode (manager-developer with 3-phase handoffs)")
     print()
 
     cli_args: argparse.Namespace = _parse_args()

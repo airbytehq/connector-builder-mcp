@@ -145,27 +145,28 @@ uv run --project=examples examples/run_mcp_agent.py "Build a connector for the J
 poe run-mcp-agent-headless "Build a connector for the JSONPlaceholder API"
 ```
 
-### Manager-Developer Agent Architecture
+### Unified Agent Architecture
 
-The Builder MCP now supports a two-agent architecture for more structured connector development:
+The Builder MCP automatically chooses between two execution modes based on how you run it:
 
 ```bash
-# Run with manager-developer architecture
+# Interactive mode (single-agent with conversation loop)
+poe run-mcp-agent "JSONPlaceholder API"
+uv run --project=examples examples/run_mcp_agent.py "Build a connector for the JSONPlaceholder API"
+
+# Headless mode (manager-developer with 3-phase handoffs)
 poe run-manager-developer "JSONPlaceholder API"
-
-# Or with custom prompt
-uv run --project=examples examples/run_manager_developer_agents.py "Your API name"
-
-# Headless mode
-poe run-manager-developer-headless "Your API name"
+uv run --project=examples examples/run_mcp_agent.py --headless "JSONPlaceholder API"
 ```
 
 #### How It Works
 
-- **Manager Agent**: Orchestrates the overall process and delegates specific phases to the developer agent
-- **Developer Agent**: Executes the technical implementation of each phase using MCP tools
+The script transparently selects the appropriate architecture:
 
-The workflow follows a 3-phase approach:
+- **Interactive Mode**: Uses a single agent with conversation loop for guided development
+- **Headless Mode**: Uses manager-developer architecture with structured 3-phase handoffs
+
+The headless workflow follows a 3-phase approach:
 1. **Phase 1**: First successful stream read (authentication + basic connectivity)
 2. **Phase 2**: Working pagination (add and validate pagination)
 3. **Phase 3**: Add remaining streams (complete connector with all streams)
