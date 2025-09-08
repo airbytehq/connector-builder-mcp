@@ -26,6 +26,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras
 
+      # Sync examples dependencies
+      - name: Install examples dependencies
+        run: |
+          cd examples
+          uv sync
+
       # Job-specific step(s):
       - name: Run agent with GitHub Models
         env:
