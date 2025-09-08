@@ -44,6 +44,12 @@ docs-generate.help = "Generate API documentation"
 
 # Agentic Connector Build Testing
 agent-run = { cmd = "uv run --project=examples examples/run_mcp_agent.py", help = "Run MCP agent with an optional prompt string." }
+run-mcp-agent = { cmd = "uv run --project=examples examples/run_mcp_agent.py", help = "Run the MCP agent" }
+run-mcp-agent-custom = { cmd = "uv run --project=examples examples/run_mcp_agent.py", args = ["prompt"], help = "Run MCP agent with custom prompt" }
+run-mcp-agent-headless = { cmd = "uv run --project=examples examples/run_mcp_agent.py --headless", args = ["prompt"], help = "Run the MCP agent in headless mode" }
+run-manager-developer = { cmd = "uv run --project=examples examples/run_manager_developer_agents.py", help = "Run the manager-developer agent architecture" }
+run-manager-developer-custom = { cmd = "uv run --project=examples examples/run_manager_developer_agents.py", args = ["prompt"], help = "Run manager-developer agents with custom prompt" }
+run-manager-developer-headless = { cmd = "uv run --project=examples examples/run_manager_developer_agents.py --headless", args = ["prompt"], help = "Run manager-developer agents in headless mode" }
 
 # Codex Tests
 codex.cmd = "npx @openai/codex --sandbox=workspace-write"
