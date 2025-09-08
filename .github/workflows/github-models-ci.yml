@@ -31,7 +31,7 @@ jobs:
       - name: Run agent with GitHub Models
         env:
           OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_BASE_URL: https://models.github.ai/v1
+          OPENAI_API_ROOT: https://models.github.ai/v1
         run: |
           cd examples
           uv run --project=examples examples/run_github_models_agent.py --headless --model="gpt-4o-mini"

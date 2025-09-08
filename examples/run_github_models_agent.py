@@ -10,7 +10,7 @@ async def main():
     """Configure GitHub Models client and run the agent."""
     client = AsyncOpenAI(
         api_key=os.environ.get("OPENAI_API_KEY", os.environ.get("GITHUB_TOKEN")),
-        base_url=os.environ.get("OPENAI_BASE_URL", "https://models.github.ai/v1")
+        base_url=os.environ.get("OPENAI_API_ROOT", "https://models.github.ai/v1")
     )
     
     set_default_openai_client(client, use_for_tracing=True)
