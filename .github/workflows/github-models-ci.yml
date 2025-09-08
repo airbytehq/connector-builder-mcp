@@ -26,10 +26,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras
 
-      # Install the main package so MCP server command is available
-      - name: Install connector-builder-mcp package
-        run: uv pip install -e .
-
       # Job-specific step(s):
       - name: Run agent with GitHub Models
         env:
@@ -37,4 +33,6 @@ jobs:
           OPENAI_API_ROOT: https://models.github.ai/v1
         run: |
           cd examples
+          # Install the main package in the examples environment
+          uv add --project=examples ../
           uv run --project=examples run_mcp_agent.py --headless --model="gpt-4o-mini"
