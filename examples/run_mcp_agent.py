@@ -30,15 +30,23 @@ from functools import lru_cache
 from pathlib import Path
 
 from agents import Agent as OpenAIAgent
-from agents import Runner, SQLiteSession, gen_trace_id, trace
+from agents import Runner, SQLiteSession, gen_trace_id, set_default_openai_client, trace
 from agents.mcp import MCPServer, MCPServerStdio, MCPServerStdioParams
 
 # from agents import OpenAIConversationsSession
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
 
 # Initialize env vars:
 load_dotenv()
+
+if os.environ.get("OPENAI_API_ROOT") and os.environ.get("OPENAI_API_KEY"):
+    github_models_client = AsyncOpenAI(
+        api_key=os.environ["OPENAI_API_KEY"],
+        base_url=os.environ["OPENAI_API_ROOT"],
+    )
+    set_default_openai_client(github_models_client, use_for_tracing=True)
 
 MAX_CONNECTOR_BUILD_STEPS = 100
 DEFAULT_CONNECTOR_BUILD_API_NAME: str = "JSONPlaceholder API"
