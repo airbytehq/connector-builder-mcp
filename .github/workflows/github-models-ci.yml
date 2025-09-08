@@ -34,4 +34,4 @@ jobs:
           OPENAI_API_ROOT: https://models.github.ai/v1
         run: |
           cd examples
-          uv run --project=examples examples/run_github_models_agent.py --headless --model="gpt-4o-mini"
+          uv run --project=examples run_github_models_agent.py --headless --model="gpt-4o-mini"
