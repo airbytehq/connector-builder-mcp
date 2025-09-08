@@ -138,7 +138,10 @@ async def run_connector_build(
     print(f"USER PROMPT: {instructions}", flush=True)
     print("=" * 30, flush=True)
 
-    prompt_file = Path("./prompts") / ("root-prompt-headless.md" if headless else "root-prompt.md")
+    repo_root = Path(__file__).parent.parent
+    prompt_file = (
+        repo_root / "prompts" / ("root-prompt-headless.md" if headless else "root-prompt.md")
+    )
     prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
     prompt += instructions
     await run_agent_prompt(
