@@ -33,6 +33,4 @@ jobs:
           OPENAI_API_ROOT: https://models.github.ai/v1
         run: |
           cd examples
-          # Install the main package in the examples environment with prerelease support
-          uv add --project=examples --prerelease=allow ../
           uv run --project=examples run_mcp_agent.py --headless --model="gpt-4o-mini"
