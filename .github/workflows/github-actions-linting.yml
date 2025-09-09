@@ -24,3 +24,6 @@ jobs:
           level: error
           fail_level: error
           filter_mode: diff_context # TODO: prefer 'file' (default) after repo is compliant
+          actionlint_flags: >
+            -color
+            -ignore 'unknown permission scope "models"'
