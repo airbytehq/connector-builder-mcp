@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   test-github-models-agent:
-    name: Test Agent with GitHub Models
+    name: Test Connector Build
     runs-on: ubuntu-24.04
     steps:
       # Common steps:
@@ -34,7 +34,9 @@ jobs:
       # Job-specific step(s):
       - name: Run agent with GitHub Models
         env:
-          OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_BASE_URL: https://models.github.ai/inference
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # GH Rate Limits are currently too low (esp. per-call token limits)
+          # OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+          # OPENAI_BASE_URL: https://models.github.ai/inference
         run: |
           uv run poe agent-run --headless
