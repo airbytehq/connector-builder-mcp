@@ -28,7 +28,7 @@ jobs:
 
       # Sync examples dependencies
       - name: Install examples dependencies
-        run: uv sync --project examples
+        run: uv sync --project examples --all-extras
 
       # Job-specific step(s):
       - name: Run agent with GitHub Models
@@ -36,6 +36,4 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_ROOT: https://models.github.ai/inference
         run: |
-          # Run the script from the examples directory with examples dependencies
-          cd examples
-          uv run run_mcp_agent.py --headless --model="gpt-4o-mini"
+          poe agent-run --headless
