@@ -220,3 +220,14 @@ gh auth login
 gh extension install https://github.com/github/gh-models
 gh models --help
 ```
+
+## Debugging
+
+One or more of these may be helpful in debugging:
+
+```terminal
+export HTTPX_LOG_LEVEL=debug
+export DEBUG='openai:*'
+export OPENAI_AGENTS_LOG=debug
+export OPENAI_LOG=debug
+```
