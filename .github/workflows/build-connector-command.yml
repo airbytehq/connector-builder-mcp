@@ -20,7 +20,7 @@ permissions:
 jobs:
   run-poe-build-connector:
     env:
-      OPENAI_API_ROOT: https://api.openai.com/v1
+      # OPENAI_API_ROOT: https://api.openai.com/v1
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     runs-on: ubuntu-latest
     steps:
@@ -30,5 +30,5 @@ jobs:
           pr: ${{ github.event.inputs.pr }}
           comment-id: ${{ github.event.inputs.comment-id }}
           start-message: "🛠️ Building connector..."
-          command: "agent-run --prompt='${{ github.event.inputs.prompt }}'"
+          command: "agent-run --headless --prompt='${{ github.event.inputs.prompt }}'"
           no-commit: true
