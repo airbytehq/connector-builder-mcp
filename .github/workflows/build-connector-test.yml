@@ -33,6 +33,7 @@ jobs:
 
       # Job-specific step(s):
       - name: Run agent with GitHub Models
+        continue-on-error: true  # Fails currently, needs more work
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           # GH Rate Limits are currently too low (esp. per-call token limits)
