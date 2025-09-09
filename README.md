@@ -129,3 +129,47 @@ poe mcp-serve-sse   # Serve over SSE
 You can also run `poe --help` to see a full list of available Poe commands.
 
 If you ever want to see what a Poe task is doing (such as to run it directly or customize how it runs), check out the `poe_tasks.toml` file at the root of the repo.
+
+## Agent-Based Connector Building
+
+### Single Agent Architecture
+
+```bash
+# Run the MCP agent
+poe run-connector-build
+
+# Or with a custom prompt
+poe run-connector-build "Build a connector for the JSONPlaceholder API"
+
+# Interactive Mode
+poe run-connector-build-interactive "Build a connector for the JSONPlaceholder API"
+```
+
+### Unified Agent Architecture
+
+The Builder MCP automatically chooses between two execution modes based on how you run it:
+
+```bash
+# Interactive mode (single-agent with conversation loop)
+poe run-connector-build "JSONPlaceholder API"
+uv run --project=examples examples/run_mcp_agent.py "Build a connector for the JSONPlaceholder API"
+
+# Headless mode (manager-developer with 3-phase handoffs)
+poe run-connector-build "JSONPlaceholder API"
+uv run --project=examples examples/run_mcp_agent.py --headless "JSONPlaceholder API"
+```
+
+#### How It Works
+
+The script transparently selects the appropriate architecture:
+
+- **Interactive Mode**: Uses a single agent with conversation loop for guided development
+- **Headless Mode**: Uses manager-developer architecture with structured 3-phase handoffs
+
+The headless workflow follows a 3-phase approach:
+
+1. **Phase 1**: First successful stream read (authentication + basic connectivity)
+2. **Phase 2**: Working pagination (add and validate pagination)
+3. **Phase 3**: Add remaining streams (complete connector with all streams)
+
+The agents communicate using the openai-agents library's handoffs mechanism, allowing for structured delegation and progress tracking.
