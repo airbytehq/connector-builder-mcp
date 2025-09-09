@@ -34,7 +34,7 @@ jobs:
       - name: Run agent with GitHub Models
         env:
           OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_ROOT: https://models.github.ai/v1
+          OPENAI_API_ROOT: https://models.github.ai/inference
         run: |
           # Run the script from root with examples project context
           uv run --project examples examples/run_mcp_agent.py --headless --model="gpt-4o-mini"
