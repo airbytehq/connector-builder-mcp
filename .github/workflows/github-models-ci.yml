@@ -36,4 +36,4 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_ROOT: https://models.github.ai/inference
         run: |
-          poe agent-run --headless
+          uv run poe agent-run --headless
