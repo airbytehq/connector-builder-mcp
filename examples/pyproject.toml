@@ -10,3 +10,8 @@ dependencies = [
     "openai-agents>=0.2.11",
     "mcp-agent>=0.1.15",  # Transitive dependency of openai-agents
 ]
+
+[dependency-groups]
+dev = [
+    "poethepoet>=0.37.0",
+]

@@ -211,3 +211,23 @@ test: add integration tests for connector builder
 - **Code Review**: All changes require review before merging
 
 Thank you for contributing to Builder MCP! 🚀
+
+## Testing with GitHub Models
+
+```bash
+brew install gh
+gh auth login
+gh extension install https://github.com/github/gh-models
+gh models --help
+```
+
+## Debugging
+
+One or more of these may be helpful in debugging:
+
+```terminal
+export HTTPX_LOG_LEVEL=debug
+export DEBUG='openai:*'
+export OPENAI_AGENTS_LOG=debug
+export OPENAI_LOG=debug
+```

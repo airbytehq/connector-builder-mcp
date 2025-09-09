@@ -1,0 +1,43 @@
+name: GitHub Models CI Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  test-github-models-agent:
+    name: Test Connector Build
+    runs-on: ubuntu-24.04
+    steps:
+      # Common steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6.6.1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      # Sync examples dependencies
+      - name: Install examples dependencies
+        run: uv sync --project examples --all-extras
+
+      # Job-specific step(s):
+      - name: Run agent with GitHub Models
+        continue-on-error: true  # Fails currently, needs more work
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # GH Rate Limits are currently too low (esp. per-call token limits)
+          # OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+          # OPENAI_BASE_URL: https://models.github.ai/inference
+        run: |
+          uv run poe agent-run --headless

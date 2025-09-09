@@ -29,13 +29,30 @@ from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
 
-from agents import Agent as OpenAIAgent
-from agents import Runner, SQLiteSession, gen_trace_id, trace
-from agents.mcp import MCPServer, MCPServerStdio, MCPServerStdioParams
+from agents import (
+    Agent,
+    Runner,
+    SQLiteSession,
+    gen_trace_id,
+    set_default_openai_api,
+    set_default_openai_client,
+    set_tracing_disabled,
+    trace,
+)
+from agents.mcp import (
+    MCPServer,
+    MCPServerStdio,
+    MCPServerStdioParams,
+)
 
 # from agents import OpenAIConversationsSession
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
+
+GH_MODELS_OPENAI_BASE_URL: str = "https://models.github.ai/inference"
+OPENAI_BASE_URL_ENV_VAR: str = "OPENAI_BASE_URL"
+OPENAI_API_KEY_ENV_VAR: str = "OPENAI_API_KEY"
 
 # Initialize env vars:
 load_dotenv()
@@ -45,7 +62,7 @@ DEFAULT_CONNECTOR_BUILD_API_NAME: str = "JSONPlaceholder API"
 SESSION_ID: str = f"builder-mcp-session-{int(time.time())}"
 WORKSPACE_WRITE_DIR: Path = Path() / "ai-generated-files" / SESSION_ID
 WORKSPACE_WRITE_DIR.mkdir(parents=True, exist_ok=True)
-DEFAULT_LLM_MODEL: str = "o4-mini"  # "gpt-4o-mini"
+DEFAULT_LLM_MODEL: str = "openai/gpt-4o-mini"  # "gpt-4o-mini"
 AUTO_OPEN_TRACE_URL: bool = os.environ.get("AUTO_OPEN_TRACE_URL", "1").lower() in {"1", "true"}
 
 HEADLESS_BROWSER = True
@@ -94,6 +111,60 @@ MCP_SERVERS: list[MCPServer] = [
 ]
 
 
+if OPENAI_BASE_URL_ENV_VAR in os.environ:
+    print("⚙️ Detected custom OpenAI API root in environment.")
+    OPENAI_BASE_URL_ENV_VAR: str = os.environ[OPENAI_BASE_URL_ENV_VAR]
+    if (
+        "github.ai" in OPENAI_BASE_URL_ENV_VAR
+        and OPENAI_BASE_URL_ENV_VAR != GH_MODELS_OPENAI_BASE_URL
+    ):
+        print(
+            f"⚠️ Warning: Detected GitHub Models endpoint but non-standard API root: {OPENAI_BASE_URL_ENV_VAR}. "
+            f"Recommended root URL is: {GH_MODELS_OPENAI_BASE_URL}"
+        )
+
+    if OPENAI_BASE_URL_ENV_VAR.lower() in {"gh", "github", "github models"}:
+        print(
+            f"Found GitHub Models endpoint alias: {OPENAI_BASE_URL_ENV_VAR}. "
+            f"Applying recommended Github Models URL root: {GH_MODELS_OPENAI_BASE_URL}"
+        )
+        OPENAI_BASE_URL_ENV_VAR = GH_MODELS_OPENAI_BASE_URL
+
+    if "github.ai" in OPENAI_BASE_URL_ENV_VAR and "OPENAI_API_KEY" not in os.environ:
+        print(
+            "GitHub Models endpoint detected but not API Root is set. "
+            "Attempting to extract token using `gh auth token` CLI command."
+        )
+        import subprocess
+
+        _ = subprocess.check_output(["gh", "auth", "status"])
+        openai_api_key: str = (
+            subprocess.check_output(["gh", "auth", "token"]).decode("utf-8").strip()
+        )
+        print(
+            "✅ Successfully extracted GitHub token from `gh` CLI: "
+            f"({openai_api_key[:4]}...{openai_api_key[-4:]})"
+        )
+        if not openai_api_key.startswith("sk-"):
+            raise ValueError(
+                "Extracted GitHub token does not appear to be valid. "
+                "Please ensure you have the GitHub CLI installed and authenticated."
+            )
+        os.environ["OPENAI_API_KEY"] = openai_api_key
+
+    print(f"ℹ️ Using Custom OpenAI-Compatible LLM Endpoint: {OPENAI_BASE_URL_ENV_VAR}")
+    github_models_client = AsyncOpenAI(
+        base_url=OPENAI_BASE_URL_ENV_VAR,
+        api_key=os.environ.get("OPENAI_API_KEY", None),
+    )
+    set_default_openai_client(
+        github_models_client,
+        use_for_tracing=False,
+    )
+    set_default_openai_api("chat_completions")  # GH Models doesn't support 'responses' endpoint.
+    set_tracing_disabled(True)  # Tracing not supported with GitHub Models endpoint.
+
+
 @lru_cache  # Hacky way to run 'just once' 🙂
 def _open_if_browser_available(url: str) -> None:
     """Open a URL for the user to track progress.
@@ -130,7 +201,10 @@ async def run_connector_build(
     print(f"USER PROMPT: {instructions}", flush=True)
     print("=" * 30, flush=True)
 
-    prompt_file = Path("./prompts") / ("root-prompt-headless.md" if headless else "root-prompt.md")
+    repo_root = Path(__file__).parent.parent
+    prompt_file = (
+        repo_root / "prompts" / ("root-prompt-headless.md" if headless else "root-prompt.md")
+    )
     prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
     prompt += instructions
     await run_agent_prompt(
@@ -146,7 +220,7 @@ async def run_agent_prompt(
     """Run the agent using a given prompt."""
     # session = OpenAIConversationsSession()  # Not able to import this for some reason
     session = SQLiteSession(session_id=SESSION_ID)
-    agent = OpenAIAgent(
+    agent = Agent(
         name="MCP Connector Builder",
         instructions=(
             "You are a helpful assistant with access to MCP tools for building Airbyte connectors."
@@ -169,14 +243,31 @@ async def run_agent_prompt(
             print(f"🔗 Follow along at: {trace_url}")
             _open_if_browser_available(trace_url)
             try:
-                response = await Runner.run(
+                # Kick off the streaming execution
+                result_stream = Runner.run_streamed(
                     starting_agent=agent,
                     input=input_prompt,
                     max_turns=100,
                     session=session,
                 )
+
+                # Iterate through events as they arrive
+                async for event in result_stream.stream_events():
+                    if event.type in {"tool_start", "tool_end", "agent_action"}:
+                        print(
+                            f"[{event.name if hasattr(event, 'name') else event.type}] {str(event)[:120]}...",
+                            flush=True,
+                        )
+                        continue
+
+                    if event.type == "raw_response_event":
+                        continue
+
+                    print(f"[{event.type}] {str(event)[:120]}...", flush=True)
+
+                # After streaming ends, get the final result
                 print("\n🤖  AI Agent: ", end="", flush=True)
-                print(response.final_output)
+                print(result_stream.final_output)
 
                 input_prompt = input("\n👤  You: ")
                 if input_prompt.lower() in {"exit", "quit"}:
@@ -223,11 +314,11 @@ def _parse_args() -> argparse.Namespace:
 
 async def main() -> None:
     """Run all demo scenarios."""
-    print("🚀 Multi-Framework MCP + connector-builder-mcp Integration Demo")
+    print("🚀 AI Connector Builder MCP Integration Demo")
     print("=" * 60)
     print()
-    print("This demo shows how different agent frameworks can wrap connector-builder-mcp")
-    print("to provide vendor-neutral access to Airbyte connector development tools.")
+    print("This demo shows how agents can wrap connector-builder-mcp")
+    print("to provide access to Airbyte connector development tools.")
     print()
 
     cli_args: argparse.Namespace = _parse_args()
