@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  models: read
 
 jobs:
   test-github-models-agent:
@@ -34,6 +35,6 @@ jobs:
       - name: Run agent with GitHub Models
         env:
           OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_ROOT: https://models.github.ai/inference
+          OPENAI_BASE_URL: https://models.github.ai/inference
         run: |
           uv run poe agent-run --headless
