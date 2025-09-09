@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
-"""Unified agent script for connector building with transparent mode selection.
+"""Example execution script for agentic connector building.
 
 This script automatically chooses between single-agent (interactive) and manager-developer
 (headless) architectures based on the execution mode. It demonstrates connecting to
@@ -11,8 +11,11 @@ Usage:
 
     uv run --project=examples examples/run_mcp_agent.py --headless "Build a connector for the JSONPlaceholder API"
 
-    poe run-mcp-agent "Your prompt string here"
-    poe run-manager-developer "Your API name"
+    poe run-connector-build "Your prompt string here"
+    poe run-connector-build "Your API name"
+
+    # Interactively:
+    poe run-connector-build-interactive "Your API name"
 
 Requirements:
     - OpenAI API key (OPENAI_API_KEY in a local '.env')
@@ -91,47 +94,58 @@ AUTO_OPEN_TRACE_URL: bool = os.environ.get("AUTO_OPEN_TRACE_URL", "1").lower() i
 
 HEADLESS_BROWSER = True
 
-MCP_SERVERS: list[MCPServer] = [
-    MCPServerStdio(
-        # This should run from the local dev environment:
-        name="airbyte-connector-builder-mcp",
-        params=MCPServerStdioParams(
-            command="uv",
-            args=[
-                "run",
-                "airbyte-connector-builder-mcp",
-            ],
-            env={},
-        ),
-        cache_tools_list=True,
+MCP_CONNECTOR_BUILDER_TOOL = lambda: MCPServerStdio(  # noqa: E731
+    # This should run from the local dev environment:
+    name="airbyte-connector-builder-mcp",
+    params=MCPServerStdioParams(
+        command="uv",
+        args=[
+            "run",
+            "airbyte-connector-builder-mcp",
+        ],
+        env={},
     ),
-    MCPServerStdio(
-        name="playwright-web-browser",
-        params=MCPServerStdioParams(
-            command="npx",
-            args=[
-                "@playwright/mcp@latest",
-                *(["--headless"] if HEADLESS_BROWSER else []),
-            ],
-            env={},
-        ),
-        cache_tools_list=True,
-        # Default 5s timeout is too short.
-        # - https://github.com/modelcontextprotocol/python-sdk/issues/407
-        client_session_timeout_seconds=15,
+    cache_tools_list=True,
+)
+MCP_PLAYWRIGHT_WEB_BROWSER = lambda: MCPServerStdio(  # noqa: E731
+    name="playwright-web-browser",
+    params=MCPServerStdioParams(
+        command="npx",
+        args=[
+            "@playwright/mcp@latest",
+            *(["--headless"] if HEADLESS_BROWSER else []),
+        ],
+        env={},
     ),
-    MCPServerStdio(
-        name="agent-workspace-filesystem",
-        params=MCPServerStdioParams(
-            command="npx",
-            args=[
-                "mcp-server-filesystem",
-                str(WORKSPACE_WRITE_DIR.absolute()),
-            ],
-            env={},
-        ),
-        cache_tools_list=True,
+    cache_tools_list=True,
+    # Default 5s timeout is too short.
+    # - https://github.com/modelcontextprotocol/python-sdk/issues/407
+    client_session_timeout_seconds=15,
+)
+MCP_FILESYSTEM_SERVER = lambda: MCPServerStdio(  # noqa: E731
+    name="agent-workspace-filesystem",
+    params=MCPServerStdioParams(
+        command="npx",
+        args=[
+            "mcp-server-filesystem",
+            str(WORKSPACE_WRITE_DIR.absolute()),
+        ],
+        env={},
     ),
+    cache_tools_list=True,
+)
+ALL_MCP_SERVERS: list[MCPServer] = [
+    MCP_CONNECTOR_BUILDER_TOOL(),
+    MCP_PLAYWRIGHT_WEB_BROWSER(),
+    MCP_FILESYSTEM_SERVER(),
+]
+MANAGER_AGENT_TOOLS: list[MCPServer] = [
+    MCP_FILESYSTEM_SERVER(),
+]
+DEVELOPER_AGENT_TOOLS: list[MCPServer] = [
+    MCP_PLAYWRIGHT_WEB_BROWSER(),
+    MCP_CONNECTOR_BUILDER_TOOL(),
+    MCP_FILESYSTEM_SERVER(),
 ]
 
 
@@ -160,7 +174,7 @@ def create_developer_agent(session_id: str, model: str) -> OpenAIAgent:
             "of connector development using MCP tools. Follow the provided phase instructions precisely. "
             "Always update checklist.md as you complete each step."
         ),
-        mcp_servers=MCP_SERVERS,
+        mcp_servers=DEVELOPER_AGENT_TOOLS,
         model=model,
     )
 
@@ -208,7 +222,7 @@ def create_manager_agent(developer_agent: OpenAIAgent, session_id: str, model: s
                 on_handoff=on_phase3_handoff,
             ),
         ],
-        mcp_servers=MCP_SERVERS,
+        mcp_servers=MANAGER_AGENT_TOOLS,
         model=model,
     )
 
@@ -265,11 +279,11 @@ async def run_interactive_build(
         instructions=(
             "You are a helpful assistant with access to MCP tools for building Airbyte connectors."
         ),
-        mcp_servers=MCP_SERVERS,
+        mcp_servers=ALL_MCP_SERVERS,
         model=model,
     )
 
-    for server in MCP_SERVERS:
+    for server in ALL_MCP_SERVERS:
         await server.connect()
 
     trace_id = gen_trace_id()
@@ -314,7 +328,7 @@ async def run_manager_developer_build(
     developer_agent = create_developer_agent(SESSION_ID, model)
     manager_agent = create_manager_agent(developer_agent, SESSION_ID, model)
 
-    for server in MCP_SERVERS:
+    for server in [*MANAGER_AGENT_TOOLS, *DEVELOPER_AGENT_TOOLS]:
         await server.connect()
 
     trace_id = gen_trace_id()
