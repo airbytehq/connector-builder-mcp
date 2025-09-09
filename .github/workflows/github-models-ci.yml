@@ -34,7 +34,7 @@ jobs:
       - name: Run agent with GitHub Models
         env:
           OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_ROOT: https://models.github.ai/v1
+          OPENAI_API_ROOT: https://models.github.ai/inference
         run: |
           # Run the script from the examples directory with examples dependencies
           cd examples

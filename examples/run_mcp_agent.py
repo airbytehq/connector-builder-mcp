@@ -38,15 +38,10 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 
+GH_MODELS_OPEANAI_API_ROOT = "https://models.github.ai/inference"
+
 # Initialize env vars:
 load_dotenv()
-
-if os.environ.get("OPENAI_API_ROOT") and os.environ.get("OPENAI_API_KEY"):
-    github_models_client = AsyncOpenAI(
-        api_key=os.environ["OPENAI_API_KEY"],
-        base_url=os.environ["OPENAI_API_ROOT"],
-    )
-    set_default_openai_client(github_models_client, use_for_tracing=True)
 
 MAX_CONNECTOR_BUILD_STEPS = 100
 DEFAULT_CONNECTOR_BUILD_API_NAME: str = "JSONPlaceholder API"
@@ -100,6 +95,54 @@ MCP_SERVERS: list[MCPServer] = [
         cache_tools_list=True,
     ),
 ]
+
+
+if "OPENAI_API_ROOT" in os.environ:
+    openai_api_root: str = os.environ["OPENAI_API_ROOT"]
+    if "github.ai" in openai_api_root and openai_api_root != GH_MODELS_OPEANAI_API_ROOT:
+        print(
+            f"⚠️ Warning: Detected GitHub Models endpoint but non-standard API root: {openai_api_root}. "
+            f"Recommended root URL is: {GH_MODELS_OPEANAI_API_ROOT}"
+        )
+
+    if openai_api_root.lower() in {"gh", "github", "github models"}:
+        print(
+            f"Found GitHub Models endpoint alias: {openai_api_root}. "
+            f"Applying recommended Github Models URL root: {GH_MODELS_OPEANAI_API_ROOT}"
+        )
+        openai_api_root = GH_MODELS_OPEANAI_API_ROOT
+
+    if "github.ai" in openai_api_root and "OPENAI_API_KEY" not in os.environ:
+        print(
+            "GitHub Models endpoint detected but not API Root is set. "
+            "Attempting to extract token using `gh auth token` CLI command."
+        )
+        import subprocess
+
+        _ = subprocess.check_output(["gh", "auth", "status"])
+        openai_api_key: str = (
+            subprocess.check_output(["gh", "auth", "token"]).decode("utf-8").strip()
+        )
+        print(
+            "✅ Successfully extracted GitHub token from `gh` CLI: "
+            f"({openai_api_key[:4]}...{openai_api_key[-4:]})"
+        )
+        if not openai_api_key.startswith("sk-"):
+            raise ValueError(
+                "Extracted GitHub token does not appear to be valid. "
+                "Please ensure you have the GitHub CLI installed and authenticated."
+            )
+        os.environ["OPENAI_API_KEY"] = openai_api_key
+
+    print(f"ℹ️ Using Custom OpenAI-Compatible LLM Endpoint: {openai_api_root}")
+    github_models_client = AsyncOpenAI(
+        base_url=openai_api_root,
+        api_key=os.environ.get("OPENAI_API_KEY", None),
+    )
+    set_default_openai_client(
+        github_models_client,
+        use_for_tracing=True,
+    )
 
 
 @lru_cache  # Hacky way to run 'just once' 🙂
@@ -220,13 +263,11 @@ def _parse_args() -> argparse.Namespace:
         "--model",
         default=DEFAULT_LLM_MODEL,
         help=(
-            "".join(
-                [
-                    "LLM model to use for the agent. ",
-                    "Examples: o4-mini, gpt-4o-mini. ",
-                    f"Default: {DEFAULT_LLM_MODEL}",
-                ]
-            )
+            "".join([
+                "LLM model to use for the agent. ",
+                "Examples: o4-mini, gpt-4o-mini. ",
+                f"Default: {DEFAULT_LLM_MODEL}",
+            ])
         ),
     )
     return parser.parse_args()
