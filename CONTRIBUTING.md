@@ -21,7 +21,7 @@ poe sync
 uv run connector-builder-mcp --help
 ```
 
-_(Note: Unlike Poetry, uv will generally auto-run a sync whenever you use `uv run`. So, `uv sync`
+_(Note: Unlike Poetry, uv will generally auto-run a sync whenever you use `uv run`. Running `uv sync` explicitly
 may not be strictly necessary.)_
 
 ### Installing Poe
