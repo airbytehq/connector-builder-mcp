@@ -172,7 +172,7 @@ DEVELOPER_AGENT_TOOLS: list[MCPServer] = [
 
 if OPENAI_BASE_URL_ENV_VAR in os.environ:
     print("⚙️ Detected custom OpenAI API root in environment.")
-    OPENAI_BASE_URL_ENV_VAR: str = os.environ[OPENAI_BASE_URL_ENV_VAR]
+    OPENAI_BASE_URL: str = os.environ[OPENAI_BASE_URL_ENV_VAR]
     if (
         "github.ai" in OPENAI_BASE_URL_ENV_VAR
         and OPENAI_BASE_URL_ENV_VAR != GH_MODELS_OPENAI_BASE_URL
