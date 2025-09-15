@@ -24,7 +24,7 @@ uv run connector-builder-mcp --help
 _(Note: Unlike Poetry, uv will generally auto-run a sync whenever you use `uv run`. So, `uv sync`
 may not be strictly necessary.)_
 
-### Using Poe Tasks
+### Installing Poe
 
 For convenience, install [Poe the Poet](https://poethepoet.natn.io/) task runner:
 
@@ -36,7 +36,7 @@ uv tool install poethepoet
 poe --help
 ```
 
-## Poe Shortcuts
+## Helpful Poe Shortcuts
 
 Note: The below is _not_ a full list of poe commands. For a full list, run `poe --help`.
 
@@ -53,7 +53,120 @@ poe agent-run       # Run a connector build using the Pytest test script.
 
 You can see what any Poe task does by checking the `poe_tasks.toml` file at the root of the repo.
 
+## Testing with GitHub Models
+
+```bash
+brew install gh
+gh auth login
+gh extension install https://github.com/github/gh-models
+gh models --help
+```
+
+## Running Pytest Tests
+
+```bash
+# Make sure dependencies are up-to-date
+poe sync
+
+# Run all tests
+poe test
+
+# Run only integration tests
+uv run pytest tests/test_integration.py -v
+
+# Run tests requiring credentials (skipped by default)
+uv run pytest tests/ -v -m requires_creds
+
+# Run fast tests only (skip slow integration tests)
+uv run pytest tests/ -v -m "not requires_creds"
+```
+
+## MCP Server Inspection
+
+Inspect the MCP server to see available tools, resources, and prompts:
+
+```bash
+# Inspect the server structure (generates comprehensive JSON report)
+poe inspect
+# Equivalent to: uv run fastmcp inspect connector_builder_mcp/server.py:app
+
+# Save inspection report to custom file
+poe inspect --output my-server-report.json
+# Equivalent to: uv run fastmcp inspect connector_builder_mcp/server.py:app --output my-server-report.json
+
+# View help for inspection options
+poe inspect --help
+# Shows available options for the inspect command
+```
+
+The inspection generates a comprehensive JSON report containing: **Tools**, **Prompts**, **Resources**, **Templates**, and **Capabilities**.
+
+### Inspecting Specific Tools
+
+After running `poe inspect`, you can examine the generated `server-info.json` file to see detailed information about each tool:
+
+```bash
+# View the complete inspection report
+cat server-info.json
+
+# Extract just the tools information using jq
+cat server-info.json | jq '.tools'
+
+# Get details for a specific tool
+cat server-info.json | jq '.tools[] | select(.name == "validate_manifest")'
+```
+
+## Testing MCP Tools
+
+Test individual MCP tools directly with JSON arguments using the `test-tool` command:
+
+```bash
+# Test manifest validation
+poe test-tool validate_manifest '{"manifest": {"version": "4.6.2", "type": "DeclarativeSource"}, "config": {}}'
+
+# Test secrets listing with local file
+poe test-tool list_dotenv_secrets '{"dotenv_path": "/absolute/path/to/.env"}'
+
+# Test populating missing secrets
+poe test-tool populate_dotenv_missing_secrets_stubs '{"dotenv_path": "/path/to/.env", "config_paths": "api_key,secret_token"}'
+```
+
+The `poe test-tool` command is ideal for:
+
+- Quick testing of individual tools during development
+- Testing with real data without setting up full MCP client
+- Debugging tool behavior with specific inputs
+- Validating privatebin URL functionality
+
+## Using PrivateBin for Connector Config Secrets
+
+PrivateBin can be used when it's not feasible to have a local `.env` file. When using PrivateBin:
+
+1. When creating the privatebin Secret, simply use the same format as you would for a `.env` file.
+2. Always set a constant text password as an additional encryption layer. (Use the same password across all files you will use in a given session.)
+3. Pass the password as an env var. (Don't give it to the agent.)
+4. Private an expiration window such as 1 day or 1 week, depending on your requirements.
+
+```bash
+# Test secrets listing with privatebin URL (requires PRIVATEBIN_PASSWORD env var)
+export PRIVATEBIN_PASSWORD="your_password"
+poe test-tool list_dotenv_secrets '{"dotenv_path": "https://privatebin.net/?abc123"}'
+
+# Test with privatebin URL
+poe test-tool populate_dotenv_missing_secrets_stubs '{"dotenv_path": "https://privatebin.net/?abc123#passphrase", "config_paths": "api_key,secret_token"}'
+```
+
+## Testing with the VS Code MCP Extension
+
+The repository includes a pre-configured MCP setup in `.vscode/mcp.json`. Install the MCP extension and use the command palette to access connector builder tools directly in your editor.
+
+## MCP Tools Dev Guide
+
+This section has tools on how to develop MCP tools.
+
 ### Tool Function Pattern
+
+Here is an example tool definition.
 
 ```python
 from typing import Annotated
@@ -83,15 +196,6 @@ def register_tools(app: FastMCP) -> None:
     app.tool()(my_new_tool)
 ```
 
-## Testing with GitHub Models
-
-```bash
-brew install gh
-gh auth login
-gh extension install https://github.com/github/gh-models
-gh models --help
-```
-
 ## Debugging
 
 One or more of these may be helpful in debugging:
@@ -101,4 +205,5 @@ export HTTPX_LOG_LEVEL=debug
 export DEBUG='openai:*'
 export OPENAI_AGENTS_LOG=debug
 export OPENAI_LOG=debug
+export FASTMCP_DEBUG=1
 ```
