@@ -9,37 +9,22 @@ This project uses [uv](https://docs.astral.sh/uv/) for Python package management
 ### Prerequisites
 
 - Python 3.10+
-- [uv](https://docs.astral.sh/uv/) for package management
+- [uv](https://docs.astral.sh/uv/) for package management (`brew install uv`)
+
+### Installing Dependencies
 
 ```bash
-# Install uv if you haven't already
-curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync --all-extras
+# Or:
+poe sync
+# Verify installation:
+uv run connector-builder-mcp --help
 ```
 
-### Quick Start
+_(Note: Unlike Poetry, uv will generally auto-run a sync whenever you use `uv run`. Running `uv sync` explicitly
+may not be strictly necessary.)_
 
-1. **Clone the repository**:
-
-   ```bash
-   git clone https://github.com/airbytehq/connector-builder-mcp.git
-   cd connector-builder-mcp
-   ```
-
-2. **Install dependencies**:
-
-   ```bash
-   uv sync --all-extras
-   # Or:
-   poe sync
-   ```
-
-3. **Verify the installation**:
-
-   ```bash
-   uv run connector-builder-mcp --help
-   ```
-
-### Using Poe Tasks
+### Installing Poe
 
 For convenience, install [Poe the Poet](https://poethepoet.natn.io/) task runner:
 
@@ -51,109 +36,144 @@ uv tool install poethepoet
 poe --help
 ```
 
-Available Poe commands:
+## Helpful Poe Shortcuts
+
+Note: The below is _not_ a full list of poe commands. For a full list, run `poe --help`.
 
 ```bash
-# Development
-poe install         # Install dependencies
-poe sync            # Alias for install
-
-# Code quality
-poe format          # Format code with ruff
-poe lint            # Lint code with ruff  
-poe lint-fix        # Lint and auto-fix issues
-poe typecheck       # Type check with mypy
-poe check           # Run all checks (lint + typecheck + test)
-
-# Testing
-poe test            # Run tests with verbose output
-poe test-fast       # Run tests, stop on first failure
-
 # MCP server operations
 poe mcp-serve-local # Serve with STDIO transport
 poe mcp-serve-http  # Serve over HTTP
 poe mcp-serve-sse   # Serve over SSE
-poe inspect         # Inspect available MCP tools
-
-# Combined workflows
-poe check           # Run lint + typecheck + test
+poe inspect         # Inspect the MCP server. Use --help for options.
+poe inspect --tools # Inspect the tools.
+poe test-tool       # Spin up server, pass a tool call, then spin down the server.
+poe agent-run       # Run a connector build using the Pytest test script.
 ```
 
 You can see what any Poe task does by checking the `poe_tasks.toml` file at the root of the repo.
 
-## Manual Commands (without Poe)
-
-If you prefer to run commands directly with uv:
+## Testing with GitHub Models
 
 ```bash
-# Development
-uv sync --all-extras                 # Install dependencies
-uv run ruff format .                 # Format code
-uv run ruff check .                  # Lint code
-uv run mypy connector_builder_mcp    # Type checking
-uv run pytest tests/ -v              # Run tests
-
-# MCP server
-uv run connector-builder-mcp         # Start server
-poe inspect                          # Inspect tools
+brew install gh
+gh auth login
+gh extension install https://github.com/github/gh-models
+gh models --help
 ```
 
-## Testing
-
-The project includes comprehensive tests covering:
-
-- **Server functionality**: MCP server initialization and tool registration
-- **Connector builder tools**: Manifest validation, stream testing, and resolution
-- **Utility functions**: Configuration filtering and validation
-
-Run the full test suite:
+## Running Pytest Tests
 
 ```bash
+# Make sure dependencies are up-to-date
+poe sync
+
+# Run all tests
 poe test
-# or
-uv run pytest tests/ -v
+
+# Run only integration tests
+uv run pytest tests/test_integration.py -v
+
+# Run tests requiring credentials (skipped by default)
+uv run pytest tests/ -v -m requires_creds
+
+# Run fast tests only (skip slow integration tests)
+uv run pytest tests/ -v -m "not requires_creds"
 ```
 
-### Testing with Real Connectors
+## MCP Server Inspection
 
-To test with actual Airbyte connector manifests:
-
-1. Prepare a connector manifest (JSON format)
-2. Use the MCP tools through the server or test them directly
-3. Verify that validation, stream testing, and resolution work as expected
-
-## Code Style
-
-We use [Ruff](https://docs.astral.sh/ruff/) for both linting and formatting:
-
-- **Line length**: 100 characters
-- **Target Python version**: 3.10+
-- **Import sorting**: Automatic with ruff
-- **Type hints**: Required for all public functions
-
-Before submitting changes:
+Inspect the MCP server to see available tools, resources, and prompts:
 
 ```bash
-poe check  # Runs formatting, linting, type checking, and tests
+# Inspect the server structure (generates comprehensive JSON report)
+poe inspect
+# Equivalent to: uv run fastmcp inspect connector_builder_mcp/server.py:app
+
+# Save inspection report to custom file
+poe inspect --output my-server-report.json
+# Equivalent to: uv run fastmcp inspect connector_builder_mcp/server.py:app --output my-server-report.json
+
+# View help for inspection options
+poe inspect --help
+# Shows available options for the inspect command
 ```
 
-## MCP Tool Development
+The inspection generates a comprehensive JSON report containing: **Tools**, **Prompts**, **Resources**, **Templates**, and **Capabilities**.
 
-When adding new MCP tools:
+### Inspecting Specific Tools
 
-1. **Add the tool function** in the appropriate module (e.g., `connector_builder_mcp/_connector_builder.py`)
-2. **Use proper type annotations** with Pydantic models for complex inputs/outputs
-3. **Register the tool** in the module's registration function
-4. **Add comprehensive tests** covering success and failure cases
-5. **Update documentation** if the tool adds new capabilities
+After running `poe inspect`, you can examine the generated `server-info.json` file to see detailed information about each tool:
+
+```bash
+# View the complete inspection report
+cat server-info.json
+
+# Extract just the tools information using jq
+cat server-info.json | jq '.tools'
+
+# Get details for a specific tool
+cat server-info.json | jq '.tools[] | select(.name == "validate_manifest")'
+```
+
+## Testing MCP Tools
+
+Test individual MCP tools directly with JSON arguments using the `test-tool` command:
+
+```bash
+# Test manifest validation
+poe test-tool validate_manifest '{"manifest": {"version": "4.6.2", "type": "DeclarativeSource"}, "config": {}}'
+
+# Test secrets listing with local file
+poe test-tool list_dotenv_secrets '{"dotenv_path": "/absolute/path/to/.env"}'
+
+# Test populating missing secrets
+poe test-tool populate_dotenv_missing_secrets_stubs '{"dotenv_path": "/path/to/.env", "config_paths": "api_key,secret_token"}'
+```
+
+The `poe test-tool` command is ideal for:
+
+- Quick testing of individual tools during development
+- Testing with real data without setting up full MCP client
+- Debugging tool behavior with specific inputs
+- Validating privatebin URL functionality
+
+## Using PrivateBin for Connector Config Secrets
+
+PrivateBin can be used when it's not feasible to have a local `.env` file. When using PrivateBin:
+
+1. When creating the privatebin Secret, simply use the same format as you would for a `.env` file.
+2. Always set a constant text password as an additional encryption layer. (Use the same password across all files you will use in a given session.)
+3. Pass the password as an env var. (Don't give it to the agent.)
+4. Private an expiration window such as 1 day or 1 week, depending on your requirements.
+
+```bash
+# Test secrets listing with privatebin URL (requires PRIVATEBIN_PASSWORD env var)
+export PRIVATEBIN_PASSWORD="your_password"
+poe test-tool list_dotenv_secrets '{"dotenv_path": "https://privatebin.net/?abc123"}'
+
+# Test with privatebin URL
+poe test-tool populate_dotenv_missing_secrets_stubs '{"dotenv_path": "https://privatebin.net/?abc123#passphrase", "config_paths": "api_key,secret_token"}'
+```
+
+## Testing with the VS Code MCP Extension
+
+The repository includes a pre-configured MCP setup in `.vscode/mcp.json`. Install the MCP extension and use the command palette to access connector builder tools directly in your editor.
+
+## MCP Tools Dev Guide
+
+This section has tools on how to develop MCP tools.
 
 ### Tool Function Pattern
+
+Here is an example tool definition.
 
 ```python
 from typing import Annotated
 from pydantic import Field
 from fastmcp import FastMCP
 
+# @app.tool  # deferred
 def my_new_tool(
     param: Annotated[
         str,
@@ -176,51 +196,6 @@ def register_tools(app: FastMCP) -> None:
     app.tool()(my_new_tool)
 ```
 
-## AI Ownership Focus
-
-This project emphasizes **AI ownership** rather than AI assistance. When contributing:
-
-- **Design for autonomy**: Tools should enable end-to-end AI control of connector building
-- **Comprehensive error handling**: AI agents need clear error messages and recovery paths  
-- **Structured outputs**: Use Pydantic models for consistent, parseable responses
-- **Testing workflows**: Include tools that support automated testing and validation
-
-## Submitting Changes
-
-1. **Create a feature branch**: `git checkout -b feature/your-feature-name`
-2. **Make your changes** following the code style guidelines
-3. **Run the full test suite**: `poe check`
-4. **Commit with clear messages**: Use conventional commit format
-5. **Push and create a pull request**
-
-### Commit Message Format
-
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```text
-feat: add new MCP tool for stream discovery
-fix: resolve manifest validation edge case
-docs: update contributing guidelines
-test: add integration tests for connector builder
-```
-
-## Getting Help
-
-- **Issues**: Report bugs and request features via GitHub Issues
-- **Discussions**: Use GitHub Discussions for questions and ideas
-- **Code Review**: All changes require review before merging
-
-Thank you for contributing to Builder MCP! 🚀
-
-## Testing with GitHub Models
-
-```bash
-brew install gh
-gh auth login
-gh extension install https://github.com/github/gh-models
-gh models --help
-```
-
 ## Debugging
 
 One or more of these may be helpful in debugging:
@@ -230,4 +205,5 @@ export HTTPX_LOG_LEVEL=debug
 export DEBUG='openai:*'
 export OPENAI_AGENTS_LOG=debug
 export OPENAI_LOG=debug
+export FASTMCP_DEBUG=1
 ```
