@@ -136,13 +136,13 @@ If you ever want to see what a Poe task is doing (such as to run it directly or 
 
 ```bash
 # Run the MCP agent
-poe run-connector-build
+poe build-connector
 
 # Or with a custom prompt
-poe run-connector-build "Build a connector for the JSONPlaceholder API"
+poe build-connector "Build a connector for the JSONPlaceholder API"
 
 # Interactive Mode
-poe run-connector-build-interactive "Build a connector for the JSONPlaceholder API"
+poe build-connector-interactive "Build a connector for the JSONPlaceholder API"
 ```
 
 ### Unified Agent Architecture
@@ -151,11 +151,11 @@ The Builder MCP automatically chooses between two execution modes based on how y
 
 ```bash
 # Interactive mode (single-agent with conversation loop)
-poe run-connector-build "JSONPlaceholder API"
+poe build-connector "JSONPlaceholder API"
 uv run --project=examples examples/run_mcp_agent.py "Build a connector for the JSONPlaceholder API"
 
 # Headless mode (manager-developer with 3-phase handoffs)
-poe run-connector-build "JSONPlaceholder API"
+poe build-connector "JSONPlaceholder API"
 uv run --project=examples examples/run_mcp_agent.py --headless "JSONPlaceholder API"
 ```
 

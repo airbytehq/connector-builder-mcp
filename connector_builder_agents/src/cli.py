@@ -6,11 +6,11 @@ The CLI offers single-agent (interactive) and manager-developer
 connector-builder-mcp via STDIO transport and using the `openai-agents` library with MCP.
 
 Usage:
-    poe run-connector-build "Your prompt string here"
-    poe run-connector-build "Your API name"
+    poe build-connector "Your prompt string here"
+    poe build-connector "Your API name"
 
     # Interactively:
-    poe run-connector-build-interactive "Your API name"
+    poe build-connector-interactive "Your API name"
 
 Requirements:
     - OpenAI API key (OPENAI_API_KEY in a local '.env')
