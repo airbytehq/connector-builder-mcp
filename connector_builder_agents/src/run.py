@@ -137,6 +137,9 @@ async def run_interactive_build(
                 update_progress_log("\n🛑 Conversation terminated (ctrl+c input received).")
                 update_progress_log(f"🪵 Review trace logs at: {trace_url}")
                 sys.exit(0)
+            finally:
+                for server in ALL_MCP_SERVERS:
+                    await server.cleanup()
 
 
 async def run_manager_developer_build(

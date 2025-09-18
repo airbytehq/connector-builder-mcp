@@ -52,5 +52,8 @@ jobs:
           # GH Rate Limits are currently too low (esp. per-call token limits)
           # OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
           # OPENAI_BASE_URL: https://models.github.ai/inference
+          OPENAI_AGENTS_LOG: debug
+          OPENAI_LOG: debug
+          FASTMCP_DEBUG: 1
         run: |
           poe build-connector "${{ matrix.api_name }}"
