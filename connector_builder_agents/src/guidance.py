@@ -1,7 +1,6 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Guidance and prompt management for connector builder agents."""
 
-
 from pathlib import Path
 
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
@@ -47,15 +46,17 @@ def get_default_manager_prompt(
     project_directory: Path,
 ) -> str:
     """Get the default prompt for the manager agent."""
-    return " \n".join([
-        _MANAGER_PROMPT_TEMPLATE.format(
-            api_name=api_name,
-            instructions=instructions,
-        ),
-        get_project_directory_prompt(project_directory),
-        RECOMMENDED_PROMPT_PREFIX,
-        PROMPT_FILE_STR,
-    ])
+    return " \n".join(
+        [
+            _MANAGER_PROMPT_TEMPLATE.format(
+                api_name=api_name,
+                instructions=instructions,
+            ),
+            get_project_directory_prompt(project_directory),
+            RECOMMENDED_PROMPT_PREFIX,
+            PROMPT_FILE_STR,
+        ]
+    )
 
 
 def get_default_developer_prompt(
@@ -64,12 +65,14 @@ def get_default_developer_prompt(
     project_directory: Path,
 ) -> str:
     """Get the default prompt for the developer agent."""
-    return " \n".join([
-        "You are an experienced connector developer agent and expert in building Airbyte connectors."
-        "You are receiving instructions on specific tasks or projects to complete. ",
-        "",
-        f"API Name: {api_name}",
-        f"Additional Instructions: {instructions}",
-        get_project_directory_prompt(project_directory),
-        PROMPT_FILE_STR,
-    ])
+    return " \n".join(
+        [
+            "You are an experienced connector developer agent and expert in building Airbyte connectors."
+            "You are receiving instructions on specific tasks or projects to complete. ",
+            "",
+            f"API Name: {api_name}",
+            f"Additional Instructions: {instructions}",
+            get_project_directory_prompt(project_directory),
+            PROMPT_FILE_STR,
+        ]
+    )

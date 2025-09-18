@@ -20,6 +20,7 @@ Usage:
 Requirements:
     - OpenAI API key (OPENAI_API_KEY in a local '.env')
 """
+
 import sys
 from pathlib import Path
 

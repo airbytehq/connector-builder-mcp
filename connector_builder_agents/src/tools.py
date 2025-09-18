@@ -125,6 +125,7 @@ def is_complete() -> bool:
 
 class AgentEnum(str, Enum):
     """Enum for agent names."""
+
     MANAGER_AGENT_NAME = "👨‍💼 Manager"
     DEVELOPER_AGENT_NAME = "👨‍💻 Developer"
 
@@ -137,7 +138,7 @@ def update_progress_log(
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
     elapsed = now - START_TIME
-    elapsed_str = str(elapsed).split('.')[0]  # Remove microseconds for readability
+    elapsed_str = str(elapsed).split(".")[0]  # Remove microseconds for readability
 
     # Detect if the first character of message is an emoji (unicode range):
     if message and ord(message[0]) in range(0x1F600, 0x1F64F):
@@ -196,7 +197,6 @@ def log_problem_encountered(
 def log_problem_encountered_by_manager(description: str) -> None:
     """Log a problem encountered message from the manager agent."""
     log_problem_encountered(description, AgentEnum.MANAGER_AGENT_NAME)
-
 
 
 @function_tool(name_override="log_problem_encountered")
