@@ -68,7 +68,7 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 
 ### Complementary MCP Servers
 
-If your agents doesn't already have files and/or internet access, you may want to add one or more of these:
+If your agents don't already have files and/or internet access, you may want to add one or more of these:
 
 ```json
 {
