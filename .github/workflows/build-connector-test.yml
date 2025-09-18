@@ -44,14 +44,11 @@ jobs:
         run: uv sync --project connector_builder_agents --all-extras
 
       # Job-specific step(s):
-      - name: Run agent with GitHub Models
+      - name: Run agent-based connector build
         timeout-minutes: 15
-        continue-on-error: true
+        continue-on-error: true  # TODO: Fails currently, needs more work
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # GH Rate Limits are currently too low (esp. per-call token limits)
-          # OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-          # OPENAI_BASE_URL: https://models.github.ai/inference
           OPENAI_AGENTS_LOG: debug
           OPENAI_LOG: debug
           FASTMCP_DEBUG: 1
