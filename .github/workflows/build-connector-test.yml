@@ -4,7 +4,12 @@ on:
   push:
     branches:
       - main
-  pull_request: {}
+  pull_request:
+    types:
+      - ready_for_review
+      - synchronize
+      - reopened
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +19,11 @@ jobs:
   test-github-models-agent:
     name: Test Connector Build
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        api_name:
+        - "JSONPlaceholder"
+        - "PokemonTGG"
     steps:
       # Common steps:
       - name: Checkout code
@@ -33,11 +43,12 @@ jobs:
 
       # Job-specific step(s):
       - name: Run agent with GitHub Models
-        continue-on-error: true  # Fails currently, needs more work
+        timeout-minutes: 15
+        continue-on-error: true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           # GH Rate Limits are currently too low (esp. per-call token limits)
           # OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
           # OPENAI_BASE_URL: https://models.github.ai/inference
         run: |
-          uv run poe agent-run --headless
+          uv run poe build-connector "${{ matrix.api_name }}"
