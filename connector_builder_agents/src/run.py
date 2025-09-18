@@ -1,25 +1,5 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
-"""Example execution script for agentic connector building.
-
-This script automatically chooses between single-agent (interactive) and manager-developer
-(headless) architectures based on the execution mode. It demonstrates connecting to
-connector-builder-mcp via STDIO transport and using the `openai-agents` library with MCP.
-
-Usage:
-    uv run --project=examples examples/run_mcp_agent.py
-    uv run --project=examples examples/run_mcp_agent.py "Build a connector for the JSONPlaceholder API"
-
-    uv run --project=examples examples/run_mcp_agent.py --interactive "Build a connector for the JSONPlaceholder API"
-
-    poe build-connector "Your prompt string here"
-    poe build-connector "Your API name"
-
-    # Interactively:
-    poe build-connector-interactive "Your API name"
-
-Requirements:
-    - OpenAI API key (OPENAI_API_KEY in a local '.env')
-"""
+"""Functions to run connector builder agents in different modalities."""
 
 import sys
 from pathlib import Path
