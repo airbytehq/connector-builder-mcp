@@ -78,7 +78,7 @@ If your agents don't already have files and/or internet access, you may want to 
       "command": "npx",
       "args": [
         "mcp-server-filesystem",
-        "/Users/ajsteers/.mcp/file-artifacts/"
+        "/path/to/your/build-artifacts/"
       ]
     },
     "playwright-web-browser": {
