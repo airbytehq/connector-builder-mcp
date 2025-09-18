@@ -87,7 +87,7 @@ If your agents don't already have files and/or internet access, you may want to 
           "@playwright/mcp@latest",
           "--headless"
       ],
-      env={}
+      "env": {}
     }
   }
 }
