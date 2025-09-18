@@ -102,7 +102,7 @@ If you'd like to time your agent, you can add this timer tool:
     "time": {
       "command": "uvx",
       "args": ["mcp-server-time", "--local-timezone", "America/Los_Angeles"]
-    },
+    }
   }
 }
 ```
