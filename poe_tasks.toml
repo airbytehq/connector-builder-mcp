@@ -43,8 +43,8 @@ docs-generate.cmd = "uv run pdoc connector_builder_mcp --output-dir docs/generat
 docs-generate.help = "Generate API documentation"
 
 # Agentic Connector Build Testing
-run-connector-build = { cmd = "uv run --project=examples examples/run_mcp_agent.py", help = "Run the MCP agent" }
-run-connector-build-interactive = { cmd = "uv run --project=examples examples/run_mcp_agent.py --headless", help = "Run the manager-developer agent architecture" }
+run-connector-build = { cmd = "uv run --project=connector_builder_agents python -m connector_builder_agents.src.cli", help = "Run the MCP agent" }
+run-connector-build-interactive = { cmd = "uv run --project=connector_builder_agents examples/run_mcp_agent.py --headless", help = "Run the manager-developer agent architecture" }
 
 # Codex Tests
 codex.cmd = "npx @openai/codex --sandbox=workspace-write"

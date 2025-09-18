@@ -74,10 +74,9 @@ def get_connector_builder_docs(
     if not topic:
         return """# Connector Builder Documentation
 
-**Important**: Before starting development, call the `get_connector_builder_checklist()` tool first to get the comprehensive development checklist.
-
-The checklist provides step-by-step guidance for building connectors and helps avoid common pitfalls like pagination issues and incomplete validation.
-
+**Important**: Before starting development, call the `get_connector_builder_checklist()` tool.
+Save its contents to a new text file if you are able. The checklist provides step-by-step guidance
+for building connectors and helps avoid common pitfalls like pagination issues and incomplete validation.
 
 For detailed guidance on specific components and features, you can request documentation for any of these topics:
 
