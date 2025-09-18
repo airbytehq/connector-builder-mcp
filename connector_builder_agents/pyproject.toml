@@ -1,5 +1,5 @@
 [project]
-name = "examples"
+name = "airbyte-connector-builder-agents"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -9,6 +9,7 @@ dependencies = [
     "openai-agents-mcp>=0.0.8",
     "openai-agents>=0.2.11",
     "mcp-agent>=0.1.15",  # Transitive dependency of openai-agents
+    "pydantic>=2.0.0",  # For phase data models
 ]
 
 [dependency-groups]

@@ -77,7 +77,7 @@ markers = [
 
 [tool.deptry]
 exclude = [
-    "examples/",
+    "connector_builder_agents/",
     ".venv/",
     "tests/",
 ]
