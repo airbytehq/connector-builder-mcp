@@ -66,6 +66,47 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 }
 ```
 
+### Complementary MCP Servers
+
+If your agents don't already have files and/or internet access, you may want to add one or more of these:
+
+```json
+{
+  "mcpServers": {
+    // ... other servers defined here ...
+    "files-server": {
+      "command": "npx",
+      "args": [
+        "mcp-server-filesystem",
+        "/path/to/your/build-artifacts/"
+      ]
+    },
+    "playwright-web-browser": {
+      "command": "npx",
+      "args": [
+          "@playwright/mcp@latest",
+          "--headless"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
+If you'd like to time your agent, you can add this timer tool:
+
+```json
+{
+  "mcpServers": {
+    // ... other servers defined here ...
+    "time": {
+      "command": "uvx",
+      "args": ["mcp-server-time", "--local-timezone", "America/Los_Angeles"]
+    }
+  }
+}
+```
+
 ### VS Code MCP Extension
 
 For VS Code users with the MCP extension, use the included configuration in `.vscode/mcp.json`.
