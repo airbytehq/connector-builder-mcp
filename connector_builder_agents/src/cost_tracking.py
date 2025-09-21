@@ -24,6 +24,13 @@ _THRESHOLDS = {
 }
 
 _MODEL_PRICING = {
+    """Pricing per 1M tokens in USD as of September 2024.
+
+    Each model maps to a tuple of (input_price_per_1M_tokens, output_price_per_1M_tokens).
+    Prices are based on official API documentation from OpenAI, Anthropic, and other providers.
+
+    Example: "gpt-4o": (2.5, 10.0) means $2.50 per 1M input tokens, $10.00 per 1M output tokens.
+    """
     "gpt-4": (30.0, 60.0),
     "gpt-4-turbo": (10.0, 30.0),
     "gpt-4o": (2.5, 10.0),
