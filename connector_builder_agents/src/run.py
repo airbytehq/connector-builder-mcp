@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Functions to run connector builder agents in different modalities."""
 
+import datetime
 import sys
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from .constants import (
     MAX_CONNECTOR_BUILD_STEPS,
     SESSION_ID,
 )
+from .cost_tracking import CostEvaluator, CostTracker
 from .tools import (
     ALL_MCP_SERVERS,
     DEVELOPER_AGENT_TOOLS,
@@ -97,6 +99,10 @@ async def run_interactive_build(
     with trace(workflow_name="Interactive Connector Builder Session", trace_id=trace_id):
         trace_url = f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
 
+        cost_tracker = CostTracker(trace_id=trace_id)
+        cost_tracker.start_time = datetime.datetime.utcnow().isoformat()
+        update_progress_log(f"🔢 Token usage tracking enabled for trace: {trace_id}")
+
         input_prompt: str = prompt
         while True:
             update_progress_log("\n⚙️  AI Agent is working...")
@@ -127,6 +133,11 @@ async def run_interactive_build(
                 # After streaming ends, get the final result
                 update_progress_log(f"\n🤖  AI Agent: {result_stream.final_output}")
 
+                if hasattr(result_stream, 'final_result') and result_stream.final_result:
+                    cost_tracker.add_run_result(result_stream.final_result)
+                    total_tokens = sum(usage.total_tokens for usage in cost_tracker.model_usage.values())
+                    update_progress_log(f"🔢 Session tokens: {total_tokens:,}")
+
                 input_prompt = input("\n👤  You: ")
                 if input_prompt.lower() in {"exit", "quit"}:
                     update_progress_log("☑️ Ending conversation...")
@@ -138,6 +149,13 @@ async def run_interactive_build(
                 update_progress_log(f"🪵 Review trace logs at: {trace_url}")
                 sys.exit(0)
             finally:
+                cost_tracker.end_time = datetime.datetime.utcnow().isoformat()
+                cost_summary = cost_tracker.get_summary()
+
+                if cost_summary['total_tokens'] > 0:
+                    update_progress_log(f"\n🔢 Session Total Tokens: {cost_summary['total_tokens']:,}")
+                    update_progress_log(f"🔢 Total Requests: {cost_summary['total_requests']}")
+
                 for server in ALL_MCP_SERVERS:
                     await server.cleanup()
 
@@ -169,6 +187,9 @@ async def run_manager_developer_build(
     with trace(workflow_name="Manager-Developer Connector Build", trace_id=trace_id):
         trace_url = f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
 
+        cost_tracker = CostTracker(trace_id=trace_id)
+        cost_tracker.start_time = datetime.datetime.utcnow().isoformat()
+
         run_prompt = (
             "You are working on a connector build task. "
             f"You are managing a connector build for the API: '{api_name or 'N/A'}'. "
@@ -177,6 +198,7 @@ async def run_manager_developer_build(
 
         update_progress_log("\n⚙️  Manager Agent is orchestrating the build...")
         update_progress_log(f"🔗 Follow along at: {trace_url}")
+        update_progress_log(f"🔢 Token usage tracking enabled for trace: {trace_id}")
         open_if_browser_available(trace_url)
 
         try:
@@ -190,9 +212,16 @@ async def run_manager_developer_build(
                     session=session,
                     # previous_response_id=prev_response_id,
                 )
+
+                cost_tracker.add_run_result(run_result)
+
                 # prev_response_id = run_result.raw_responses[-1].response_id if run_result.raw_responses else None
                 status_msg = f"\n🤖 {run_result.last_agent.name}: {run_result.final_output}"
                 update_progress_log(status_msg)
+                run_tokens = sum(response.usage.total_tokens for response in run_result.raw_responses if response.usage)
+                total_tokens = sum(usage.total_tokens for usage in cost_tracker.model_usage.values())
+                update_progress_log(f"🔢 Run tokens: {run_tokens:,} | Total: {total_tokens:,}")
+
                 run_prompt = (
                     "You are still working on the connector build task. "
                     "Continue to the next step or raise an issue if needed. "
@@ -208,3 +237,42 @@ async def run_manager_developer_build(
             update_progress_log(f"\n❌ Unexpected error during build: {ex}")
             update_progress_log(f"🪵 Review trace logs at: {trace_url}")
             sys.exit(1)
+        finally:
+            cost_tracker.end_time = datetime.datetime.utcnow().isoformat()
+
+            cost_summary = cost_tracker.get_summary()
+            cost_evaluation = CostEvaluator.evaluate_cost_efficiency(cost_tracker)
+
+            update_progress_log("\n" + "=" * 60)
+            update_progress_log("🔢 TOKEN USAGE TRACKING SUMMARY")
+            update_progress_log("=" * 60)
+            update_progress_log(f"Total Tokens: {cost_summary['total_tokens']:,}")
+            update_progress_log(f"Total Requests: {cost_summary['total_requests']}")
+            update_progress_log(f"Models Used: {', '.join(cost_summary['models_used'])}")
+
+            for model_name, model_data in cost_summary['model_breakdown'].items():
+                update_progress_log(f"  {model_name}:")
+                update_progress_log(f"    Input tokens: {model_data['input_tokens']:,}")
+                update_progress_log(f"    Output tokens: {model_data['output_tokens']:,}")
+                update_progress_log(f"    Requests: {model_data['requests']}")
+
+            update_progress_log(f"\nUsage Status: {cost_evaluation['usage_status'].upper()}")
+            if cost_evaluation['warnings']:
+                for warning in cost_evaluation['warnings']:
+                    update_progress_log(f"⚠️  {warning}")
+            if cost_evaluation['recommendations']:
+                for rec in cost_evaluation['recommendations']:
+                    update_progress_log(f"💡 {rec}")
+
+            try:
+                from pathlib import Path
+                usage_file = Path("usage_tracking_results") / f"{trace_id}_usage_summary.json"
+                cost_tracker.save_to_file(usage_file)
+                update_progress_log(f"📊 Detailed usage data saved to: {usage_file}")
+            except Exception as save_ex:
+                update_progress_log(f"⚠️  Could not save usage data: {save_ex}")
+
+            update_progress_log("=" * 60)
+
+            for server in [*MANAGER_AGENT_TOOLS, *DEVELOPER_AGENT_TOOLS]:
+                await server.cleanup()
