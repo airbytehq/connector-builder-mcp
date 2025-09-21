@@ -23,6 +23,34 @@ _THRESHOLDS = {
     "max_requests_warning": 100,  # Warn if requests exceed 100
 }
 
+_MODEL_PRICING = {
+    "gpt-4": (30.0, 60.0),
+    "gpt-4-turbo": (10.0, 30.0),
+    "gpt-4o": (2.5, 10.0),
+    "gpt-4o-mini": (0.15, 0.6),
+    "gpt-4-32k": (60.0, 120.0),
+    "gpt-4-1106-preview": (10.0, 30.0),
+    "gpt-4-0125-preview": (10.0, 30.0),
+    "gpt-4-turbo-preview": (10.0, 30.0),
+    "gpt-4-vision-preview": (10.0, 30.0),
+    "gpt-4-turbo-2024-04-09": (10.0, 30.0),
+    "gpt-4o-2024-05-13": (5.0, 15.0),
+    "gpt-4o-2024-08-06": (2.5, 10.0),
+    "gpt-3.5-turbo": (0.5, 1.5),
+    "gpt-3.5-turbo-16k": (3.0, 4.0),
+    "gpt-3.5-turbo-1106": (1.0, 2.0),
+    "gpt-3.5-turbo-0125": (0.5, 1.5),
+    "o1-preview": (15.0, 60.0),
+    "o1-mini": (3.0, 12.0),
+    "gpt-5": (20.0, 80.0),  # Estimated pricing for future model
+    "o4-mini": (2.0, 8.0),  # Estimated pricing for future model
+    "claude-3-opus": (15.0, 75.0),
+    "claude-3-sonnet": (3.0, 15.0),
+    "claude-3-haiku": (0.25, 1.25),
+    "claude-3-5-sonnet": (3.0, 15.0),
+    "unknown-model": (10.0, 30.0),  # Conservative estimate
+}
+
 
 @dataclass
 class ModelUsage:
@@ -94,20 +122,79 @@ class CostTracker:
                 if model_value:
                     return str(model_value)
 
+        # Try nested raw_response
         if hasattr(response, "raw_response"):
             raw = response.raw_response
             if hasattr(raw, "model"):
-                return str(raw.model)
+                model_value = raw.model
+                if model_value:
+                    return str(model_value)
+
+        if hasattr(response, "response"):
+            resp = response.response
+            if hasattr(resp, "model"):
+                model_value = resp.model
+                if model_value:
+                    return str(model_value)
+
+        if hasattr(response, "__getitem__"):
+            try:
+                if "model" in response:
+                    return str(response["model"])
+            except (TypeError, KeyError):
+                pass
+
+        if hasattr(response, "choices") and response.choices:
+            choice = response.choices[0]
+            if hasattr(choice, "message") and hasattr(choice.message, "model"):
+                model_value = choice.message.model
+                if model_value:
+                    return str(model_value)
+
+        logger.debug(
+            f"Could not extract model name from response. Available attributes: {dir(response)}"
+        )
+        if hasattr(response, "raw_response"):
+            logger.debug(f"Raw response attributes: {dir(response.raw_response)}")
 
         return "unknown-model"
 
     def _calculate_cost(self, model_name: str, usage: Any) -> float:
         """Calculate estimated cost based on model and usage.
 
-        Returns 0.0 for now - cost calculation can be implemented later
-        with configurable pricing or actual API cost data.
+        Args:
+            model_name: Name of the model used
+            usage: Usage object with input_tokens and output_tokens
+
+        Returns:
+            Estimated cost in USD
         """
-        return 0.0
+        if not hasattr(usage, "input_tokens") or not hasattr(usage, "output_tokens"):
+            logger.warning(f"Usage object missing token counts for model {model_name}")
+            return 0.0
+
+        input_tokens = getattr(usage, "input_tokens", 0)
+        output_tokens = getattr(usage, "output_tokens", 0)
+
+        if input_tokens == 0 and output_tokens == 0:
+            return 0.0
+
+        input_price_per_1m, output_price_per_1m = _MODEL_PRICING.get(
+            model_name, _MODEL_PRICING["unknown-model"]
+        )
+
+        input_cost = (input_tokens / 1_000_000) * input_price_per_1m
+        output_cost = (output_tokens / 1_000_000) * output_price_per_1m
+        total_cost = input_cost + output_cost
+
+        logger.debug(
+            f"Cost calculation for {model_name}: "
+            f"{input_tokens:,} input tokens (${input_cost:.6f}) + "
+            f"{output_tokens:,} output tokens (${output_cost:.6f}) = "
+            f"${total_cost:.6f}"
+        )
+
+        return total_cost
 
     def get_summary(self) -> dict[str, Any]:
         """Get a summary of all tracked usage and costs."""
@@ -143,6 +230,7 @@ class CostTracker:
         lines.append("=" * 60)
         lines.append(f"Total Tokens: {cost_summary['total_tokens']:,}")
         lines.append(f"Total Requests: {cost_summary['total_requests']}")
+        lines.append(f"Total Estimated Cost: ${cost_summary['total_estimated_cost']:.4f}")
         lines.append(f"Models Used: {', '.join(cost_summary['models_used'])}")
 
         for model_name, model_data in cost_summary["model_breakdown"].items():
@@ -150,6 +238,7 @@ class CostTracker:
             lines.append(f"    Input tokens: {model_data['input_tokens']:,}")
             lines.append(f"    Output tokens: {model_data['output_tokens']:,}")
             lines.append(f"    Requests: {model_data['requests']}")
+            lines.append(f"    Estimated cost: ${model_data['estimated_cost']:.4f}")
 
         lines.append(f"\nUsage Status: {cost_evaluation['usage_status'].upper()}")
         if cost_evaluation["warnings"]:
@@ -194,7 +283,7 @@ class CostEvaluator:
         if total_tokens > _THRESHOLDS["max_tokens_critical"]:
             evaluation["usage_status"] = "critical"
             evaluation["warnings"].append(
-                f"Token usage {total_tokens:,} exceeds critical threshold {thresholds['max_tokens_critical']:,}"
+                f"Token usage {total_tokens:,} exceeds critical threshold {_THRESHOLDS['max_tokens_critical']:,}"
             )
         elif total_tokens > _THRESHOLDS["max_tokens_warning"]:
             evaluation["usage_status"] = "warning"
