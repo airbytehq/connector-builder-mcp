@@ -167,7 +167,9 @@ async def run_manager_developer_build(
     )
 
     for server in [*MANAGER_AGENT_TOOLS, *DEVELOPER_AGENT_TOOLS]:
+        print(f"🔗 Connecting to MCP server: {server.name}...")
         await server.connect()
+        print(f"✅ Connected to MCP server: {server.name}")
 
     trace_id = gen_trace_id()
     with trace(workflow_name="Manager-Developer Connector Build", trace_id=trace_id):

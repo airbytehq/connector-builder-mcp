@@ -101,6 +101,7 @@ MCP_FILESYSTEM_SERVER = lambda: MCPServerStdio(  # noqa: E731
         env={},
     ),
     cache_tools_list=True,
+    client_session_timeout_seconds=10,
 )
 ALL_MCP_SERVERS: list[MCPServer] = [
     # MCP_PLAYWRIGHT_WEB_BROWSER(),
