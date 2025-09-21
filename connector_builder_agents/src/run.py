@@ -133,9 +133,11 @@ async def run_interactive_build(
                 # After streaming ends, get the final result
                 update_progress_log(f"\n🤖  AI Agent: {result_stream.final_output}")
 
-                if hasattr(result_stream, 'final_result') and result_stream.final_result:
+                if hasattr(result_stream, "final_result") and result_stream.final_result:
                     cost_tracker.add_run_result(result_stream.final_result)
-                    total_tokens = sum(usage.total_tokens for usage in cost_tracker.model_usage.values())
+                    total_tokens = sum(
+                        usage.total_tokens for usage in cost_tracker.model_usage.values()
+                    )
                     update_progress_log(f"🔢 Session tokens: {total_tokens:,}")
 
                 input_prompt = input("\n👤  You: ")
@@ -152,8 +154,10 @@ async def run_interactive_build(
                 cost_tracker.end_time = datetime.datetime.utcnow().isoformat()
                 cost_summary = cost_tracker.get_summary()
 
-                if cost_summary['total_tokens'] > 0:
-                    update_progress_log(f"\n🔢 Session Total Tokens: {cost_summary['total_tokens']:,}")
+                if cost_summary["total_tokens"] > 0:
+                    update_progress_log(
+                        f"\n🔢 Session Total Tokens: {cost_summary['total_tokens']:,}"
+                    )
                     update_progress_log(f"🔢 Total Requests: {cost_summary['total_requests']}")
 
                 for server in ALL_MCP_SERVERS:
@@ -218,8 +222,14 @@ async def run_manager_developer_build(
                 # prev_response_id = run_result.raw_responses[-1].response_id if run_result.raw_responses else None
                 status_msg = f"\n🤖 {run_result.last_agent.name}: {run_result.final_output}"
                 update_progress_log(status_msg)
-                run_tokens = sum(response.usage.total_tokens for response in run_result.raw_responses if response.usage)
-                total_tokens = sum(usage.total_tokens for usage in cost_tracker.model_usage.values())
+                run_tokens = sum(
+                    response.usage.total_tokens
+                    for response in run_result.raw_responses
+                    if response.usage
+                )
+                total_tokens = sum(
+                    usage.total_tokens for usage in cost_tracker.model_usage.values()
+                )
                 update_progress_log(f"🔢 Run tokens: {run_tokens:,} | Total: {total_tokens:,}")
 
                 run_prompt = (
@@ -250,22 +260,23 @@ async def run_manager_developer_build(
             update_progress_log(f"Total Requests: {cost_summary['total_requests']}")
             update_progress_log(f"Models Used: {', '.join(cost_summary['models_used'])}")
 
-            for model_name, model_data in cost_summary['model_breakdown'].items():
+            for model_name, model_data in cost_summary["model_breakdown"].items():
                 update_progress_log(f"  {model_name}:")
                 update_progress_log(f"    Input tokens: {model_data['input_tokens']:,}")
                 update_progress_log(f"    Output tokens: {model_data['output_tokens']:,}")
                 update_progress_log(f"    Requests: {model_data['requests']}")
 
             update_progress_log(f"\nUsage Status: {cost_evaluation['usage_status'].upper()}")
-            if cost_evaluation['warnings']:
-                for warning in cost_evaluation['warnings']:
+            if cost_evaluation["warnings"]:
+                for warning in cost_evaluation["warnings"]:
                     update_progress_log(f"⚠️  {warning}")
-            if cost_evaluation['recommendations']:
-                for rec in cost_evaluation['recommendations']:
+            if cost_evaluation["recommendations"]:
+                for rec in cost_evaluation["recommendations"]:
                     update_progress_log(f"💡 {rec}")
 
             try:
                 from pathlib import Path
+
                 usage_file = Path("usage_tracking_results") / f"{trace_id}_usage_summary.json"
                 cost_tracker.save_to_file(usage_file)
                 update_progress_log(f"📊 Detailed usage data saved to: {usage_file}")

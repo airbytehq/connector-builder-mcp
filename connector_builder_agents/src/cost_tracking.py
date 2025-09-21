@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ModelUsage:
     """Usage statistics for a specific model."""
+
     model_name: str
     input_tokens: int = 0
     output_tokens: int = 0
@@ -31,6 +32,7 @@ class ModelUsage:
 @dataclass
 class CostTracker:
     """Tracks costs and usage across multi-agent workflow execution."""
+
     trace_id: str
     model_usage: dict[str, ModelUsage] = field(default_factory=dict)
     total_estimated_cost: float = 0.0
@@ -79,15 +81,15 @@ class CostTracker:
 
     def _extract_model_name(self, response: Any) -> str:
         """Extract model name from response object."""
-        for attr in ['model', 'model_name', 'engine']:
+        for attr in ["model", "model_name", "engine"]:
             if hasattr(response, attr):
                 model_value = getattr(response, attr)
                 if model_value:
                     return str(model_value)
 
-        if hasattr(response, 'raw_response'):
+        if hasattr(response, "raw_response"):
             raw = response.raw_response
-            if hasattr(raw, 'model'):
+            if hasattr(raw, "model"):
                 return str(raw.model)
 
         return "unknown-model"
