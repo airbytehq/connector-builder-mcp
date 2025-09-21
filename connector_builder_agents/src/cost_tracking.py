@@ -240,28 +240,34 @@ class CostTracker:
         cost_evaluation = CostEvaluator.evaluate_cost_efficiency(self)
 
         lines = []
-        lines.append("=" * 60)
-        lines.append("🔢 TOKEN USAGE TRACKING SUMMARY")
-        lines.append("=" * 60)
-        lines.append(f"Total Tokens: {cost_summary['total_tokens']:,}")
-        lines.append(f"Total Requests: {cost_summary['total_requests']}")
-        lines.append(f"Total Estimated Cost: ${cost_summary['total_estimated_cost']:.4f}")
-        lines.append(f"Models Used: {', '.join(cost_summary['models_used'])}")
+        lines.extend(
+            (
+                "=" * 60,
+                "🔢 TOKEN USAGE TRACKING SUMMARY",
+                "=" * 60,
+                f"Total Tokens: {cost_summary['total_tokens']:,}",
+                f"Total Requests: {cost_summary['total_requests']}",
+                f"Total Estimated Cost: ${cost_summary['total_estimated_cost']:.4f}",
+                f"Models Used: {', '.join(cost_summary['models_used'])}",
+            ),
+        )
 
         for model_name, model_data in cost_summary["model_breakdown"].items():
-            lines.append(f"  {model_name}:")
-            lines.append(f"    Input tokens: {model_data['input_tokens']:,}")
-            lines.append(f"    Output tokens: {model_data['output_tokens']:,}")
-            lines.append(f"    Requests: {model_data['requests']}")
-            lines.append(f"    Estimated cost: ${model_data['estimated_cost']:.4f}")
+            lines.extend(
+                (
+                    f"  {model_name}:",
+                    f"    Input tokens: {model_data['input_tokens']:,}",
+                    f"    Output tokens: {model_data['output_tokens']:,}",
+                    f"    Requests: {model_data['requests']}",
+                    f"    Estimated cost: ${model_data['estimated_cost']:.4f}",
+                ),
+            )
 
         lines.append(f"\nUsage Status: {cost_evaluation['usage_status'].upper()}")
         if cost_evaluation["warnings"]:
-            for warning in cost_evaluation["warnings"]:
-                lines.append(f"⚠️  {warning}")
+            lines.extend(f"⚠️  {warning}" for warning in cost_evaluation["warnings"])
         if cost_evaluation["recommendations"]:
-            for rec in cost_evaluation["recommendations"]:
-                lines.append(f"💡 {rec}")
+            lines.extend(f"💡 {rec}" for rec in cost_evaluation["recommendations"])
 
         lines.append("=" * 60)
 
