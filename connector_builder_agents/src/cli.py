@@ -49,22 +49,26 @@ def _parse_args() -> argparse.Namespace:
         "--developer-model",
         default=DEFAULT_DEVELOPER_MODEL,
         help=(
-            "".join([
-                "LLM model to use for the agent. ",
-                "Examples: o4-mini, gpt-4o-mini. ",
-                f"Default: {DEFAULT_DEVELOPER_MODEL}",
-            ])
+            "".join(
+                [
+                    "LLM model to use for the agent. ",
+                    "Examples: o4-mini, gpt-4o-mini. ",
+                    f"Default: {DEFAULT_DEVELOPER_MODEL}",
+                ]
+            )
         ),
     )
     parser.add_argument(
         "--manager-model",
         default=DEFAULT_MANAGER_MODEL,
         help=(
-            "".join([
-                "LLM model to use for the agent. ",
-                "Examples: o4-mini, gpt-4o-mini. ",
-                f"Default: {DEFAULT_MANAGER_MODEL}",
-            ])
+            "".join(
+                [
+                    "LLM model to use for the agent. ",
+                    "Examples: o4-mini, gpt-4o-mini. ",
+                    f"Default: {DEFAULT_MANAGER_MODEL}",
+                ]
+            )
         ),
     )
     return parser.parse_args()
