@@ -84,7 +84,8 @@ async def main() -> None:
     await run_connector_build(
         instructions=cli_args.prompt,
         interactive=cli_args.interactive,
-        model=cli_args.model,
+        developer_model=cli_args.developer_model,
+        manager_model=cli_args.manager_model,
     )
 
     print("\n" + "=" * 60)
