@@ -63,7 +63,7 @@ _MODEL_PRICING = {
     "gpt-4o-search-preview": (2.50, 10.00),
     "computer-use-preview": (3.00, 12.00),
     "gpt-image-1": (5.00, 0.00),  # Image model with no output tokens
-    "unknown-model": (2.50, 10.00),  # Conservative estimate based on gpt-4o
+    "unknown-model": (1.25, 10.00),  # Assume gpt-5 pricing for unknown models
 }
 
 
