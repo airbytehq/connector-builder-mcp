@@ -16,6 +16,13 @@ from agents.result import RunResult
 
 logger = logging.getLogger(__name__)
 
+_THRESHOLDS = {
+    "max_tokens_warning": 1_000_000,  # Warn if tokens exceed 1M
+    "max_tokens_critical": 2_000_000,  # Critical if tokens exceed 2M
+    "min_efficiency_ratio": 0.7,  # Minimum output/input token ratio
+    "max_requests_warning": 100,  # Warn if requests exceed 100
+}
+
 
 @dataclass
 class ModelUsage:
@@ -174,14 +181,6 @@ class CostEvaluator:
     def evaluate_cost_efficiency(cost_tracker: CostTracker) -> dict[str, Any]:
         """Evaluate the cost efficiency of the workflow execution."""
         summary = cost_tracker.get_summary()
-
-        thresholds = {
-            "max_tokens_warning": 100000,  # Warn if tokens exceed 100K
-            "max_tokens_critical": 500000,  # Critical if tokens exceed 500K
-            "min_efficiency_ratio": 0.7,  # Minimum output/input token ratio
-            "max_requests_warning": 100,  # Warn if requests exceed 100
-        }
-
         evaluation = {
             "usage_status": "ok",
             "warnings": [],
@@ -192,20 +191,20 @@ class CostEvaluator:
         total_tokens = summary["total_tokens"]
         total_requests = summary["total_requests"]
 
-        if total_tokens > thresholds["max_tokens_critical"]:
+        if total_tokens > _THRESHOLDS["max_tokens_critical"]:
             evaluation["usage_status"] = "critical"
             evaluation["warnings"].append(
                 f"Token usage {total_tokens:,} exceeds critical threshold {thresholds['max_tokens_critical']:,}"
             )
-        elif total_tokens > thresholds["max_tokens_warning"]:
+        elif total_tokens > _THRESHOLDS["max_tokens_warning"]:
             evaluation["usage_status"] = "warning"
             evaluation["warnings"].append(
-                f"Token usage {total_tokens:,} exceeds warning threshold {thresholds['max_tokens_warning']:,}"
+                f"Token usage {total_tokens:,} exceeds warning threshold {_THRESHOLDS['max_tokens_warning']:,}"
             )
 
-        if total_requests > thresholds["max_requests_warning"]:
+        if total_requests > _THRESHOLDS["max_requests_warning"]:
             evaluation["warnings"].append(
-                f"Request count {total_requests} exceeds warning threshold {thresholds['max_requests_warning']}"
+                f"Request count {total_requests} exceeds warning threshold {_THRESHOLDS['max_requests_warning']}"
             )
 
         evaluation["efficiency_metrics"]["total_tokens"] = total_tokens
@@ -219,10 +218,10 @@ class CostEvaluator:
                 efficiency_ratio = model_data["output_tokens"] / model_data["input_tokens"]
                 evaluation["efficiency_metrics"][f"{model_name}_efficiency"] = efficiency_ratio
 
-                if efficiency_ratio < thresholds["min_efficiency_ratio"]:
+                if efficiency_ratio < _THRESHOLDS["min_efficiency_ratio"]:
                     evaluation["recommendations"].append(
                         f"{model_name}: Low output/input ratio {efficiency_ratio:.2f}, "
-                        f"expected >{thresholds['min_efficiency_ratio']}"
+                        f"expected >{_THRESHOLDS['min_efficiency_ratio']}"
                     )
 
         return evaluation
