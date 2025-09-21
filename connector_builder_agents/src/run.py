@@ -25,7 +25,7 @@ from .constants import (
     MAX_CONNECTOR_BUILD_STEPS,
     SESSION_ID,
 )
-from .cost_tracking import CostEvaluator, CostTracker
+from .cost_tracking import CostTracker
 from .tools import (
     ALL_MCP_SERVERS,
     DEVELOPER_AGENT_TOOLS,
@@ -250,29 +250,7 @@ async def run_manager_developer_build(
         finally:
             cost_tracker.end_time = datetime.datetime.utcnow().isoformat()
 
-            cost_summary = cost_tracker.get_summary()
-            cost_evaluation = CostEvaluator.evaluate_cost_efficiency(cost_tracker)
-
-            update_progress_log("\n" + "=" * 60)
-            update_progress_log("🔢 TOKEN USAGE TRACKING SUMMARY")
-            update_progress_log("=" * 60)
-            update_progress_log(f"Total Tokens: {cost_summary['total_tokens']:,}")
-            update_progress_log(f"Total Requests: {cost_summary['total_requests']}")
-            update_progress_log(f"Models Used: {', '.join(cost_summary['models_used'])}")
-
-            for model_name, model_data in cost_summary["model_breakdown"].items():
-                update_progress_log(f"  {model_name}:")
-                update_progress_log(f"    Input tokens: {model_data['input_tokens']:,}")
-                update_progress_log(f"    Output tokens: {model_data['output_tokens']:,}")
-                update_progress_log(f"    Requests: {model_data['requests']}")
-
-            update_progress_log(f"\nUsage Status: {cost_evaluation['usage_status'].upper()}")
-            if cost_evaluation["warnings"]:
-                for warning in cost_evaluation["warnings"]:
-                    update_progress_log(f"⚠️  {warning}")
-            if cost_evaluation["recommendations"]:
-                for rec in cost_evaluation["recommendations"]:
-                    update_progress_log(f"💡 {rec}")
+            update_progress_log(f"\n{cost_tracker.cost_summary_report}")
 
             try:
                 from pathlib import Path
@@ -282,8 +260,6 @@ async def run_manager_developer_build(
                 update_progress_log(f"📊 Detailed usage data saved to: {usage_file}")
             except Exception as save_ex:
                 update_progress_log(f"⚠️  Could not save usage data: {save_ex}")
-
-            update_progress_log("=" * 60)
 
             for server in [*MANAGER_AGENT_TOOLS, *DEVELOPER_AGENT_TOOLS]:
                 await server.cleanup()

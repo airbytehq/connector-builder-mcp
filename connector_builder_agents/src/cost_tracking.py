@@ -124,6 +124,38 @@ class CostTracker:
             "end_time": self.end_time,
         }
 
+    @property
+    def cost_summary_report(self) -> str:
+        """Generate a formatted summary report string."""
+        cost_summary = self.get_summary()
+        cost_evaluation = CostEvaluator.evaluate_cost_efficiency(self)
+
+        lines = []
+        lines.append("=" * 60)
+        lines.append("🔢 TOKEN USAGE TRACKING SUMMARY")
+        lines.append("=" * 60)
+        lines.append(f"Total Tokens: {cost_summary['total_tokens']:,}")
+        lines.append(f"Total Requests: {cost_summary['total_requests']}")
+        lines.append(f"Models Used: {', '.join(cost_summary['models_used'])}")
+
+        for model_name, model_data in cost_summary["model_breakdown"].items():
+            lines.append(f"  {model_name}:")
+            lines.append(f"    Input tokens: {model_data['input_tokens']:,}")
+            lines.append(f"    Output tokens: {model_data['output_tokens']:,}")
+            lines.append(f"    Requests: {model_data['requests']}")
+
+        lines.append(f"\nUsage Status: {cost_evaluation['usage_status'].upper()}")
+        if cost_evaluation["warnings"]:
+            for warning in cost_evaluation["warnings"]:
+                lines.append(f"⚠️  {warning}")
+        if cost_evaluation["recommendations"]:
+            for rec in cost_evaluation["recommendations"]:
+                lines.append(f"💡 {rec}")
+
+        lines.append("=" * 60)
+
+        return "\n".join(lines)
+
     def save_to_file(self, output_path: Path | str) -> None:
         """Save cost tracking summary to a JSON file."""
         output_path = Path(output_path)
