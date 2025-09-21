@@ -29,6 +29,8 @@ _MODEL_PRICING = {
     Each model maps to a tuple of (input_price_per_1M_tokens, output_price_per_1M_tokens).
     Prices are based on official API documentation from OpenAI and other providers.
 
+    Reference: https://platform.openai.com/docs/pricing (may require login)
+
     Example: "gpt-4o": (2.5, 10.0) means $2.50 per 1M input tokens, $10.00 per 1M output tokens.
     """
     "gpt-5": (1.25, 10.00),
