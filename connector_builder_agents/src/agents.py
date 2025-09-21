@@ -3,6 +3,7 @@
 
 from agents import Agent as OpenAIAgent
 from agents import (
+    WebSearchTool,
     handoff,
 )
 
@@ -43,6 +44,7 @@ def create_developer_agent(
         tools=[
             log_progress_milestone_from_developer,
             log_problem_encountered_by_developer,
+            WebSearchTool(),
         ],
     )
 
