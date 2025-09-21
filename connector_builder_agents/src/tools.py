@@ -14,6 +14,7 @@ from agents.tool import function_tool
 
 # from agents import OpenAIConversationsSession
 from .constants import HEADLESS_BROWSER, WORKSPACE_WRITE_DIR
+from .eval_workflow_integration import get_eval_workflow_manager, trigger_automatic_evaluation
 
 
 # 🎯 Global flags to track job status:
@@ -163,6 +164,19 @@ def mark_job_success() -> None:
     IS_SUCCESS_FLAG = True
     update_progress_log("✅ Completed connector builder task successfully!")
 
+    try:
+        evaluation_result = trigger_automatic_evaluation()
+        if evaluation_result:
+            manager = get_eval_workflow_manager()
+            eval_summary = manager.generate_evaluation_summary(evaluation_result)
+            update_progress_log(f"\n{eval_summary}")
+        else:
+            update_progress_log(
+                "⚠️ Automatic evaluation could not be performed (no readiness report found)"
+            )
+    except Exception as e:
+        update_progress_log(f"⚠️ Automatic evaluation failed: {e}")
+
 
 @function_tool
 def mark_job_failed() -> None:
@@ -175,6 +189,18 @@ def mark_job_failed() -> None:
     global IS_FAILED_FLAG
     IS_FAILED_FLAG = True
     update_progress_log("❌ Failed connector builder task.")
+
+    try:
+        evaluation_result = trigger_automatic_evaluation()
+        if evaluation_result:
+            manager = get_eval_workflow_manager()
+            eval_summary = manager.generate_evaluation_summary(evaluation_result)
+            update_progress_log(f"\n{eval_summary}")
+            update_progress_log(
+                "📊 Evaluation completed despite task failure - results may help identify issues"
+            )
+    except Exception as e:
+        update_progress_log(f"⚠️ Post-failure evaluation failed: {e}")
 
 
 def log_progress_milestone(
