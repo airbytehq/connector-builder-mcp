@@ -10,8 +10,8 @@ from connector_builder_agents.src.eval_workflow_integration import (
     trigger_automatic_evaluation,
 )
 from connector_builder_agents.src.evals_integration import (
-    ConnectorReadinessEvaluator,
     RICK_AND_MORTY_GOLDEN,
+    ConnectorReadinessEvaluator,
     create_test_data_jsonl,
 )
 
