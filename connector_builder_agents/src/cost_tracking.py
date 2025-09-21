@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Cost tracking module for multi-agent workflow execution.
 
 This module provides functionality to track token usage and costs during
