@@ -1,8 +1,8 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Tools and utilities for running MCP-based agents for connector building."""
-
 from datetime import datetime
 from enum import Enum
+from typing import Annotated
 
 from agents.mcp import (
     MCPServer,
@@ -11,6 +11,7 @@ from agents.mcp import (
 )
 from agents.mcp.util import create_static_tool_filter
 from agents.tool import function_tool
+from pydantic.fields import Field
 
 # from agents import OpenAIConversationsSession
 from .constants import HEADLESS_BROWSER, WORKSPACE_WRITE_DIR
@@ -193,6 +194,37 @@ def log_problem_encountered(
     update_progress_log(f"⚠️ {agent.value} Encountered a Problem: {description}")
 
 
+@function_tool()
+def log_tool_failure(
+    tool_name: Annotated[
+        str,
+        Field(description="Name of the tool that failed."),
+    ],
+    input_args: Annotated[str, Field(description="Input arguments for the tool.")],
+    # *,
+    summary_failure_description: Annotated[
+        str, Field(description="Summary description of the failure.")
+    ],
+    is_unexpected_input_args_error: bool = False,
+    is_unhelpful_error_message: bool = False,
+    additional_info: str | None = None,
+) -> None:
+    """Log a tool failure message.
+
+    This is a specialized version of `log_problem_encountered` to report tool failures.
+    """
+    msg = f"🛠️ {tool_name} Tool Failure in '{tool_name}': {summary_failure_description}"
+    if is_unexpected_input_args_error:
+        msg += " (🙈 Unexpected input arguments error)"
+    if is_unhelpful_error_message:
+        msg += " (🫤 Unhelpful error message)"
+    msg += f"\n Input args: '{input_args}'"
+    if additional_info:
+        msg += f"\n Additional info: '{additional_info}'"
+
+    update_progress_log(msg)
+
+
 @function_tool(name_override="log_problem_encountered")
 def log_problem_encountered_by_manager(description: str) -> None:
     """Log a problem encountered message from the manager agent."""
@@ -215,3 +247,19 @@ def log_progress_milestone_from_manager(message: str) -> None:
 def log_progress_milestone_from_developer(message: str) -> None:
     """Log a milestone message from the developer agent."""
     log_progress_milestone(message, AgentEnum.DEVELOPER_AGENT_NAME)
+
+
+@function_tool
+def get_progress_log_text() -> str:
+    """Get the current progress log text."""
+    return EXECUTION_LOG_FILE.absolute().read_text(encoding="utf-8")
+
+
+@function_tool
+def get_latest_readiness_report() -> str:
+    """Get the path to the latest connector readiness report, if it exists."""
+    report_path = WORKSPACE_WRITE_DIR / "connector-readiness-report.md"
+    if report_path.exists():
+        return report_path.absolute().read_text(encoding="utf-8")
+
+    return "No readiness report found."

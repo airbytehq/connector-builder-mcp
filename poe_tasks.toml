@@ -2,7 +2,7 @@
 
 # Development Tasks
 build = { cmd = "bin/build_connector_feature_index.py", help = "Build connector feature index from Airbyte manifests" }
-install = { cmd = "uv sync --all-extras", help = "Install and sync project dependencies." }
+install = { shell = "uv sync --all-extras && uv sync --project=connector_builder_agents --all-extras", help = "Install and sync project dependencies." }
 sync = { cmd = "uv sync --all-extras", help = "Sync project dependencies. (Alias for install.)" }
 format = { cmd = "uv run ruff format .", help = "Format code with ruff" }
 format-check = { cmd = "uv run ruff format --check .", help = "Format check with ruff" }
@@ -13,7 +13,7 @@ which actionlint >/dev/null 2>&1 && actionlint || \
 (echo "ERROR: actionlint not found. Install with: 'brew install actionlint'" && exit 1)
 """
 check-gh-actions.help = "Lint GitHub Actions workflows"
-lock = { cmd = "uv lock", help = "Lock dependencies." }
+lock = { shell = "uv lock && uv lock --project=connector_builder_agents", help = "Lock dependencies." }
 mypy = { cmd = "uv run mypy connector_builder_mcp", help = "Type check code with mypy" }
 test = { cmd = "uv run pytest tests/ -v", help = "Run tests with verbose output" }
 test-fast = { cmd = "uv run pytest --exitfirst tests", help = "Run tests, stop on first failure" }

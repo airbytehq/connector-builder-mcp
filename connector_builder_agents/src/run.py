@@ -16,6 +16,7 @@ from agents.result import RunResult
 # from agents import OpenAIConversationsSession
 from ._util import open_if_browser_available
 from .agents import (
+    add_handback_to_manager,
     create_developer_agent,
     create_manager_agent,
 )
@@ -160,6 +161,10 @@ async def run_manager_developer_build(
         model=model,
         api_name=api_name or "(see below)",
         additional_instructions=instructions or "",
+    )
+    add_handback_to_manager(
+        developer_agent=developer_agent,
+        manager_agent=manager_agent,
     )
 
     for server in [*MANAGER_AGENT_TOOLS, *DEVELOPER_AGENT_TOOLS]:
