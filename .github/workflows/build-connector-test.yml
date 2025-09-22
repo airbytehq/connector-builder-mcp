@@ -43,6 +43,12 @@ jobs:
       - name: Install agents dependencies
         run: uv sync --project connector_builder_agents --all-extras
 
+      # Some MCP Servers need npx/node, so set that up:
+      - name: Set up Node.js and npx
+        uses: actions/setup-node@v5.0.0
+        with:
+          node-version: '20'
+
       # Job-specific step(s):
       - name: Run agent-based connector build
         timeout-minutes: 15

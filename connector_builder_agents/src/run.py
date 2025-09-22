@@ -20,7 +20,8 @@ from .agents import (
     create_manager_agent,
 )
 from .constants import (
-    DEFAULT_LLM_MODEL,
+    DEFAULT_DEVELOPER_MODEL,
+    DEFAULT_MANAGER_MODEL,
     MAX_CONNECTOR_BUILD_STEPS,
     SESSION_ID,
 )
@@ -36,7 +37,8 @@ from .tools import (
 async def run_connector_build(
     api_name: str | None = None,
     instructions: str | None = None,
-    model: str = DEFAULT_LLM_MODEL,
+    developer_model: str = DEFAULT_DEVELOPER_MODEL,
+    manager_model: str = DEFAULT_MANAGER_MODEL,
     *,
     interactive: bool = False,
 ) -> None:
@@ -58,7 +60,8 @@ async def run_connector_build(
         await run_manager_developer_build(
             api_name=api_name,
             instructions=instructions,
-            model=model,
+            developer_model=developer_model,
+            manager_model=manager_model,
         )
     else:
         print("\n🤖 Building Connector using Interactive AI", flush=True)
@@ -71,7 +74,7 @@ async def run_connector_build(
         prompt += instructions
         await run_interactive_build(
             prompt=prompt,
-            model=model,
+            model=developer_model,
         )
 
 
@@ -145,25 +148,28 @@ async def run_interactive_build(
 async def run_manager_developer_build(
     api_name: str | None = None,
     instructions: str | None = None,
-    model: str = DEFAULT_LLM_MODEL,
+    developer_model: str = DEFAULT_DEVELOPER_MODEL,
+    manager_model: str = DEFAULT_MANAGER_MODEL,
 ) -> None:
     """Run a 3-phase connector build using manager-developer architecture."""
     session = SQLiteSession(session_id=SESSION_ID)
 
     developer_agent = create_developer_agent(
-        model=model,
+        model=developer_model,
         api_name=api_name or "(see below)",
         additional_instructions=instructions or "",
     )
     manager_agent = create_manager_agent(
         developer_agent,
-        model=model,
+        model=manager_model,
         api_name=api_name or "(see below)",
         additional_instructions=instructions or "",
     )
 
     for server in [*MANAGER_AGENT_TOOLS, *DEVELOPER_AGENT_TOOLS]:
+        print(f"🔗 Connecting to MCP server: {server.name}...")
         await server.connect()
+        print(f"✅ Connected to MCP server: {server.name}")
 
     trace_id = gen_trace_id()
     with trace(workflow_name="Manager-Developer Connector Build", trace_id=trace_id):
