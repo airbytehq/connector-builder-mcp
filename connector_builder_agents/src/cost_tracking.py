@@ -112,10 +112,19 @@ class CostTracker:
 
             usage_tracker = self.model_usage[model_name]
 
-            usage_tracker.input_tokens += response.usage.input_tokens
-            usage_tracker.output_tokens += response.usage.output_tokens
-            usage_tracker.total_tokens += response.usage.total_tokens
-            usage_tracker.requests += response.usage.requests
+            input_tokens = getattr(response.usage, "input_tokens", None) or getattr(
+                response.usage, "prompt_tokens", 0
+            )
+            output_tokens = getattr(response.usage, "output_tokens", None) or getattr(
+                response.usage, "completion_tokens", 0
+            )
+            total_tokens = getattr(response.usage, "total_tokens", input_tokens + output_tokens)
+            requests = getattr(response.usage, "requests", 1)  # Default to 1 request per response
+
+            usage_tracker.input_tokens += input_tokens
+            usage_tracker.output_tokens += output_tokens
+            usage_tracker.total_tokens += total_tokens
+            usage_tracker.requests += requests
 
             response_cost = self._calculate_cost(model_name, response.usage)
             usage_tracker.estimated_cost += response_cost
@@ -123,8 +132,22 @@ class CostTracker:
 
         self.total_estimated_cost += run_cost
 
+        run_tokens = 0
+        for response in run_result.raw_responses:
+            if response.usage:
+                total_tokens = getattr(response.usage, "total_tokens", 0)
+                if total_tokens == 0:
+                    input_tokens = getattr(response.usage, "input_tokens", None) or getattr(
+                        response.usage, "prompt_tokens", 0
+                    )
+                    output_tokens = getattr(response.usage, "output_tokens", None) or getattr(
+                        response.usage, "completion_tokens", 0
+                    )
+                    total_tokens = input_tokens + output_tokens
+                run_tokens += total_tokens
+
         logger.info(
-            f"[{self.trace_id}] Run tokens: {sum(response.usage.total_tokens for response in run_result.raw_responses if response.usage)}, "
+            f"[{self.trace_id}] Run tokens: {run_tokens}, "
             f"Total tokens: {sum(usage.total_tokens for usage in self.model_usage.values())}"
         )
 
@@ -167,11 +190,15 @@ class CostTracker:
                 if model_value:
                     return str(model_value)
 
+        logger.debug(f"Could not extract model name from response. Response type: {type(response)}")
         logger.debug(
-            f"Could not extract model name from response. Available attributes: {dir(response)}"
+            f"Available attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}"
         )
         if hasattr(response, "raw_response"):
-            logger.debug(f"Raw response attributes: {dir(response.raw_response)}")
+            logger.debug(f"Raw response type: {type(response.raw_response)}")
+            logger.debug(
+                f"Raw response attributes: {[attr for attr in dir(response.raw_response) if not attr.startswith('_')]}"
+            )
 
         return "unknown-model"
 
@@ -180,17 +207,19 @@ class CostTracker:
 
         Args:
             model_name: Name of the model used
-            usage: Usage object with input_tokens and output_tokens
+            usage: Usage object with input_tokens/output_tokens or prompt_tokens/completion_tokens
 
         Returns:
             Estimated cost in USD
         """
-        if not hasattr(usage, "input_tokens") or not hasattr(usage, "output_tokens"):
+        input_tokens = getattr(usage, "input_tokens", None) or getattr(usage, "prompt_tokens", 0)
+        output_tokens = getattr(usage, "output_tokens", None) or getattr(
+            usage, "completion_tokens", 0
+        )
+
+        if input_tokens == 0 and output_tokens == 0:
             logger.warning(f"Usage object missing token counts for model {model_name}")
             return 0.0
-
-        input_tokens = getattr(usage, "input_tokens", 0)
-        output_tokens = getattr(usage, "output_tokens", 0)
 
         if input_tokens == 0 and output_tokens == 0:
             return 0.0
