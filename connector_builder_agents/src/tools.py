@@ -214,7 +214,7 @@ def log_tool_failure(
 
     This is a specialized version of `log_problem_encountered` to report tool failures.
     """
-    msg = f"🛠️ {tool_name} Tool Failure in '{tool_name}': {summary_failure_description}"
+    msg = f"🛠️ Tool Failure in '{tool_name}': {summary_failure_description}"
     if is_unexpected_input_args_error:
         msg += " (🙈 Unexpected input arguments error)"
     if is_unhelpful_error_message:
