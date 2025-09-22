@@ -6,6 +6,7 @@ import subprocess
 import time
 from pathlib import Path
 
+
 try:
     from agents import (
         set_default_openai_api,
@@ -25,7 +26,12 @@ except ImportError:
 
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+
+
+try:
+    from openai import AsyncOpenAI
+except ImportError:
+    AsyncOpenAI = None
 
 
 # Initialize env vars:
@@ -93,10 +99,14 @@ def initialize_models() -> None:
             os.environ["OPENAI_API_KEY"] = openai_api_key
 
         print(f"ℹ️ Using Custom OpenAI-Compatible LLM Endpoint: {OPENAI_BASE_URL}")
-        github_models_client = AsyncOpenAI(
-            base_url=OPENAI_BASE_URL,
-            api_key=os.environ.get("OPENAI_API_KEY", None),
-        )
+        if AsyncOpenAI is not None:
+            github_models_client = AsyncOpenAI(
+                base_url=OPENAI_BASE_URL,
+                api_key=os.environ.get("OPENAI_API_KEY", None),
+            )
+        else:
+            print("⚠️ OpenAI package not available. Skipping client initialization.")
+            return
         set_default_openai_client(
             github_models_client,
             use_for_tracing=False,
