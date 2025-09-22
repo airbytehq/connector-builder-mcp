@@ -264,16 +264,19 @@ async def run_manager_developer_build(
             update_progress_log(f"\n{cost_tracker.cost_summary_report}")
 
             try:
-                from pathlib import Path
                 from .constants import WORKSPACE_WRITE_DIR
 
                 usage_dir = WORKSPACE_WRITE_DIR
                 manifest_files = list(WORKSPACE_WRITE_DIR.glob("**/manifest.yaml"))
                 if manifest_files:
                     usage_dir = manifest_files[0].parent
-                    update_progress_log(f"📁 Found manifest at {manifest_files[0]}, saving usage data in same directory")
+                    update_progress_log(
+                        f"📁 Found manifest at {manifest_files[0]}, saving usage data in same directory"
+                    )
                 else:
-                    update_progress_log(f"📁 No manifest.yaml found, saving usage data in workspace directory")
+                    update_progress_log(
+                        "📁 No manifest.yaml found, saving usage data in workspace directory"
+                    )
 
                 usage_file = usage_dir / f"{trace_id}_usage_summary.json"
                 cost_tracker.save_to_file(usage_file)
