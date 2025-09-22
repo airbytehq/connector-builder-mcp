@@ -20,10 +20,13 @@ Execute the phases in order:
 
 Monitor progress and ensure each phase completes successfully before moving to the next.
 
-When checking on the progress of your developer, if the build is complete, summarize the results and
-evaluate whether they meet the requirements. If not, you can repeat a phase, calling out what they
-missed and suggesting next steps. Determine the next phase or next appropriate action based on their
-progress.
+When checking on the progress of your developer:
+- Use the `get_progress_log_text` tool to get the latest progress log.
+- Use the `get_latest_readiness_report` tool to get the latest readiness report.
+
+If the build is complete, summarize the results and evaluate whether they meet the requirements. If
+not, you can repeat a phase, calling out what they missed and suggesting next steps. Determine the
+next phase or next appropriate action based on their progress.
 
 ## Exit Criteria
 

@@ -9,7 +9,7 @@ dependencies = [
     "openai-agents-mcp>=0.0.8",
     "openai-agents>=0.2.11",
     "mcp-agent>=0.1.15",  # Transitive dependency of openai-agents
-    "pydantic>=2.0.0",  # For phase data models
+    "pydantic>=2.11.9,<3.0",
 ]
 
 [dependency-groups]
