@@ -12,7 +12,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import openai
+
+try:
+    import openai
+except ImportError:
+    openai = None
 
 
 logger = logging.getLogger(__name__)
@@ -44,14 +48,17 @@ class EvalResult:
 class ConnectorReadinessEvaluator:
     """Evaluates connector readiness reports using OpenAI evals framework."""
 
-    def __init__(self, openai_client: openai.OpenAI | None = None):
+    def __init__(self, openai_client=None):
         """Initialize the evaluator with OpenAI client."""
         if openai_client:
             self.client = openai_client
         else:
-            try:
-                self.client = openai.OpenAI()
-            except openai.OpenAIError:
+            if openai is not None:
+                try:
+                    self.client = openai.OpenAI()
+                except Exception:  # Handle any openai errors when package is available
+                    self.client = None
+            else:
                 self.client = None
         self.eval_id: str | None = None
 
