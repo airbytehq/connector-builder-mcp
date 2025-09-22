@@ -126,7 +126,7 @@ class ManagerHandoffInput(BaseModel):
 async def on_manager_handback(ctx, input_data: ManagerHandoffInput) -> None:
     update_progress_log(
         f"🤝 Handing back control to manager."
-        "\n Summary of status: {input_data.short_status}"
+        f"\n Summary of status: {input_data.short_status}"
         f"\n Partial success: {input_data.is_partial_success}"
         f"\n Full success: {input_data.is_full_success}"
         f"\n Blocked: {input_data.is_blocked}"
