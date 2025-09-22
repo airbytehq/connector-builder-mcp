@@ -3,6 +3,7 @@
 
 from agents import Agent as OpenAIAgent
 from agents import (
+    WebSearchTool,
     handoff,
 )
 from pydantic.main import BaseModel
@@ -48,6 +49,7 @@ def create_developer_agent(
             log_progress_milestone_from_developer,
             log_problem_encountered_by_developer,
             log_tool_failure,
+            WebSearchTool(),
         ],
     )
 

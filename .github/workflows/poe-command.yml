@@ -28,6 +28,13 @@ jobs:
           repositories: "connector-builder-mcp"
           app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
           private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+      # Some MCP Servers need npx/node, so set that up:
+      - name: Set up Node.js and npx
+        uses: actions/setup-node@v5.0.0
+        with:
+          node-version: '20'
+
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
         with:

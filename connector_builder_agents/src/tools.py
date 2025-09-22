@@ -103,10 +103,11 @@ MCP_FILESYSTEM_SERVER = lambda: MCPServerStdio(  # noqa: E731
         env={},
     ),
     cache_tools_list=True,
+    client_session_timeout_seconds=10,
 )
 ALL_MCP_SERVERS: list[MCPServer] = [
+    # MCP_PLAYWRIGHT_WEB_BROWSER(),
     MCP_CONNECTOR_BUILDER_FOR_DEVELOPER(),
-    MCP_PLAYWRIGHT_WEB_BROWSER(),
     MCP_FILESYSTEM_SERVER(),
 ]
 MANAGER_AGENT_TOOLS: list[MCPServer] = [
@@ -114,7 +115,7 @@ MANAGER_AGENT_TOOLS: list[MCPServer] = [
     MCP_FILESYSTEM_SERVER(),
 ]
 DEVELOPER_AGENT_TOOLS: list[MCPServer] = [
-    MCP_PLAYWRIGHT_WEB_BROWSER(),
+    # MCP_PLAYWRIGHT_WEB_BROWSER(),
     MCP_CONNECTOR_BUILDER_FOR_DEVELOPER(),
     MCP_FILESYSTEM_SERVER(),
 ]

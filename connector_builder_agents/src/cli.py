@@ -22,7 +22,8 @@ import asyncio
 # from agents import OpenAIConversationsSession
 from .constants import (
     DEFAULT_CONNECTOR_BUILD_API_NAME,
-    DEFAULT_LLM_MODEL,
+    DEFAULT_DEVELOPER_MODEL,
+    DEFAULT_MANAGER_MODEL,
 )
 from .run import (
     run_connector_build,
@@ -45,14 +46,27 @@ def _parse_args() -> argparse.Namespace:
         help="Run in interactive mode (bypass manager-developer multi-agent orchestration).",
     )
     parser.add_argument(
-        "--model",
-        default=DEFAULT_LLM_MODEL,
+        "--developer-model",
+        default=DEFAULT_DEVELOPER_MODEL,
         help=(
             "".join(
                 [
                     "LLM model to use for the agent. ",
                     "Examples: o4-mini, gpt-4o-mini. ",
-                    f"Default: {DEFAULT_LLM_MODEL}",
+                    f"Default: {DEFAULT_DEVELOPER_MODEL}",
+                ]
+            )
+        ),
+    )
+    parser.add_argument(
+        "--manager-model",
+        default=DEFAULT_MANAGER_MODEL,
+        help=(
+            "".join(
+                [
+                    "LLM model to use for the agent. ",
+                    "Examples: o4-mini, gpt-4o-mini. ",
+                    f"Default: {DEFAULT_MANAGER_MODEL}",
                 ]
             )
         ),
@@ -74,7 +88,8 @@ async def main() -> None:
     await run_connector_build(
         instructions=cli_args.prompt,
         interactive=cli_args.interactive,
-        model=cli_args.model,
+        developer_model=cli_args.developer_model,
+        manager_model=cli_args.manager_model,
     )
 
     print("\n" + "=" * 60)
