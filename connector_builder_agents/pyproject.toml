@@ -10,9 +10,15 @@ dependencies = [
     "openai-agents>=0.2.11",
     "mcp-agent>=0.1.15",  # Transitive dependency of openai-agents
     "pydantic>=2.0.0",  # For phase data models
+    "openai>=1.0.0",  # For OpenAI evals integration
 ]
+
+[project.scripts]
+airbyte-connector-builder-agents = "connector_builder_agents.src.cli:main"
+airbyte-connector-evals = "connector_builder_agents.src.eval_cli:main"
 
 [dependency-groups]
 dev = [
     "poethepoet>=0.37.0",
+    "pytest>=7.0.0",
 ]
