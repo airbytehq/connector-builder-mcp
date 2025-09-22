@@ -511,12 +511,6 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
             description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
         ),
     ] = None,
-    save_to_project_dir: Annotated[
-        str | Path | None,
-        Field(
-            description="Optional path to the project directory where the report should be saved."
-        ),
-    ] = None,
 ) -> str:
     """Execute a connector readiness test and generate a comprehensive markdown report.
 
@@ -537,11 +531,14 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     stream_results: dict[str, StreamSmokeTest] = {}
 
     manifest_dict, manifest_path = parse_manifest_input(manifest)
-    if not save_to_project_dir and manifest_path:
-        save_to_project_dir = Path(manifest_path).parent
+    session_artifacts_dir: Path | None = None
+    if manifest_path:
+        session_artifacts_dir = Path(manifest_path).parent
 
     report_output_path: Path | None = (
-        Path(save_to_project_dir) / "connector-readiness-report.md" if save_to_project_dir else None
+        Path(session_artifacts_dir) / "connector-readiness-report.md"
+        if session_artifacts_dir
+        else None
     )
 
     config = hydrate_config(
@@ -654,6 +651,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
         "# Connector Readiness Test Report",
         "",
         "## Summary",
+        "",
         f"- **Streams Tested**: {total_streams_tested} out of {total_available_streams} total streams",
         f"- **Successful Streams**: {total_streams_successful}/{total_streams_tested}",
         f"- **Total Records Extracted**: {total_records_count:,}",
@@ -682,7 +680,8 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
             report_lines.extend(
                 [
-                    f"### {stream_name} ✅",
+                    f"### `{stream_name}` ✅",
+                    "",
                     f"- **Records Extracted**: {smoke_result.records_read:,}",
                     f"- **Duration**: {smoke_result.duration_seconds:.2f}s",
                 ]
@@ -695,10 +694,15 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
             report_lines.append("")
         else:
-            error_msg = getattr(smoke_result, "error_message", "Unknown error")
+            error_msg = getattr(
+                smoke_result,
+                "error_message",
+                "Unknown error",
+            )
             report_lines.extend(
                 [
-                    f"### {stream_name} ❌",
+                    f"### `{stream_name}` ❌",
+                    "",
                     "- **Status**: Failed",
                     f"- **Error**: {error_msg}",
                     "",
@@ -707,7 +711,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
     return _as_saved_report(
         report_text="\n".join(report_lines),
-        file_path=save_to_project_dir,
+        file_path=report_output_path,
     )
 
 
