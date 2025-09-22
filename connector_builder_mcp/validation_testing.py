@@ -419,11 +419,16 @@ def execute_stream_test_read(  # noqa: PLR0914
         execution_logs.extend(log for log in logs if "ERROR" not in str(log))
 
     if success is False:
+        raw_responses_data = None
+        if include_raw_responses_data is True:
+            raw_responses_data = slices
+
         return StreamTestResult(
             success=success,
             message=error_msgs[0] if error_msgs else "Unknown error occurred.",
             errors=error_msgs,
             logs=execution_logs,
+            raw_api_responses=raw_responses_data,
         )
 
     records_data: list[dict[str, Any]] = []
@@ -434,7 +439,7 @@ def execute_stream_test_read(  # noqa: PLR0914
                     records_data.extend(page.pop("records"))
 
     raw_responses_data = None
-    if include_raw_responses_data is True and slices:
+    if include_raw_responses_data is True:
         raw_responses_data = slices
 
     record_stats = None
