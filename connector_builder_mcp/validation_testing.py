@@ -373,8 +373,8 @@ def execute_stream_test_read(  # noqa: PLR0914
             # We actually don't want to limit pages or slices.
             # But if we don't provide a value they default
             # to very low limits, which is not what we want.
-            "max_pages_per_slice": max_records,
-            "max_slices": max_records,
+            "max_pages_per_slice": max(1, max_records),
+            "max_slices": max(1, max_records),
         },
     }
 
@@ -401,11 +401,19 @@ def execute_stream_test_read(  # noqa: PLR0914
     stream_data: dict[str, Any] = {}
     if result.record and result.record.data:
         stream_data = result.record.data
+        slices_from_stream = stream_data.get("slices", [])
+        if (
+            include_raw_responses_data
+            and not slices_from_stream
+            and "auxiliary_requests" in stream_data
+        ):
+            aux_requests = stream_data.get("auxiliary_requests", [])
+            if aux_requests:
+                slices_from_stream = aux_requests
+
         slices = cast(
             list[dict[str, Any]],
-            filter_config_secrets(
-                stream_data.get("slices", []),
-            ),
+            filter_config_secrets(slices_from_stream),
         )
     else:
         success = False
@@ -421,7 +429,37 @@ def execute_stream_test_read(  # noqa: PLR0914
     if success is False:
         raw_responses_data = None
         if include_raw_responses_data is True:
-            raw_responses_data = slices
+            if slices:
+                raw_responses_data = slices
+            elif stream_data:
+                debug_response = {
+                    "debug_info": "API calls failed - configuration or connectivity issues",
+                    "available_data_keys": list(stream_data.keys()),
+                    "error_summary": error_msgs[0] if error_msgs else "Unknown error",
+                    "all_errors": error_msgs,
+                    "logs": stream_data.get("logs", []),
+                    "config_validation_errors": [
+                        log
+                        for log in stream_data.get("logs", [])
+                        if isinstance(log, dict)
+                        and "Additional properties are not allowed" in str(log)
+                    ],
+                    "troubleshooting_steps": [
+                        "Verify manifest syntax and structure",
+                        "Check if max_records parameter is valid (>= 1)",
+                        "Ensure API endpoint is accessible",
+                        "Review authentication configuration",
+                    ],
+                }
+                raw_responses_data = [debug_response]
+            else:
+                raw_responses_data = [
+                    {
+                        "debug_info": "No stream data available - API calls were not made",
+                        "likely_cause": "Configuration validation failed before API calls",
+                        "suggestion": "Check manifest structure and configuration parameters",
+                    }
+                ]
 
         return StreamTestResult(
             success=success,
@@ -440,7 +478,38 @@ def execute_stream_test_read(  # noqa: PLR0914
 
     raw_responses_data = None
     if include_raw_responses_data is True:
-        raw_responses_data = slices
+        if slices:
+            raw_responses_data = slices
+        else:
+            debug_response = {
+                "debug_info": "No raw HTTP request/response data captured",
+                "success": success,
+                "records_read": len(records_data),
+                "stream_data_available": bool(stream_data),
+                "available_stream_data_keys": list(stream_data.keys()) if stream_data else [],
+                "slices_empty": len(stream_data.get("slices", [])) == 0 if stream_data else True,
+                "auxiliary_requests_empty": len(stream_data.get("auxiliary_requests", [])) == 0
+                if stream_data
+                else True,
+                "logs_available": len(stream_data.get("logs", [])) if stream_data else 0,
+                "possible_causes": [
+                    "CDK configuration preventing HTTP data capture",
+                    "API endpoint returned data but dpath extractor failed to extract records",
+                    "Network connectivity issues",
+                    "Incorrect manifest configuration",
+                    "CDK version compatibility issues",
+                ],
+                "debugging_suggestions": [
+                    "Check if API endpoint is accessible manually",
+                    "Verify dpath extractor field_path configuration",
+                    "Review manifest requester and record_selector settings",
+                    "Check for authentication issues",
+                ],
+            }
+            if stream_data and stream_data.get("logs"):
+                debug_response["logs"] = stream_data.get("logs", [])
+
+            raw_responses_data = [debug_response]
 
     record_stats = None
     if include_record_stats and records_data:
