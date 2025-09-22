@@ -167,14 +167,11 @@ class ConnectorReadinessEvaluator:
 
         if not stream_sections:
             sections = re.split(r"\n\s*\n", report_text.strip())
-            default_stream_names = ["characters", "locations", "episodes"]
             stream_index = 0
 
             for section in sections:
-                if "- **Records Extracted**:" in section and stream_index < len(
-                    default_stream_names
-                ):
-                    stream_name = default_stream_names[stream_index]
+                if "- **Records Extracted**:" in section:
+                    stream_name = f"stream_{stream_index + 1}"
                     stream_sections.append((stream_name, section))
                     stream_index += 1
 

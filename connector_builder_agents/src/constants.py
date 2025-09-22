@@ -6,11 +6,24 @@ import subprocess
 import time
 from pathlib import Path
 
-from agents import (
-    set_default_openai_api,
-    set_default_openai_client,
-    set_tracing_disabled,
-)
+try:
+    from agents import (
+        set_default_openai_api,
+        set_default_openai_client,
+        set_tracing_disabled,
+    )
+except ImportError:
+
+    def set_default_openai_api(*args, **kwargs):
+        pass
+
+    def set_default_openai_client(*args, **kwargs):
+        pass
+
+    def set_tracing_disabled(*args, **kwargs):
+        pass
+
+
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
