@@ -30,6 +30,7 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
+
 from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import (
     as_bool,
@@ -677,12 +678,14 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
             if field_warnings:
                 warnings.append(f"⚠️ Field count issues: {'; '.join(field_warnings[:2])}")
 
-            report_lines.extend([
-                f"### `{stream_name}` ✅",
-                "",
-                f"- **Records Extracted**: {smoke_result.records_read:,}",
-                f"- **Duration**: {smoke_result.duration_seconds:.2f}s",
-            ])
+            report_lines.extend(
+                [
+                    f"### `{stream_name}` ✅",
+                    "",
+                    f"- **Records Extracted**: {smoke_result.records_read:,}",
+                    f"- **Duration**: {smoke_result.duration_seconds:.2f}s",
+                ]
+            )
 
             if warnings:
                 report_lines.append(f"- **Warnings**: {' | '.join(warnings)}")
@@ -696,13 +699,15 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                 "error_message",
                 "Unknown error",
             )
-            report_lines.extend([
-                f"### `{stream_name}` ❌",
-                "",
-                "- **Status**: Failed",
-                f"- **Error**: {error_msg}",
-                "",
-            ])
+            report_lines.extend(
+                [
+                    f"### `{stream_name}` ❌",
+                    "",
+                    "- **Status**: Failed",
+                    f"- **Error**: {error_msg}",
+                    "",
+                ]
+            )
 
     return _as_saved_report(
         report_text="\n".join(report_lines),

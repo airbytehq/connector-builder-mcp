@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Agent implementations for the Airbyte connector builder."""
+
 from agents import Agent as OpenAIAgent
 from agents import (
     handoff,
