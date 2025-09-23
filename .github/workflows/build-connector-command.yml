@@ -68,9 +68,12 @@ jobs:
 
       - name: Checkout `connector-builder-mcp` repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Checkout airbyte repo for secrets-fetch
         uses: actions/checkout@v4
         with:
+          fetch-depth: 1
           repository: airbytehq/airbyte
           path: airbyte
           token: ${{ github.token }}
@@ -89,6 +92,7 @@ jobs:
           pr: ${{ github.event.inputs.pr }}
           comment-id: ${{ github.event.inputs.comment-id }}
           start-message: "🛠️ Building connector..."
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           command: >
             build-connector
             --api-name='${{ matrix.api_name }}'
