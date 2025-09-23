@@ -52,7 +52,7 @@ def get_secrets_dotenv(
             _ = subprocess.check_output(
                 [
                     "uvx",
-                    "airbyte-cdk",
+                    "airbyte-cdk[dev]",
                     "secrets",
                     "fetch",
                     existing_connector_name,
