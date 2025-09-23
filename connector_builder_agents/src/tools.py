@@ -137,7 +137,9 @@ def create_mcp_filesystem_server(session_state: SessionState) -> MCPServerStdio:
     )
 
 
-def create_session_mcp_servers(session_state: SessionState) -> tuple[list[MCPServer], list[MCPServer], list[MCPServer]]:
+def create_session_mcp_servers(
+    session_state: SessionState,
+) -> tuple[list[MCPServer], list[MCPServer], list[MCPServer]]:
     """Create all MCP servers for a session, reusing instances to avoid duplicates.
 
     Returns:
