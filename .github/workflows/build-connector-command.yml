@@ -45,6 +45,9 @@ jobs:
   run-connector-build:
     # needs: get-connector-jobs
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       # matrix: ${{ fromJson(needs.get-connector-jobs.outputs.jobs) }}
