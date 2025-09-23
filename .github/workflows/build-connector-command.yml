@@ -93,7 +93,7 @@ jobs:
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
         env:
-          GCP_GSM_CREDENTIALS: ${{ env.GCP_GSM_CREDENTIALS }}
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
         with:
           pr: ${{ github.event.inputs.pr }}
           comment-id: ${{ github.event.inputs.comment-id }}
