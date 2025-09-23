@@ -74,30 +74,13 @@ jobs:
           path: airbyte
           token: ${{ github.token }}
 
-      - name: Fetch connector secrets
-        run: |
-          pwd
-          ls -la
-          cd airbyte
-          uvx airbyte-cdk secrets fetch source-hubspot
-        continue-on-error: true
-
-      - name: Convert config to dotenv
-        run: |
-          # Find the first/main config.json file (ignore others as specified)
-          CONFIG_FILE=$(find airbyte -name "config.json" -type f | head -1)
-          if [ -n "$CONFIG_FILE" ]; then
-            echo "Found config file: $CONFIG_FILE"
-            poe flatten-json-config-to-dotenv "$CONFIG_FILE"
-            # Extract connector name from path for dotenv filename
-            CONNECTOR_DIR=$(dirname "$CONFIG_FILE")
-            CONNECTOR_NAME=$(basename "$CONNECTOR_DIR")
-            DOTENV_PATH="$CONNECTOR_DIR/secrets/${CONNECTOR_NAME}-config.env"
-            echo "CONNECTOR_CONFIG_DOTENV_PATH=$DOTENV_PATH" >> $GITHUB_ENV
-            echo "Generated dotenv file: $DOTENV_PATH"
-          else
-            echo "No config.json file found"
-          fi
+      # - name: Fetch connector secrets
+      #   run: |
+      #     pwd
+      #     ls -la
+      #     cd airbyte
+      #     uvx airbyte-cdk secrets fetch source-hubspot
+      #   continue-on-error: true
 
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
