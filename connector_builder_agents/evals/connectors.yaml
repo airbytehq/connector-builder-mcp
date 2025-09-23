@@ -1,0 +1,7 @@
+connectors:
+  # - name: "source-jsonplaceholder"
+  #   prompt_name: "JSONPlaceholder"
+  - name: "source-starwars"
+    prompt_name: "StarWars API (https://swapi.info/)"
+  # - name: "source-rickandmorty"
+  #   prompt_name: "Rick and Morty API"

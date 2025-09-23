@@ -102,6 +102,7 @@ dependencies = [
     { name = "openai-agents-mcp" },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
 ]
 
 [package.dev-dependencies]
@@ -116,6 +117,7 @@ requires-dist = [
     { name = "openai-agents-mcp", specifier = ">=0.0.8" },
     { name = "pydantic", specifier = ">=2.11.9,<3.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
 ]
 
 [package.metadata.requires-dev]
