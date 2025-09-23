@@ -18,11 +18,31 @@ permissions:
   pull-requests: write
 
 jobs:
-  run-poe-build-connector:
-    env:
-      # OPENAI_API_ROOT: https://api.openai.com/v1
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+  get-connector-jobs:
     runs-on: ubuntu-latest
+    steps:
+      - name: Set connector jobs matrix
+        id: set-matrix
+        run: |
+          echo "jobs=["
+          echo "{ \"api_name\": \"Hubspot\", \"config_name\": \"config\" },"
+          echo "{ \"api_name\": \"JSONPlaceholder\", \"config_name\": \"config\" },"
+          echo "{ \"api_name\": \"PokemonTGG\", \"config_name\": \"config\" }"
+          echo "]"
+          echo "::set-output name=jobs::$(echo "[$(echo "{ \"api_name\": \"Hubspot\", \"config_name\": \"config\" },{ \"api_name\": \"JSONPlaceholder\", \"config_name\": \"config\" },{ \"api_name\": \"PokemonTGG\", \"config_name\": \"config\" }" | tr '\n' ' ')]")"
+        shell: bash
+    outputs:
+      jobs: ${{ steps.set-matrix.outputs.jobs }}
+
+  run-connector-build:
+    needs: get-connector-jobs
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.get-connector-jobs.outputs.jobs) }}
+    name: Build ${{ matrix.api_name }} Connector
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
 
       # Some MCP Servers need npx/node, so set that up:
@@ -31,6 +51,8 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Checkout `connector-builder-mcp` repo
+        uses: actions/checkout@v4
       - name: Checkout airbyte repo for secrets-fetch
         uses: actions/checkout@v4
         with:
@@ -40,6 +62,8 @@ jobs:
 
       - name: Fetch connector secrets
         run: |
+          pwd
+          ls -la
           cd airbyte
           uvx airbyte-cdk secrets fetch source-hubspot
         continue-on-error: true
