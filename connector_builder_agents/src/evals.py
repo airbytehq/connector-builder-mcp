@@ -2,6 +2,7 @@
 """Evaluation framework for connector builder agents."""
 
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -9,9 +10,7 @@ from typing import Any
 import yaml
 from agents.result import RunResult
 
-from connector_builder_agents.src.constants import WORKSPACE_WRITE_DIR
-
-from .run import run_connector_build
+from .run import get_workspace_dir, run_connector_build
 
 
 @dataclass
@@ -21,6 +20,7 @@ class EvaluationResult:
     connector_name: str
     success: bool
     final_output: str
+    workspace_dir: Path | None = None  # Session-specific workspace directory
     error_message: str | None = None
     all_run_results: list[RunResult] | None = None  # All individual Runner.run results
 
@@ -43,15 +43,21 @@ class ConnectorEvaluator:
         prompt_name: str,
         developer_model: str,
         manager_model: str,
+        session_id: str,
     ) -> EvaluationResult:
         """Evaluate a single connector build."""
+
         try:
             results = await run_connector_build(
                 api_name=prompt_name,
                 developer_model=developer_model,
                 manager_model=manager_model,
                 interactive=False,
+                session_id=session_id,
             )
+
+            # Get workspace directory using existing helper method
+            workspace_dir = get_workspace_dir(session_id)
 
             # Get final output from last result, or default message
             final_output = "No output captured"
@@ -62,11 +68,16 @@ class ConnectorEvaluator:
                 connector_name=connector_name,  # Used for file naming
                 success=True,
                 final_output=final_output,
+                workspace_dir=workspace_dir,
                 all_run_results=results,
             )
         except Exception as e:
             return EvaluationResult(
-                connector_name=connector_name, success=False, final_output="", error_message=str(e)
+                connector_name=connector_name,
+                success=False,
+                final_output="",
+                workspace_dir=None,
+                error_message=str(e),
             )
 
     async def evaluate_all(
@@ -81,13 +92,19 @@ class ConnectorEvaluator:
         for connector_config in connectors:
             connector_name = connector_config["name"]
             prompt_name = connector_config.get("prompt_name", connector_name)
-            print(f"\n🧪 Evaluating connector: {prompt_name} ({connector_name})")
+            # Generate a predictable session_id for each evaluation
+            session_id = f"eval-{connector_name.lower().replace(' ', '-')}-{int(time.time())}"
+
+            print(
+                f"\n🧪 Evaluating connector: {prompt_name} ({connector_name}) [session: {session_id}]"
+            )
 
             result = await self.evaluate_connector(
                 connector_name=connector_name,
                 prompt_name=prompt_name,
                 developer_model=developer_model,
                 manager_model=manager_model,
+                session_id=session_id,
             )
             results.append(result)
 
@@ -116,7 +133,9 @@ class ConnectorEvaluator:
 
             serializable_result = {
                 "connector_name": result.connector_name,
-                "workspace_dir": str(WORKSPACE_WRITE_DIR.absolute()),
+                "workspace_dir": str(result.workspace_dir.absolute())
+                if result.workspace_dir
+                else None,
                 "success": result.success,
                 "final_output": result.final_output,
                 "num_turns": num_turns,
