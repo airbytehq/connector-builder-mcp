@@ -1,6 +1,13 @@
 name: On-Demand Connector Builder
 
 on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - ready_for_review
+      - reopened
   workflow_dispatch:
     inputs:
       comment-id:
@@ -19,27 +26,34 @@ permissions:
 
 jobs:
 
-  get-connector-jobs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set connector jobs matrix
-        id: set-matrix
-        run: |
-          echo "jobs=["
-          echo "{ \"api_name\": \"Hubspot\", \"config_name\": \"config\" },"
-          echo "{ \"api_name\": \"JSONPlaceholder\", \"config_name\": \"config\" },"
-          echo "{ \"api_name\": \"PokemonTGG\", \"config_name\": \"config\" }"
-          echo "]"
-          echo "::set-output name=jobs::$(echo "[$(echo "{ \"api_name\": \"Hubspot\", \"config_name\": \"config\" },{ \"api_name\": \"JSONPlaceholder\", \"config_name\": \"config\" },{ \"api_name\": \"PokemonTGG\", \"config_name\": \"config\" }" | tr '\n' ' ')]")"
-        shell: bash
-    outputs:
-      jobs: ${{ steps.set-matrix.outputs.jobs }}
+  # get-connector-jobs:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Set connector jobs matrix
+  #       id: set-matrix
+  #       run: |
+  #         echo "jobs=["
+  #         echo "{ \"api_name\": \"Hubspot\", \"config_name\": \"config\" },"
+  #         echo "{ \"api_name\": \"JSONPlaceholder\", \"config_name\": \"config\" },"
+  #         echo "{ \"api_name\": \"PokemonTGG\", \"config_name\": \"config\" }"
+  #         echo "]"
+  #         echo "::set-output name=jobs::$(echo "[$(echo "{ \"api_name\": \"Hubspot\", \"config_name\": \"config\" },{ \"api_name\": \"JSONPlaceholder\", \"config_name\": \"config\" },{ \"api_name\": \"PokemonTGG\", \"config_name\": \"config\" }" | tr '\n' ' ')]")"
+  #       shell: bash
+  #   outputs:
+  #     jobs: ${{ steps.set-matrix.outputs.jobs }}
 
   run-connector-build:
-    needs: get-connector-jobs
+    # needs: get-connector-jobs
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{ fromJson(needs.get-connector-jobs.outputs.jobs) }}
+      # matrix: ${{ fromJson(needs.get-connector-jobs.outputs.jobs) }}
+      matrix:
+        include:
+        - api_name: "JSONPlaceholder"
+        - api_name: "PokemonTGG"
+        - api_name: "Hubspot"
+          connector_name: "source-hubspot"
+          config_name: "config"
     name: Build ${{ matrix.api_name }} Connector
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -91,7 +105,11 @@ jobs:
           pr: ${{ github.event.inputs.pr }}
           comment-id: ${{ github.event.inputs.comment-id }}
           start-message: "🛠️ Building connector..."
-          command: "build-connector --prompt='${{ github.event.inputs.prompt }}'"
+          command: >
+            build-connector
+            --api-name='${{ matrix.api_name }}'
+            ${{ matrix.connector_name && format('--existing-connector-name={0}', matrix.connector_name) || '' }}
+            ${{ matrix.config_name && format('--existing-config-name={0}', matrix.config_name) || '' }}
           no-commit: true
         env:
           CONNECTOR_CONFIG_DOTENV_PATH: ${{ env.CONNECTOR_CONFIG_DOTENV_PATH }}

@@ -1,6 +1,8 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Functions to run connector builder agents in different modalities."""
 
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,7 +16,7 @@ from agents import (
 from agents.result import RunResult
 
 # from agents import OpenAIConversationsSession
-from ._util import open_if_browser_available
+from ._util import get_secrets_dotenv, open_if_browser_available
 from .agents import (
     add_handback_to_manager,
     create_developer_agent,
@@ -40,17 +42,31 @@ async def run_connector_build(
     instructions: str | None = None,
     developer_model: str = DEFAULT_DEVELOPER_MODEL,
     manager_model: str = DEFAULT_MANAGER_MODEL,
+    existing_connector_name: str | None = None,
+    existing_config_name: str | None = None,
     *,
     interactive: bool = False,
 ) -> None:
     """Run an agentic AI connector build session with automatic mode selection."""
     if not api_name and not instructions:
         raise ValueError("Either api_name or instructions must be provided.")
+
     if api_name:
         instructions = (
             f"Fully build and test a connector for '{api_name}'. " + (instructions or "")
         ).strip()
     assert instructions, "By now, instructions should be non-null."
+    if existing_connector_name and existing_config_name:
+        dotenv_path = get_secrets_dotenv(
+            existing_connector_name=existing_connector_name,
+            existing_config_name=existing_config_name,
+        )
+        if dotenv_path:
+            print(f"🔐 Using secrets dotenv: {dotenv_path}")
+            instructions += (
+                f"Secrets dotenv file '{dotenv_path.resolve()!s}' contains necessary credentials "
+                "and can be passed to your tools."
+            )
 
     if not interactive:
         print("\n🤖 Building Connector using Manager-Developer Architecture", flush=True)
