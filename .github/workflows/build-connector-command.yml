@@ -16,9 +16,9 @@ on:
       pr:
         description: "PR Number"
         required: false
-      prompt:
-        description: "The prompt to pass to the connector builder task."
-        required: true
+      # prompt:
+      #   description: "The prompt to pass to the connector builder task."
+      #   required: true
 
 permissions:
   contents: read
@@ -46,6 +46,7 @@ jobs:
     # needs: get-connector-jobs
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       # matrix: ${{ fromJson(needs.get-connector-jobs.outputs.jobs) }}
       matrix:
         include:
