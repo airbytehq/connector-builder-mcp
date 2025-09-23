@@ -92,6 +92,8 @@ jobs:
 
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
+        env:
+          GCP_GSM_CREDENTIALS: ${{ env.GCP_GSM_CREDENTIALS }}
         with:
           pr: ${{ github.event.inputs.pr }}
           comment-id: ${{ github.event.inputs.comment-id }}
@@ -103,5 +105,3 @@ jobs:
             ${{ matrix.connector_name && format('--existing-connector-name={0}', matrix.connector_name) || '' }}
             ${{ matrix.config_name && format('--existing-config-name={0}', matrix.config_name) || '' }}
           no-commit: true
-        env:
-          CONNECTOR_CONFIG_DOTENV_PATH: ${{ env.CONNECTOR_CONFIG_DOTENV_PATH }}
