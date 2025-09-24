@@ -30,6 +30,7 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
+
 from connector_builder_mcp._util import (
     as_bool,
     as_dict,

@@ -74,19 +74,23 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--existing-connector-name",
         help=(
-            "".join([
-                "Name of the existing connector to compare with. ",
-                "Examples: source-hubspot, destination-postgres. ",
-            ])
+            "".join(
+                [
+                    "Name of the existing connector to compare with. ",
+                    "Examples: source-hubspot, destination-postgres. ",
+                ]
+            )
         ),
     )
     parser.add_argument(
         "--existing-config-name",
         help=(
-            "".join([
-                "Name of the existing config to compare with. ",
-                "Examples: 'config', 'oauth_config', etc.",
-            ])
+            "".join(
+                [
+                    "Name of the existing config to compare with. ",
+                    "Examples: 'config', 'oauth_config', etc.",
+                ]
+            )
         ),
     )
     return parser.parse_args()
