@@ -59,4 +59,4 @@ jobs:
           OPENAI_LOG: debug
           FASTMCP_DEBUG: 1
         run: |
-          poe build-connector "${{ matrix.api_name }}"
+          poe build-connector --api-name="${{ matrix.api_name }}"
