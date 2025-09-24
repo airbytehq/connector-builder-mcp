@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from connector_builder_mcp._secrets import _load_secrets
+from connector_builder_mcp.secrets import _load_secrets
 
 
 @pytest.mark.xfail(reason="External privatebin URL has expired")

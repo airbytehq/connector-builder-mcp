@@ -30,8 +30,6 @@ from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer impo
 from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
     ManifestReferenceResolver,
 )
-
-from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import (
     as_bool,
     as_dict,
@@ -39,6 +37,7 @@ from connector_builder_mcp._util import (
     parse_manifest_input,
     validate_manifest_structure,
 )
+from connector_builder_mcp.secrets import hydrate_config
 
 
 logger = logging.getLogger(__name__)
@@ -63,13 +62,13 @@ class StreamTestResult(BaseModel):
     records: list[dict[str, Any]] | None = Field(
         default=None, description="Actual record data from the stream"
     )
-    raw_api_responses: list[dict[str, Any]] | None = Field(
-        default=None, description="Raw request/response data and metadata from CDK"
-    )
     logs: list[dict[str, Any]] | None = Field(
         default=None, description="Logs returned by the test read operation (if applicable)."
     )
     record_stats: dict[str, Any] | None = None
+    raw_api_responses: list[dict[str, Any]] | None = Field(
+        default=None, description="Raw request/response data and metadata from CDK"
+    )
 
 
 class StreamSmokeTest(BaseModel):
@@ -92,43 +91,6 @@ class MultiStreamSmokeTest(BaseModel):
     total_records_count: int
     duration_seconds: float
     stream_results: dict[str, StreamSmokeTest]
-
-
-def _get_raw_responses_for_failure(
-    include_raw_responses_data: bool,
-    slices: list[dict[str, Any]],
-    stream_data: dict[str, Any],
-    error_msgs: list[str],
-) -> list[dict[str, Any]] | None:
-    """Return raw responses or simple debug info for failed stream reads."""
-    if not include_raw_responses_data:
-        return None
-    if slices:
-        return slices
-    return [
-        {
-            "error": error_msgs[0] if error_msgs else "Unknown error",
-            "logs": stream_data.get("logs", []),
-        }
-    ]
-
-
-def _get_raw_responses_for_success(
-    include_raw_responses_data: bool,
-    slices: list[dict[str, Any]],
-    stream_data: dict[str, Any],
-) -> list[dict[str, Any]] | None:
-    """Return raw responses or simple debug info for successful stream reads."""
-    if not include_raw_responses_data:
-        return None
-    if slices:
-        return slices
-    return [
-        {
-            "debug": "No raw HTTP data captured - check dpath extractor",
-            "logs": stream_data.get("logs", []),
-        }
-    ]
 
 
 def _calculate_record_stats(
@@ -455,25 +417,10 @@ def execute_stream_test_read(  # noqa: PLR0914
         success = False
         error_msgs.append("Source failed to return a test read response record.")
 
+    execution_logs += stream_data.pop("logs", [])
     if not slices:
-        error_msgs.extend(f"No API output returned for stream '{stream_name}'.")
-
-        logs = stream_data.pop("logs", [])
-        error_msgs.extend(f"ERROR from logs: {log}" for log in logs if "ERROR" in str(log))
-        execution_logs.extend(log for log in logs if "ERROR" not in str(log))
-
-    if success is False:
-        raw_responses_data = _get_raw_responses_for_failure(
-            include_raw_responses_data, slices, stream_data, error_msgs
-        )
-
-        return StreamTestResult(
-            success=success,
-            message=error_msgs[0] if error_msgs else "Unknown error occurred.",
-            errors=error_msgs,
-            logs=execution_logs,
-            raw_api_responses=raw_responses_data,
-        )
+        success = False
+        error_msgs.append(f"No API output returned for stream '{stream_name}'.")
 
     records_data: list[dict[str, Any]] = []
     for slice_obj in slices:
@@ -482,21 +429,25 @@ def execute_stream_test_read(  # noqa: PLR0914
                 if isinstance(page, dict) and "records" in page:
                     records_data.extend(page.pop("records"))
 
-    raw_responses_data = _get_raw_responses_for_success(
-        include_raw_responses_data, slices, stream_data
-    )
-
     record_stats = None
     if include_record_stats and records_data:
         record_stats = _calculate_record_stats(records_data)
 
+    # Toggle to include_raw_responses=True if we had an error or if we are returning no records
+    include_raw_responses_data = include_raw_responses_data or not success
     return StreamTestResult(
         success=success,
-        message=f"Successfully read {len(records_data)} records from stream {stream_name}",
+        message=(
+            f"Successfully read {len(records_data)} records from stream {stream_name}"
+            if success and records_data
+            else f"Failed to read records from stream {stream_name}"
+        ),
         records_read=len(records_data),
         records=records_data if include_records_data else None,
-        raw_api_responses=raw_responses_data,
+        raw_api_responses=[stream_data] if include_raw_responses_data else None,
+        logs=execution_logs,
         record_stats=record_stats,
+        errors=error_msgs,
     )
 
 

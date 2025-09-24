@@ -53,7 +53,7 @@ async def run_connector_build(
 
     if api_name:
         instructions = (
-            f"Fully build and test a connector for '{api_name}'. " + (instructions or "")
+            f"Fully build and test a connector for '{api_name}'. \n" + (instructions or "")
         ).strip()
     assert instructions, "By now, instructions should be non-null."
     if existing_connector_name and existing_config_name:
@@ -64,8 +64,10 @@ async def run_connector_build(
         if dotenv_path:
             print(f"🔐 Using secrets dotenv: {dotenv_path}")
             instructions += (
-                f"Secrets dotenv file '{dotenv_path.resolve()!s}' contains necessary credentials "
-                "and can be passed to your tools."
+                f"\nSecrets dotenv file '{dotenv_path.resolve()!s}' contains necessary credentials "
+                "and can be passed to your tools. Start by using the 'list_dotenv_secrets' tool "
+                "to list available config values within that file. You will need to name the "
+                "config values exactly as they appear in the dotenv file."
             )
 
     if not interactive:
@@ -203,6 +205,8 @@ async def run_manager_developer_build(
         )
 
         update_progress_log("\n⚙️  Manager Agent is orchestrating the build...")
+        update_progress_log(f"API Name: {api_name or 'N/A'}")
+        update_progress_log(f"Additional Instructions: {instructions or 'N/A'}")
         update_progress_log(f"🔗 Follow along at: {trace_url}")
         open_if_browser_available(trace_url)
 
