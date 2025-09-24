@@ -50,6 +50,8 @@ MCP_CONNECTOR_BUILDER_FOR_DEVELOPER = lambda: MCPServerStdio(  # noqa: E731
             # Don't allow the agent to "cheat" by pulling an existing manifest directly (if exists).
             # TODO: Make this conditional based on the type of test we are doing:
             "get_connector_manifest",
+            # When we aren't interactive, the agent needs to use the secrets that they have already:
+            "populate_dotenv_missing_secrets_stubs",
         ],
     ),
     # TODO: Figure out how to make this timeout non-fatal to the LLM Agent:
@@ -71,6 +73,7 @@ MCP_CONNECTOR_BUILDER_FOR_MANAGER = lambda: MCPServerStdio(  # noqa: E731
         allowed_tool_names=[
             "get_connector_builder_checklist",
             "run_connector_readiness_test_report",
+            "list_dotenv_secrets",
         ],
     ),
     # TODO: Figure out how to make this timeout non-fatal to the LLM Agent:

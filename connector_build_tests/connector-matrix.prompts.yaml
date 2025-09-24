@@ -1,0 +1,6 @@
+connectors:
+  hubspot:
+    api_name: Hubspot
+    config_name: config
+    additional_context: |
+      ""

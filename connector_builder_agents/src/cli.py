@@ -35,10 +35,10 @@ def _parse_args() -> argparse.Namespace:
         description="Run unified MCP agent with automatic mode selection.",
     )
     parser.add_argument(
-        "prompt",
+        "--api-name",
         nargs="?",
         default=DEFAULT_CONNECTOR_BUILD_API_NAME,
-        help="API name or prompt string to pass to the agent.",
+        help="API name to pass to the agent.",
     )
     parser.add_argument(
         "--interactive",
@@ -71,6 +71,28 @@ def _parse_args() -> argparse.Namespace:
             )
         ),
     )
+    parser.add_argument(
+        "--existing-connector-name",
+        help=(
+            "".join(
+                [
+                    "Name of the existing connector to compare with. ",
+                    "Examples: source-hubspot, destination-postgres. ",
+                ]
+            )
+        ),
+    )
+    parser.add_argument(
+        "--existing-config-name",
+        help=(
+            "".join(
+                [
+                    "Name of the existing config to compare with. ",
+                    "Examples: 'config', 'oauth_config', etc.",
+                ]
+            )
+        ),
+    )
     return parser.parse_args()
 
 
@@ -86,10 +108,12 @@ async def main() -> None:
     cli_args: argparse.Namespace = _parse_args()
 
     await run_connector_build(
-        instructions=cli_args.prompt,
+        api_name=cli_args.api_name,
         interactive=cli_args.interactive,
         developer_model=cli_args.developer_model,
         manager_model=cli_args.manager_model,
+        existing_connector_name=cli_args.existing_connector_name,
+        existing_config_name=cli_args.existing_config_name,
     )
 
     print("\n" + "=" * 60)

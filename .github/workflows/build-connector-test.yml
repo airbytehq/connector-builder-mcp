@@ -7,8 +7,8 @@ on:
   pull_request:
     types:
       - ready_for_review
-      - synchronize
       - reopened
+      - synchronize
   workflow_dispatch:
 
 permissions:
@@ -21,9 +21,9 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        api_name:
-        - "JSONPlaceholder"
-        - "PokemonTGG"
+        include:
+        - api_name: "JSONPlaceholder"
+        - api_name: "PokemonTGG"
     steps:
       # Common steps:
       - name: Checkout code
