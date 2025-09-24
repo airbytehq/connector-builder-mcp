@@ -15,7 +15,7 @@ from agents import (
 from agents.result import RunResult
 
 # from agents import OpenAIConversationsSession
-from ._util import open_if_browser_available
+from ._util import get_secrets_dotenv, open_if_browser_available
 from .agents import (
     add_handback_to_manager,
     create_developer_agent,
@@ -42,17 +42,33 @@ async def run_connector_build(
     instructions: str | None = None,
     developer_model: str = DEFAULT_DEVELOPER_MODEL,
     manager_model: str = DEFAULT_MANAGER_MODEL,
+    existing_connector_name: str | None = None,
+    existing_config_name: str | None = None,
     *,
     interactive: bool = False,
 ) -> None:
     """Run an agentic AI connector build session with automatic mode selection."""
     if not api_name and not instructions:
         raise ValueError("Either api_name or instructions must be provided.")
+
     if api_name:
         instructions = (
-            f"Fully build and test a connector for '{api_name}'. " + (instructions or "")
+            f"Fully build and test a connector for '{api_name}'. \n" + (instructions or "")
         ).strip()
     assert instructions, "By now, instructions should be non-null."
+    if existing_connector_name and existing_config_name:
+        dotenv_path = get_secrets_dotenv(
+            existing_connector_name=existing_connector_name,
+            existing_config_name=existing_config_name,
+        )
+        if dotenv_path:
+            print(f"🔐 Using secrets dotenv: {dotenv_path}")
+            instructions += (
+                f"\nSecrets dotenv file '{dotenv_path.resolve()!s}' contains necessary credentials "
+                "and can be passed to your tools. Start by using the 'list_dotenv_secrets' tool "
+                "to list available config values within that file. You will need to name the "
+                "config values exactly as they appear in the dotenv file."
+            )
 
     if not interactive:
         print("\n🤖 Building Connector using Manager-Developer Architecture", flush=True)
@@ -212,6 +228,8 @@ async def run_manager_developer_build(
         )
 
         update_progress_log("\n⚙️  Manager Agent is orchestrating the build...")
+        update_progress_log(f"API Name: {api_name or 'N/A'}")
+        update_progress_log(f"Additional Instructions: {instructions or 'N/A'}")
         update_progress_log(f"🔗 Follow along at: {trace_url}")
         update_progress_log(f"🔢 Token usage tracking enabled for trace: {trace_id}")
         open_if_browser_available(trace_url)

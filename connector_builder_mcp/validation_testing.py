@@ -31,7 +31,6 @@ from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import 
     ManifestReferenceResolver,
 )
 
-from connector_builder_mcp._secrets import hydrate_config
 from connector_builder_mcp._util import (
     as_bool,
     as_dict,
@@ -39,6 +38,7 @@ from connector_builder_mcp._util import (
     parse_manifest_input,
     validate_manifest_structure,
 )
+from connector_builder_mcp.secrets import hydrate_config
 
 
 logger = logging.getLogger(__name__)
@@ -63,13 +63,13 @@ class StreamTestResult(BaseModel):
     records: list[dict[str, Any]] | None = Field(
         default=None, description="Actual record data from the stream"
     )
-    raw_api_responses: list[dict[str, Any]] | None = Field(
-        default=None, description="Raw request/response data and metadata from CDK"
-    )
     logs: list[dict[str, Any]] | None = Field(
         default=None, description="Logs returned by the test read operation (if applicable)."
     )
     record_stats: dict[str, Any] | None = None
+    raw_api_responses: list[dict[str, Any]] | None = Field(
+        default=None, description="Raw request/response data and metadata from CDK"
+    )
 
 
 class StreamSmokeTest(BaseModel):
@@ -373,8 +373,8 @@ def execute_stream_test_read(  # noqa: PLR0914
             # We actually don't want to limit pages or slices.
             # But if we don't provide a value they default
             # to very low limits, which is not what we want.
-            "max_pages_per_slice": max_records,
-            "max_slices": max_records,
+            "max_pages_per_slice": max(1, max_records),
+            "max_slices": max(1, max_records),
         },
     }
 
@@ -401,30 +401,27 @@ def execute_stream_test_read(  # noqa: PLR0914
     stream_data: dict[str, Any] = {}
     if result.record and result.record.data:
         stream_data = result.record.data
+        slices_from_stream = stream_data.get("slices", [])
+        # auxiliary_requests may contain HTTP request/response data when slices is empty
+        if (
+            include_raw_responses_data
+            and not slices_from_stream
+            and "auxiliary_requests" in stream_data
+        ):
+            slices_from_stream = stream_data.get("auxiliary_requests", [])
+
         slices = cast(
             list[dict[str, Any]],
-            filter_config_secrets(
-                stream_data.get("slices", []),
-            ),
+            filter_config_secrets(slices_from_stream),
         )
     else:
         success = False
         error_msgs.append("Source failed to return a test read response record.")
 
+    execution_logs += stream_data.pop("logs", [])
     if not slices:
-        error_msgs.extend(f"No API output returned for stream '{stream_name}'.")
-
-        logs = stream_data.pop("logs", [])
-        error_msgs.extend(f"ERROR from logs: {log}" for log in logs if "ERROR" in str(log))
-        execution_logs.extend(log for log in logs if "ERROR" not in str(log))
-
-    if success is False:
-        return StreamTestResult(
-            success=success,
-            message=error_msgs[0] if error_msgs else "Unknown error occurred.",
-            errors=error_msgs,
-            logs=execution_logs,
-        )
+        success = False
+        error_msgs.append(f"No API output returned for stream '{stream_name}'.")
 
     records_data: list[dict[str, Any]] = []
     for slice_obj in slices:
@@ -433,21 +430,25 @@ def execute_stream_test_read(  # noqa: PLR0914
                 if isinstance(page, dict) and "records" in page:
                     records_data.extend(page.pop("records"))
 
-    raw_responses_data = None
-    if include_raw_responses_data is True and slices:
-        raw_responses_data = slices
-
     record_stats = None
     if include_record_stats and records_data:
         record_stats = _calculate_record_stats(records_data)
 
+    # Toggle to include_raw_responses=True if we had an error or if we are returning no records
+    include_raw_responses_data = include_raw_responses_data or not success
     return StreamTestResult(
         success=success,
-        message=f"Successfully read {len(records_data)} records from stream {stream_name}",
+        message=(
+            f"Successfully read {len(records_data)} records from stream {stream_name}"
+            if success and records_data
+            else f"Failed to read records from stream {stream_name}"
+        ),
         records_read=len(records_data),
         records=records_data if include_records_data else None,
-        raw_api_responses=raw_responses_data,
         record_stats=record_stats,
+        errors=error_msgs,
+        logs=execution_logs,
+        raw_api_responses=[stream_data] if include_raw_responses_data else None,
     )
 
 

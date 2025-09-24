@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Secrets management for connector configurations using dotenv files and privatebin URLs.
 
 This module provides stateless tools for managing secrets in .env files and privatebin URLs without

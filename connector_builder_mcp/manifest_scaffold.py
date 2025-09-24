@@ -147,7 +147,7 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
     base_spec = f"""    $schema: http://json-schema.org/draft-07/schema#
     title: {title} Spec
     type: object
-    additionalProperties: true"""
+    additionalProperties: true  # Must be 'true' to permit internal config keys"""
 
     auth_configs = {
         AuthenticationType.NO_AUTH: ("    properties: {}", "    required: []"),
