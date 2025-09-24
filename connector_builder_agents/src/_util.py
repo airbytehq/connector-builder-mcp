@@ -33,12 +33,7 @@ def get_secrets_dotenv(
     """Get the path to the dotenv file for the existing connector and config, if provided."""
     if existing_connector_name and existing_config_name:
         connector_secrets_dir = (
-            Path.cwd().parent.resolve()
-            / "airbyte"
-            / "airbyte-integrations"
-            / "connectors"
-            / existing_connector_name
-            / "secrets"
+            Path.cwd().parent.resolve() / ".secrets" / existing_connector_name / "secrets"
         )
         secrets_json_file = connector_secrets_dir / f"{existing_config_name}.json"
         secrets_dotenv_path = (
@@ -58,6 +53,7 @@ def get_secrets_dotenv(
                     "fetch",
                     existing_connector_name,
                 ],
+                cwd=connector_secrets_dir,
             )
             if not secrets_json_file.exists():
                 raise FileNotFoundError(
