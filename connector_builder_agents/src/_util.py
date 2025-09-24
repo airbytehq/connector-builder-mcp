@@ -52,7 +52,7 @@ def get_secrets_dotenv(
                     "airbyte-cdk[dev]",
                     "secrets",
                     "fetch",
-                    existing_connector_name,
+                    f"--connector={connector_secrets_dir.parent!s}",
                 ],
                 cwd=connector_secrets_dir,
             )
