@@ -75,7 +75,7 @@ def initialize_models() -> None:
                 "✅ Successfully extracted GitHub token from `gh` CLI: "
                 f"({openai_api_key[:4]}...{openai_api_key[-4:]})"
             )
-            if not openai_api_key.startswith(("sk-", "ghs_")):
+            if not openai_api_key.startswith("sk-"):
                 raise ValueError(
                     "Extracted GitHub token does not appear to be valid. "
                     "Please ensure you have the GitHub CLI installed and authenticated."
