@@ -17,7 +17,6 @@ lock = { shell = "uv lock && uv lock --project=connector_builder_agents", help =
 mypy = { cmd = "uv run mypy connector_builder_mcp", help = "Type check code with mypy" }
 test = { cmd = "uv run pytest tests/ -v", help = "Run tests with verbose output" }
 test-fast = { cmd = "uv run pytest --exitfirst tests", help = "Run tests, stop on first failure" }
-flatten-json-config-to-dotenv = { cmd = "bin/flatten-json-config-to-dotenv.sh", help = "Convert JSON config file to dotenv format with flattened keys" }
 
 # Aliases
 check-types = ["mypy"]

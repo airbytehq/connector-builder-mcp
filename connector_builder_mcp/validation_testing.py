@@ -444,10 +444,10 @@ def execute_stream_test_read(  # noqa: PLR0914
         ),
         records_read=len(records_data),
         records=records_data if include_records_data else None,
-        raw_api_responses=[stream_data] if include_raw_responses_data else None,
-        logs=execution_logs,
         record_stats=record_stats,
         errors=error_msgs,
+        logs=execution_logs,
+        raw_api_responses=[stream_data] if include_raw_responses_data else None,
     )
 
 

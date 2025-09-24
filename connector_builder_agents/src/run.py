@@ -1,8 +1,6 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Functions to run connector builder agents in different modalities."""
 
-import json
-import subprocess
 import sys
 from pathlib import Path
 

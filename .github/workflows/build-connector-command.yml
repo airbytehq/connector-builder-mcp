@@ -16,9 +16,6 @@ on:
       pr:
         description: "PR Number"
         required: false
-      # prompt:
-      #   description: "The prompt to pass to the connector builder task."
-      #   required: true
 
 permissions:
   contents: read
@@ -30,24 +27,7 @@ concurrency:
 
 jobs:
 
-  # get-connector-jobs:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Set connector jobs matrix
-  #       id: set-matrix
-  #       run: |
-  #         echo "jobs=["
-  #         echo "{ \"api_name\": \"Hubspot\", \"config_name\": \"config\" },"
-  #         echo "{ \"api_name\": \"JSONPlaceholder\", \"config_name\": \"config\" },"
-  #         echo "{ \"api_name\": \"PokemonTGG\", \"config_name\": \"config\" }"
-  #         echo "]"
-  #         echo "::set-output name=jobs::$(echo "[$(echo "{ \"api_name\": \"Hubspot\", \"config_name\": \"config\" },{ \"api_name\": \"JSONPlaceholder\", \"config_name\": \"config\" },{ \"api_name\": \"PokemonTGG\", \"config_name\": \"config\" }" | tr '\n' ' ')]")"
-  #       shell: bash
-  #   outputs:
-  #     jobs: ${{ steps.set-matrix.outputs.jobs }}
-
   run-connector-build:
-    # needs: get-connector-jobs
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -81,14 +61,6 @@ jobs:
           repository: airbytehq/airbyte
           path: airbyte
           token: ${{ github.token }}
-
-      # - name: Fetch connector secrets
-      #   run: |
-      #     pwd
-      #     ls -la
-      #     cd airbyte
-      #     uvx airbyte-cdk secrets fetch source-hubspot
-      #   continue-on-error: true
 
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
