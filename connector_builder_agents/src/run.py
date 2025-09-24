@@ -26,6 +26,7 @@ from .constants import (
     DEFAULT_MANAGER_MODEL,
     MAX_CONNECTOR_BUILD_STEPS,
     SESSION_ID,
+    WORKSPACE_WRITE_DIR,
 )
 from .cost_tracking import CostTracker
 from .tools import (
@@ -282,8 +283,6 @@ async def run_manager_developer_build(
             update_progress_log(f"\n{cost_tracker.cost_summary_report}")
 
             try:
-                from .constants import WORKSPACE_WRITE_DIR
-
                 usage_dir = WORKSPACE_WRITE_DIR
                 manifest_files = list(WORKSPACE_WRITE_DIR.glob("**/manifest.yaml"))
                 if manifest_files:
@@ -296,7 +295,7 @@ async def run_manager_developer_build(
                         "📁 No manifest.yaml found, saving usage data in workspace directory"
                     )
 
-                usage_file = usage_dir / f"{trace_id}_usage_summary.json"
+                usage_file = usage_dir / "usage_summary.json"
                 cost_tracker.save_to_file(usage_file)
                 update_progress_log(f"📊 Detailed usage data saved to: {usage_file}")
             except Exception as save_ex:
