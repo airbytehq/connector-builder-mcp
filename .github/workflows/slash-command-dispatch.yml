@@ -45,8 +45,8 @@ jobs:
           # - If the slash command is invoked from an issue, we intentionally pass 'null' as the PR number.
           # - Comment ID will always be sent, and this is sufficient to post back status updates to the originating comment.
           static-args: |
-            pr=${{ github.event.issue.pull_request != null && github.event.issue.number || '' }}
             comment-id=${{ github.event.comment.id }}
+            ${{ github.event.issue.pull_request != null && format('pr={0}', github.event.issue.number) || '' }}
 
       - name: Edit comment with error message
         if: steps.dispatch.outputs.error-message
