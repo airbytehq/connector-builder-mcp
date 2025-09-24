@@ -35,6 +35,7 @@ def get_secrets_dotenv(
         connector_secrets_dir = (
             Path.cwd().parent.resolve() / ".secrets" / existing_connector_name / "secrets"
         )
+        connector_secrets_dir.mkdir(parents=True, exist_ok=True)
         secrets_json_file = connector_secrets_dir / f"{existing_config_name}.json"
         secrets_dotenv_path = (
             connector_secrets_dir / f"{existing_connector_name}-{existing_config_name}.env"
