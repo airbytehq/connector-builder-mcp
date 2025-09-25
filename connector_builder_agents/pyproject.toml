@@ -11,8 +11,9 @@ dependencies = [
     "mcp-agent>=0.1.15",  # Transitive dependency of openai-agents
     "pydantic>=2.11.9,<3.0",
     "pyyaml>=6.0.1",
-    "arize-phoenix>=5.0.0",
+    "arize-phoenix>=8.0.0",
     "openinference-instrumentation-openai-agents",
+    "openinference-instrumentation-openai",
     "pandas>=2.0.0",
 ]
 

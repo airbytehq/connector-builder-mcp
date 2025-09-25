@@ -130,6 +130,7 @@ dependencies = [
     { name = "mcp-agent" },
     { name = "openai-agents" },
     { name = "openai-agents-mcp" },
+    { name = "openinference-instrumentation-openai" },
     { name = "openinference-instrumentation-openai-agents" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -144,10 +145,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "arize-phoenix", specifier = ">=5.0.0" },
+    { name = "arize-phoenix", specifier = ">=8.0.0" },
     { name = "mcp-agent", specifier = ">=0.1.15" },
     { name = "openai-agents", specifier = ">=0.2.11" },
     { name = "openai-agents-mcp", specifier = ">=0.0.8" },
+    { name = "openinference-instrumentation-openai" },
     { name = "openinference-instrumentation-openai-agents" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "pydantic", specifier = ">=2.11.9,<3.0" },
@@ -1391,6 +1393,24 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fa/87/71c599f804203077f3766e7c6ce831cdfd0ca202278c35877a704e00b2cf/openinference_instrumentation-0.1.38.tar.gz", hash = "sha256:b45e5d19b5c0d14e884a11ed5b888deda03d955c6e6f4478d8cefd3edaea089d", size = 23749, upload-time = "2025-09-02T21:06:22.025Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8b/f7/72bd2dbb8bbdd785512c9d128f2056e2eaadccfaecb09d2ae59bde6d4af2/openinference_instrumentation-0.1.38-py3-none-any.whl", hash = "sha256:5c45d73c5f3c79e9d9e44fbf4b2c3bdae514be74396cc1880cb845b9b7acc78f", size = 29885, upload-time = "2025-09-02T21:06:20.845Z" },
+]
+
+[[package]]
+name = "openinference-instrumentation-openai"
+version = "0.1.33"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "openinference-instrumentation" },
+    { name = "openinference-semantic-conventions" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "typing-extensions" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fd/27/58c35ecad076cc4f35bfd521c0e6004cc0958febc7e36075e8fd6ef93f37/openinference_instrumentation_openai-0.1.33.tar.gz", hash = "sha256:3ab28369b02901e9829b5c22a3c96b8badf2ec82a0a95247af628a826aeb8d30", size = 22628, upload-time = "2025-09-22T12:53:33.708Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a2/8d/c0b4df03c4eb7126cbfa0560bd22ca939ab6f1bef50b448af8e15dc5a68c/openinference_instrumentation_openai-0.1.33-py3-none-any.whl", hash = "sha256:a61f2a0808bd8623804202a76e25581abf23a0835e4987be1f68419c05089fce", size = 30021, upload-time = "2025-09-22T12:53:32.465Z" },
 ]
 
 [[package]]

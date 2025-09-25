@@ -1,7 +1,10 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Evaluators for connector builder agents."""
 
+import ast
+
 import pandas as pd
+import yaml
 from dotenv import load_dotenv
 from phoenix.evals import OpenAIModel, llm_classify
 
@@ -13,6 +16,13 @@ EVAL_MODEL = OpenAIModel(model="gpt-4o")
 
 def readiness_eval(input: dict, output: dict) -> int:
     """Create Phoenix LLM classifier for readiness evaluation."""
+    # Handle case where output is None or missing artifacts
+
+    readiness_report = output.get("artifacts", {}).get("readiness_report", None)
+    if readiness_report is None:
+        print("No readiness report found")
+        return 0
+
     EVAL_TEMPLATE = """You are evaluating whether a connector readiness test passed or failed.
 
 A passing report should have:
@@ -36,13 +46,45 @@ Based on the connector readiness report below, classify whether the test PASSED 
 
     eval_df = llm_classify(
         model=EVAL_MODEL,
-        data=pd.DataFrame([{"readiness_report": output["readiness_report_content"]}]),
+        data=pd.DataFrame([{"readiness_report": readiness_report}]),
         template=EVAL_TEMPLATE,
         rails=rails,
         provide_explanation=True,
     )
 
+    print(eval_df)
+
     label = eval_df["label"][0]
-    score = 1 if label == "PASSED" else 0
+    score = 1 if label.upper() == "PASSED" else 0
 
     return score
+
+
+def expected_streams_eval(input: dict, output: dict) -> float:
+    """Evaluate if all expected streams were built."""
+    manifest_str = output.get("artifacts", {}).get("manifest", None)
+    if manifest_str is None:
+        print("No manifest found")
+        return 0
+
+    manifest = yaml.safe_load(manifest_str)
+    print(f"Manifest: {manifest}")
+    available_streams = manifest.get("streams", [])
+    available_stream_names = [stream.get("name", "") for stream in available_streams]
+    print(f"Available stream names: {available_stream_names}")
+
+    # Get expected streams from the input (dataset row)
+    expected_stream_names = ast.literal_eval(input.get("expected_streams", []))
+    print(f"Expected stream names: {expected_stream_names}")
+    print(f"Expected stream names type: {type(expected_stream_names)}")
+
+    if not expected_stream_names:
+        print("No expected streams found")
+        return 0.0  # Avoid division by zero
+
+    # Calculate the percentage of expected streams that are present in available streams
+    matched_streams = set(available_stream_names) & set(expected_stream_names)
+    print(f"Matched streams: {matched_streams}")
+    percent_matched = len(matched_streams) / len(expected_stream_names)
+    print(f"Percent matched: {percent_matched}")
+    return float(percent_matched)
