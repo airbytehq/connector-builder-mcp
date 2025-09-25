@@ -33,7 +33,7 @@ def get_secrets_dotenv(
     """Get the path to the dotenv file for the existing connector and config, if provided."""
     if existing_connector_name and existing_config_name:
         connector_secrets_dir = (
-            Path.cwd().parent.resolve() / ".secrets" / existing_connector_name / "secrets"
+            Path.cwd().resolve() / ".secrets" / existing_connector_name / "secrets"
         )
         connector_secrets_dir.mkdir(parents=True, exist_ok=True)
         secrets_json_file = connector_secrets_dir / f"{existing_config_name}.json"
