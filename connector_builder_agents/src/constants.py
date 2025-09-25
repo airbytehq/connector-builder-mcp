@@ -30,12 +30,10 @@ DEFAULT_CONNECTOR_BUILD_API_NAME: str = "JSONPlaceholder API"
 SESSION_ID: str = f"unified-mcp-session-{int(time.time())}"
 WORKSPACE_WRITE_DIR: Path = Path() / "ai-generated-files" / SESSION_ID
 WORKSPACE_WRITE_DIR.mkdir(parents=True, exist_ok=True)
-DEFAULT_DEVELOPER_MODEL: str = (
-    "gpt-5"  # "gpt-4.1"  # "o4-mini", "gpt-4.1-turbo", "openai/gpt-4o-mini", "gpt-4o-mini"
-)
-DEFAULT_MANAGER_MODEL: str = (
-    "gpt-5"  # "gpt-4.1"  # "o4-mini", "gpt-4.1-turbo", "openai/gpt-4o-mini", "gpt-4o-mini"
-)
+
+# Model selection: # E.g. "gpt-5", "gpt-5-mini", "gpt-4.1", "o4-mini", "gpt-4.1-turbo"
+DEFAULT_DEVELOPER_MODEL: str = "gpt-5-mini"
+DEFAULT_MANAGER_MODEL: str = "gpt-5-mini"
 AUTO_OPEN_TRACE_URL: bool = os.environ.get("AUTO_OPEN_TRACE_URL", "1").lower() in {"1", "true"}
 
 HEADLESS_BROWSER = True
