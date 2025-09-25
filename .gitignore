@@ -1,3 +1,8 @@
+# Secrets
+.secrets
+secrets
+
+# Generated files
 ai-generated-files/
 docs/generated/
 

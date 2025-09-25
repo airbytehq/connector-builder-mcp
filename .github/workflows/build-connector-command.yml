@@ -54,13 +54,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Checkout airbyte repo for secrets-fetch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          repository: airbytehq/airbyte
-          path: airbyte
-          token: ${{ github.token }}
 
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
