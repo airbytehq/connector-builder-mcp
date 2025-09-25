@@ -23,7 +23,7 @@ jobs:
       matrix:
         include:
         - api_name: "JSONPlaceholder"
-        - api_name: "PokemonTGG"
+        - api_name: "PokemonTCG"
     steps:
       # Common steps:
       - name: Checkout code
