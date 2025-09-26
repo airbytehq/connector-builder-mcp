@@ -3,11 +3,15 @@
 import logging
 import time
 
+from ..constants import DEFAULT_DEVELOPER_MODEL, DEFAULT_MANAGER_MODEL
 from ..run import get_workspace_dir, run_connector_build
 from .helpers import get_artifact
 
 
 logger = logging.getLogger(__name__)
+
+EVAL_DEVELOPER_MODEL = DEFAULT_DEVELOPER_MODEL
+EVAL_MANAGER_MODEL = DEFAULT_MANAGER_MODEL
 
 
 async def run_connector_build_task(dataset_row: dict) -> dict:
@@ -23,6 +27,8 @@ async def run_connector_build_task(dataset_row: dict) -> dict:
         build_result = await run_connector_build(
             api_name=prompt_name,
             session_id=session_id,
+            developer_model=EVAL_DEVELOPER_MODEL,
+            manager_model=EVAL_MANAGER_MODEL,
         )
 
         workspace_dir = get_workspace_dir(session_id)
@@ -45,7 +51,6 @@ async def run_connector_build_task(dataset_row: dict) -> dict:
             "success": success,
             "final_output": final_result.final_output if final_result else None,
             "num_turns": num_turns,
-            "messages": final_result.to_input_list() if final_result else [],
             "artifacts": {
                 "readiness_report": readiness_report_content,
                 "manifest": manifest_content,

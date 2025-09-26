@@ -8,8 +8,8 @@ from phoenix.experiments import run_experiment
 from phoenix.otel import register
 
 from .dataset import get_or_create_phoenix_dataset
-from .evaluators import readiness_eval, streams_eval
-from .task import run_connector_build_task
+from .evaluators import READINESS_EVAL_MODEL, readiness_eval, streams_eval
+from .task import EVAL_DEVELOPER_MODEL, EVAL_MANAGER_MODEL, run_connector_build_task
 
 
 load_dotenv()
@@ -44,6 +44,11 @@ try:
         task=run_connector_build_task,
         evaluators=evaluators,
         experiment_name=experiment_name,
+        experiment_metadata={
+            "developer_model": EVAL_DEVELOPER_MODEL,
+            "manager_model": EVAL_MANAGER_MODEL,
+            "readiness_eval_model": READINESS_EVAL_MODEL.model_name,
+        },
         timeout=1800,
     )
     logger.info(f"Experiment '{experiment_name}' completed successfully")

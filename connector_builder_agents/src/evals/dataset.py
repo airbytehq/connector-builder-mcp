@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+from pathlib import Path
 
 import pandas as pd
 import yaml
@@ -16,9 +17,11 @@ logger = logging.getLogger(__name__)
 def get_dataset_with_hash() -> tuple[pd.DataFrame, str]:
     """Get the local evals dataset with a hash of the config."""
 
-    logger.info("Loading connectors dataset from connector_builder_agents/evals/connectors.yaml")
+    # Get path relative to this file
+    config_path = Path(__file__).parent / "data" / "connectors.yaml"
+    logger.info(f"Loading connectors dataset from {config_path}")
     try:
-        with open("connector_builder_agents/evals/connectors.yaml") as f:
+        with open(config_path) as f:
             evals_config = yaml.safe_load(f)
             hash_value = hashlib.sha256(yaml.safe_dump(evals_config).encode()).hexdigest()[:8]
 
