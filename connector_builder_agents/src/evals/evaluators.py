@@ -2,6 +2,7 @@
 """Evaluators for connector builder agents."""
 
 import json
+import logging
 
 import pandas as pd
 import yaml
@@ -11,6 +12,8 @@ from phoenix.evals import OpenAIModel, llm_classify
 
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 READINESS_EVAL_MODEL = "gpt-4o"
 READINESS_EVAL_TEMPLATE = """You are evaluating whether a connector readiness test passed or failed.
@@ -38,7 +41,7 @@ def readiness_eval(output: dict) -> int:
 
     readiness_report = output.get("artifacts", {}).get("readiness_report", None)
     if readiness_report is None:
-        print("No readiness report found")
+        logger.warning("No readiness report found")
         return 0
 
     rails = ["PASSED", "FAILED"]
@@ -51,7 +54,7 @@ def readiness_eval(output: dict) -> int:
         provide_explanation=True,
     )
 
-    print(eval_df)
+    logger.info(f"Readiness evaluation result: {eval_df}")
 
     label = eval_df["label"][0]
     score = 1 if label.upper() == "PASSED" else 0
@@ -64,18 +67,17 @@ def streams_eval(expected: dict, output: dict) -> float:
 
     manifest_str = output.get("artifacts", {}).get("manifest", None)
     if manifest_str is None:
-        print("No manifest found")
+        logger.warning("No manifest found")
         return 0
 
     manifest = yaml.safe_load(manifest_str)
-    print(f"Manifest: {manifest}")
     available_streams = manifest.get("streams", [])
     available_stream_names = [stream.get("name", "") for stream in available_streams]
-    print(f"Available stream names: {available_stream_names}")
+    logger.info(f"Available stream names: {available_stream_names}")
 
     # Get expected streams from the input (dataset row)
     expected_stream_names = json.loads(expected.get("expected_streams", []))
-    print(f"Expected stream names: {expected_stream_names}")
+    logger.info(f"Expected stream names: {expected_stream_names}")
 
     # Set attributes on span for visibility
     span = get_current_span()
@@ -83,12 +85,12 @@ def streams_eval(expected: dict, output: dict) -> float:
     span.set_attribute("expected_stream_names", expected_stream_names)
 
     if not expected_stream_names:
-        print("No expected streams found")
+        logger.warning("No expected streams found")
         return 0.0
 
     # Calculate the percentage of expected streams that are present in available streams
     matched_streams = set(available_stream_names) & set(expected_stream_names)
-    print(f"Matched streams: {matched_streams}")
+    logger.info(f"Matched streams: {matched_streams}")
     percent_matched = len(matched_streams) / len(expected_stream_names)
-    print(f"Percent matched: {percent_matched}")
+    logger.info(f"Percent matched: {percent_matched}")
     return float(percent_matched)
