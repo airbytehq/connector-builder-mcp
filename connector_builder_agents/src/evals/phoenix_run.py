@@ -47,7 +47,7 @@ try:
         experiment_metadata={
             "developer_model": EVAL_DEVELOPER_MODEL,
             "manager_model": EVAL_MANAGER_MODEL,
-            "readiness_eval_model": READINESS_EVAL_MODEL.model_name,
+            "readiness_eval_model": READINESS_EVAL_MODEL,
         },
         timeout=1800,
     )

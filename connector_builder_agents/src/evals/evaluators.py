@@ -12,7 +12,7 @@ from phoenix.evals import OpenAIModel, llm_classify
 
 load_dotenv()
 
-READINESS_EVAL_MODEL = OpenAIModel(model="gpt-4o")
+READINESS_EVAL_MODEL = "gpt-4o"
 READINESS_EVAL_TEMPLATE = """You are evaluating whether a connector readiness test passed or failed.
 
 A passing report should have all of the following:
@@ -44,7 +44,7 @@ def readiness_eval(output: dict) -> int:
     rails = ["PASSED", "FAILED"]
 
     eval_df = llm_classify(
-        model=READINESS_EVAL_MODEL,
+        model=OpenAIModel(model=READINESS_EVAL_MODEL),
         data=pd.DataFrame([{"readiness_report": readiness_report}]),
         template=READINESS_EVAL_TEMPLATE,
         rails=rails,
