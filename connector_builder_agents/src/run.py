@@ -289,6 +289,4 @@ async def run_manager_developer_build(
         except Exception as ex:
             update_progress_log(f"\n❌ Unexpected error during build: {ex}", session_state)
             update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
-            # sys.exit(1)
-            # Return any runs completed before error, or empty list if none
-            return all_run_results if "all_run_results" in locals() else []
+            raise ex
