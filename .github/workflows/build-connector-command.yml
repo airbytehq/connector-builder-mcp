@@ -1,6 +1,13 @@
 name: On-Demand Connector Builder
 
 on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - ready_for_review
+      - reopened
   workflow_dispatch:
     inputs:
       comment-id:
@@ -9,20 +16,32 @@ on:
       pr:
         description: "PR Number"
         required: false
-      prompt:
-        description: "The prompt to pass to the connector builder task."
-        required: true
 
 permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  run-poe-build-connector:
-    env:
-      # OPENAI_API_ROOT: https://api.openai.com/v1
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+  run-connector-build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # matrix: ${{ fromJson(needs.get-connector-jobs.outputs.jobs) }}
+      matrix:
+        include:
+        - api_name: "JSONPlaceholder"
+        - api_name: "PokemonTGG"
+        - api_name: "Hubspot"
+          connector_name: "source-hubspot"
+          config_name: "config"
+    name: Build ${{ matrix.api_name }} Connector
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
 
       # Some MCP Servers need npx/node, so set that up:
@@ -31,11 +50,23 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Checkout `connector-builder-mcp` repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
+        env:
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
         with:
           pr: ${{ github.event.inputs.pr }}
           comment-id: ${{ github.event.inputs.comment-id }}
           start-message: "🛠️ Building connector..."
-          command: "build-connector --prompt='${{ github.event.inputs.prompt }}'"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          command: >
+            build-connector
+            --api-name='${{ matrix.api_name }}'
+            ${{ matrix.connector_name && format('--existing-connector-name={0}', matrix.connector_name) || '' }}
+            ${{ matrix.config_name && format('--existing-config-name={0}', matrix.config_name) || '' }}
           no-commit: true
