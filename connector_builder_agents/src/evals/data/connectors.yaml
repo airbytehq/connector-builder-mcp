@@ -1,0 +1,25 @@
+connectors:
+  - name: "source-jsonplaceholder"
+    prompt_name: "JSONPlaceholder"
+    expected_streams:
+      - "posts"
+      - "comments"
+      - "albums"
+      - "photos"
+      - "todos"
+      - "users"
+  - name: "source-starwars"
+    prompt_name: "StarWars API (https://swapi.info/)"
+    expected_streams:
+      - "people"
+      - "films"
+      - "planets"
+      - "species"
+      - "starships"
+      - "vehicles"
+  - name: "source-rickandmorty"
+    prompt_name: "Rick and Morty API"
+    expected_streams:
+      - "characters"
+      - "episodes"
+      - "locations"
