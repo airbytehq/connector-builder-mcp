@@ -1,4 +1,19 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
+"""Run evaluations for connector builder agents using Phoenix.
+
+This module executes automated evaluations of the connector builder agents
+using the Phoenix evaluation framework. It runs experiments against a dataset
+of connector building tasks and evaluates the quality of generated connectors
+using multiple evaluation metrics.
+
+Usage:
+    poe run-evals
+
+Requirements:
+    - OpenAI API key (OPENAI_API_KEY in a local '.env')
+    - Phoenix API key (PHOENIX_API_KEY in a local '.env')
+    - Phoenix collector endpoint (PHOENIX_COLLECTOR_ENDPOINT in a local '.env')
+"""
 
 import logging
 import uuid

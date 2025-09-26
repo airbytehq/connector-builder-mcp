@@ -8,13 +8,15 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "openai-agents-mcp>=0.0.8",
     "openai-agents>=0.2.11",
-    "mcp-agent>=0.1.15",  # Transitive dependency of openai-agents
+    "mcp-agent>=0.1.15", # Transitive dependency of openai-agents
     "pydantic>=2.11.9,<3.0",
     "pyyaml>=6.0.1",
-    "arize-phoenix>=8.0.0",
-    "openinference-instrumentation-openai-agents",
-    "openinference-instrumentation-openai",
     "pandas>=2.0.0",
+    "arize-phoenix-client>=1.19.1",
+    "arize-phoenix-otel>=0.13.1",
+    "arize-phoenix-evals>=2.1.0",
+    "openinference-instrumentation-openai>=0.1.33",
+    "openinference-instrumentation-openai-agents>=1.3.0",
 ]
 
 [dependency-groups]
