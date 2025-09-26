@@ -19,7 +19,7 @@ poe build-connector --api-name=Sentry --existing-connector-name=source-sentry --
 
 # Complaints of the auth not having the necessary access.
 # Could be an auth issue or just not using the OAuth/endpoints correctly.
-poe build-connector --api-name="Sharepoint Lists" --existing-connector=source-microsoft-lists --existing-config-name=config --additional-instructions="Start with the 'lists' API endpoint to get a list of lists."
+poe build-connector --api-name="Sharepoint Lists" --existing-connector-name=source-microsoft-lists --existing-config-name=config --additional-instructions="Start with the 'lists' API endpoint to get a list of lists."
 
 # Auth is notoriously a bit weird for Google. The integ auth is in JSON form (in an env var),
 # but the API might want it more granular or as a file.
