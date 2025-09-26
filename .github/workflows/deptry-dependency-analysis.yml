@@ -4,17 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "connector_builder_mcp/**"
-      - "tests/**"
-      - "uv.lock"
-      - "pyproject.toml"
   pull_request:
-    paths:
-      - "connector_builder_mcp/**"
-      - "tests/**"
-      - "uv.lock"
-      - "pyproject.toml"
+    types:
+      - synchronize
 
 jobs:
   dependency-analysis:
