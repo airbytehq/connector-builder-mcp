@@ -17,5 +17,9 @@ connectors:
       - "species"
       - "starships"
       - "vehicles"
-  # - name: "source-rickandmorty"
-  #   prompt_name: "Rick and Morty API"
+  - name: "source-rickandmorty"
+    prompt_name: "Rick and Morty API"
+    expected_streams:
+      - "characters"
+      - "episodes"
+      - "locations"

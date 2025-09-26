@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 
 import hashlib
+import json
 import logging
 
 import pandas as pd
@@ -20,7 +21,10 @@ def get_dataset_with_hash() -> tuple[pd.DataFrame, str]:
         with open("connector_builder_agents/evals/connectors.yaml") as f:
             evals_config = yaml.safe_load(f)
             hash_value = hashlib.sha256(yaml.safe_dump(evals_config).encode()).hexdigest()[:8]
+
             df = pd.DataFrame(evals_config["connectors"])
+            df["expected_streams"] = df["expected_streams"].apply(json.dumps)
+
             logger.info(
                 f"Successfully loaded evals dataset with {len(df)} connectors (hash: {hash_value})"
             )
@@ -46,5 +50,6 @@ def get_or_create_phoenix_dataset() -> Dataset:
         return px_client.datasets.create_dataset(
             name=dataset_name,
             dataframe=dataframe,
-            input_keys=["name", "prompt_name", "expected_streams"],
+            input_keys=["name", "prompt_name"],
+            output_keys=["expected_streams"],
         )
