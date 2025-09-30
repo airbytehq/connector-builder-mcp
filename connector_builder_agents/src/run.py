@@ -2,6 +2,7 @@
 """Functions to run connector builder agents in different modalities."""
 
 import sys
+import time
 from pathlib import Path
 
 from agents import (
@@ -24,15 +25,25 @@ from .constants import (
     DEFAULT_DEVELOPER_MODEL,
     DEFAULT_MANAGER_MODEL,
     MAX_CONNECTOR_BUILD_STEPS,
-    SESSION_ID,
 )
 from .tools import (
-    ALL_MCP_SERVERS,
-    DEVELOPER_AGENT_TOOLS,
-    MANAGER_AGENT_TOOLS,
+    create_session_mcp_servers,
+    create_session_state,
     is_complete,
     update_progress_log,
 )
+
+
+def generate_session_id() -> str:
+    """Generate a unique session ID based on current timestamp."""
+    return f"unified-mcp-session-{int(time.time())}"
+
+
+def get_workspace_dir(session_id: str) -> Path:
+    """Get workspace directory path for a given session ID."""
+    workspace_dir = Path() / "ai-generated-files" / session_id
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    return workspace_dir
 
 
 async def run_connector_build(
@@ -44,6 +55,7 @@ async def run_connector_build(
     existing_config_name: str | None = None,
     *,
     interactive: bool = False,
+    session_id: str | None = None,
 ) -> None:
     """Run an agentic AI connector build session with automatic mode selection."""
     if not api_name and not instructions:
@@ -68,6 +80,10 @@ async def run_connector_build(
                 "config values exactly as they appear in the dotenv file."
             )
 
+    # Generate session_id if not provided
+    if session_id is None:
+        session_id = generate_session_id()
+
     if not interactive:
         print("\n🤖 Building Connector using Manager-Developer Architecture", flush=True)
         print("=" * 60, flush=True)
@@ -79,6 +95,7 @@ async def run_connector_build(
             instructions=instructions,
             developer_model=developer_model,
             manager_model=manager_model,
+            session_id=session_id,
         )
     else:
         print("\n🤖 Building Connector using Interactive AI", flush=True)
@@ -92,25 +109,32 @@ async def run_connector_build(
         await run_interactive_build(
             prompt=prompt,
             model=developer_model,
+            session_id=session_id,
         )
 
 
 async def run_interactive_build(
     prompt: str,
     model: str,
+    session_id: str,
 ) -> None:
     """Run the agent using interactive mode with conversation loop."""
-    session = SQLiteSession(session_id=SESSION_ID)
+    # Create workspace directory and session state
+    workspace_dir = get_workspace_dir(session_id)
+    session_state = create_session_state(workspace_dir)
+
+    session = SQLiteSession(session_id=session_id)
+    all_mcp_servers, _, _ = create_session_mcp_servers(session_state)
     agent = Agent(
         name="MCP Connector Builder",
         instructions=(
             "You are a helpful assistant with access to MCP tools for building Airbyte connectors."
         ),
-        mcp_servers=ALL_MCP_SERVERS,
+        mcp_servers=all_mcp_servers,
         model=model,
     )
 
-    for server in ALL_MCP_SERVERS:
+    for server in all_mcp_servers:
         await server.connect()
 
     trace_id = gen_trace_id()
@@ -119,8 +143,8 @@ async def run_interactive_build(
 
         input_prompt: str = prompt
         while True:
-            update_progress_log("\n⚙️  AI Agent is working...")
-            update_progress_log(f"🔗 Follow along at: {trace_url}")
+            update_progress_log("\n⚙️  AI Agent is working...", session_state)
+            update_progress_log(f"🔗 Follow along at: {trace_url}", session_state)
             open_if_browser_available(trace_url)
             try:
                 # Kick off the streaming execution
@@ -136,29 +160,32 @@ async def run_interactive_build(
                     if event.type in {"tool_start", "tool_end", "agent_action"}:
                         update_progress_log(
                             f"[{event.name if hasattr(event, 'name') else event.type}] {str(event)[:120]}...",
+                            session_state,
                         )
                         continue
 
                     if event.type == "raw_response_event":
                         continue
 
-                    update_progress_log(f"[{event.type}] {str(event)[:120]}...")
+                    update_progress_log(f"[{event.type}] {str(event)[:120]}...", session_state)
 
                 # After streaming ends, get the final result
-                update_progress_log(f"\n🤖  AI Agent: {result_stream.final_output}")
+                update_progress_log(f"\n🤖  AI Agent: {result_stream.final_output}", session_state)
 
                 input_prompt = input("\n👤  You: ")
                 if input_prompt.lower() in {"exit", "quit"}:
-                    update_progress_log("☑️ Ending conversation...")
-                    update_progress_log(f"🪵 Review trace logs at: {trace_url}")
+                    update_progress_log("☑️ Ending conversation...", session_state)
+                    update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
                     break
 
             except KeyboardInterrupt:
-                update_progress_log("\n🛑 Conversation terminated (ctrl+c input received).")
-                update_progress_log(f"🪵 Review trace logs at: {trace_url}")
+                update_progress_log(
+                    "\n🛑 Conversation terminated (ctrl+c input received).", session_state
+                )
+                update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
                 sys.exit(0)
             finally:
-                for server in ALL_MCP_SERVERS:
+                for server in all_mcp_servers:
                     await server.cleanup()
 
 
@@ -167,27 +194,44 @@ async def run_manager_developer_build(
     instructions: str | None = None,
     developer_model: str = DEFAULT_DEVELOPER_MODEL,
     manager_model: str = DEFAULT_MANAGER_MODEL,
+    session_id: str | None = None,
 ) -> None:
     """Run a 3-phase connector build using manager-developer architecture."""
-    session = SQLiteSession(session_id=SESSION_ID)
+    # Generate session_id if not provided
+    if session_id is None:
+        session_id = generate_session_id()
+
+    session = SQLiteSession(session_id=session_id)
+
+    # Create workspace directory and session state
+    workspace_dir = get_workspace_dir(session_id)
+    session_state = create_session_state(workspace_dir)
+
+    # Create MCP servers for this session
+    all_servers, manager_servers, developer_servers = create_session_mcp_servers(session_state)
 
     developer_agent = create_developer_agent(
         model=developer_model,
         api_name=api_name or "(see below)",
         additional_instructions=instructions or "",
+        session_state=session_state,
+        mcp_servers=developer_servers,
     )
     manager_agent = create_manager_agent(
         developer_agent,
         model=manager_model,
         api_name=api_name or "(see below)",
         additional_instructions=instructions or "",
+        session_state=session_state,
+        mcp_servers=manager_servers,
     )
     add_handback_to_manager(
         developer_agent=developer_agent,
         manager_agent=manager_agent,
+        session_state=session_state,
     )
 
-    for server in [*MANAGER_AGENT_TOOLS, *DEVELOPER_AGENT_TOOLS]:
+    for server in all_servers:
         print(f"🔗 Connecting to MCP server: {server.name}...")
         await server.connect()
         print(f"✅ Connected to MCP server: {server.name}")
@@ -202,16 +246,16 @@ async def run_manager_developer_build(
             "Your goal is to ensure the successful completion of all phases as instructed."
         )
 
-        update_progress_log("\n⚙️  Manager Agent is orchestrating the build...")
-        update_progress_log(f"API Name: {api_name or 'N/A'}")
-        update_progress_log(f"Additional Instructions: {instructions or 'N/A'}")
-        update_progress_log(f"🔗 Follow along at: {trace_url}")
+        update_progress_log("\n⚙️  Manager Agent is orchestrating the build...", session_state)
+        update_progress_log(f"API Name: {api_name or 'N/A'}", session_state)
+        update_progress_log(f"Additional Instructions: {instructions or 'N/A'}", session_state)
+        update_progress_log(f"🔗 Follow along at: {trace_url}", session_state)
         open_if_browser_available(trace_url)
 
         try:
             # We loop until the manager calls the `mark_job_success` or `mark_job_failed` tool.
             # prev_response_id: str | None = None
-            while not is_complete():
+            while not is_complete(session_state):
                 run_result: RunResult = await Runner.run(
                     starting_agent=manager_agent,
                     input=run_prompt,
@@ -221,7 +265,7 @@ async def run_manager_developer_build(
                 )
                 # prev_response_id = run_result.raw_responses[-1].response_id if run_result.raw_responses else None
                 status_msg = f"\n🤖 {run_result.last_agent.name}: {run_result.final_output}"
-                update_progress_log(status_msg)
+                update_progress_log(status_msg, session_state)
                 run_prompt = (
                     "You are still working on the connector build task. "
                     "Continue to the next step or raise an issue if needed. "
@@ -230,10 +274,10 @@ async def run_manager_developer_build(
                 )
 
         except KeyboardInterrupt:
-            update_progress_log("\n🛑 Build terminated (ctrl+c input received).")
-            update_progress_log(f"🪵 Review trace logs at: {trace_url}")
+            update_progress_log("\n🛑 Build terminated (ctrl+c input received).", session_state)
+            update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
             sys.exit(0)
         except Exception as ex:
-            update_progress_log(f"\n❌ Unexpected error during build: {ex}")
-            update_progress_log(f"🪵 Review trace logs at: {trace_url}")
+            update_progress_log(f"\n❌ Unexpected error during build: {ex}", session_state)
+            update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
             sys.exit(1)

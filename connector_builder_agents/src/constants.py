@@ -3,7 +3,6 @@
 
 import os
 import subprocess
-import time
 from pathlib import Path
 
 from agents import (
@@ -27,9 +26,6 @@ PROMPT_FILE_PATH = Path(__file__).parent.parent / "prompts" / "root-prompt.md"
 PROMPT_FILE_STR = PROMPT_FILE_PATH.read_text(encoding="utf-8")
 MAX_CONNECTOR_BUILD_STEPS = 100
 DEFAULT_CONNECTOR_BUILD_API_NAME: str = "JSONPlaceholder API"
-SESSION_ID: str = f"unified-mcp-session-{int(time.time())}"
-WORKSPACE_WRITE_DIR: Path = Path() / "ai-generated-files" / SESSION_ID
-WORKSPACE_WRITE_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_DEVELOPER_MODEL: str = (
     "gpt-5"  # "gpt-4.1"  # "o4-mini", "gpt-4.1-turbo", "openai/gpt-4o-mini", "gpt-4o-mini"
 )
