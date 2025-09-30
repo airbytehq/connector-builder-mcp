@@ -56,7 +56,7 @@ async def run_connector_build(
     *,
     interactive: bool = False,
     session_id: str | None = None,
-) -> None:
+) -> list[RunResult] | None:
     """Run an agentic AI connector build session with automatic mode selection."""
     if not api_name and not instructions:
         raise ValueError("Either api_name or instructions must be provided.")
@@ -90,13 +90,14 @@ async def run_connector_build(
         print(f"API: {api_name or 'N/A'}")
         print(f"USER PROMPT: {instructions}", flush=True)
         print("=" * 60, flush=True)
-        await run_manager_developer_build(
+        results = await run_manager_developer_build(
             api_name=api_name,
             instructions=instructions,
             developer_model=developer_model,
             manager_model=manager_model,
             session_id=session_id,
         )
+        return results
     else:
         print("\n🤖 Building Connector using Interactive AI", flush=True)
         print("=" * 30, flush=True)
@@ -111,6 +112,7 @@ async def run_connector_build(
             model=developer_model,
             session_id=session_id,
         )
+        return None
 
 
 async def run_interactive_build(
@@ -188,6 +190,8 @@ async def run_interactive_build(
                 for server in all_mcp_servers:
                     await server.cleanup()
 
+        return None
+
 
 async def run_manager_developer_build(
     api_name: str | None = None,
@@ -195,7 +199,7 @@ async def run_manager_developer_build(
     developer_model: str = DEFAULT_DEVELOPER_MODEL,
     manager_model: str = DEFAULT_MANAGER_MODEL,
     session_id: str | None = None,
-) -> None:
+) -> list[RunResult]:
     """Run a 3-phase connector build using manager-developer architecture."""
     # Generate session_id if not provided
     if session_id is None:
@@ -255,6 +259,7 @@ async def run_manager_developer_build(
         try:
             # We loop until the manager calls the `mark_job_success` or `mark_job_failed` tool.
             # prev_response_id: str | None = None
+            all_run_results = []
             while not is_complete(session_state):
                 run_result: RunResult = await Runner.run(
                     starting_agent=manager_agent,
@@ -263,6 +268,7 @@ async def run_manager_developer_build(
                     session=session,
                     # previous_response_id=prev_response_id,
                 )
+                all_run_results.append(run_result)  # Collect all run results
                 # prev_response_id = run_result.raw_responses[-1].response_id if run_result.raw_responses else None
                 status_msg = f"\n🤖 {run_result.last_agent.name}: {run_result.final_output}"
                 update_progress_log(status_msg, session_state)
@@ -273,6 +279,9 @@ async def run_manager_developer_build(
                     f"{run_result.final_output}"
                 )
 
+            # Return all run results
+            return all_run_results
+
         except KeyboardInterrupt:
             update_progress_log("\n🛑 Build terminated (ctrl+c input received).", session_state)
             update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
@@ -280,4 +289,4 @@ async def run_manager_developer_build(
         except Exception as ex:
             update_progress_log(f"\n❌ Unexpected error during build: {ex}", session_state)
             update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
-            sys.exit(1)
+            raise ex
