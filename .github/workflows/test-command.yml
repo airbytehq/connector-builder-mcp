@@ -83,7 +83,7 @@ jobs:
       # Same as the `python_pytest.yml` file:
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6.6.1
+        uses: astral-sh/setup-uv@v6.8.0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
