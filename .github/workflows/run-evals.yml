@@ -10,9 +10,15 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       PHOENIX_API_KEY: ${{ secrets.PHOENIX_API_KEY }}
-      PHOENIX_COLLECTOR_ENDPOINT: ${{ secrets.PHOENIX_COLLECTOR_ENDPOINT }}
+      PHOENIX_COLLECTOR_ENDPOINT: "https://app.phoenix.arize.com/s/airbyte-ci"
 
     steps:
+      # Some MCP Servers need npx/node, so set that up:
+      - name: Set up Node.js and npx
+        uses: actions/setup-node@v5.0.0
+        with:
+          node-version: '20'
+
       - name: Checkout code
         uses: actions/checkout@v5
 
