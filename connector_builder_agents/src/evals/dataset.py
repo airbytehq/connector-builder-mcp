@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 from phoenix.client import Client
-from phoenix.experiments.types import Dataset
+from phoenix.client.experiments import Dataset
 
 
 logger = logging.getLogger(__name__)
