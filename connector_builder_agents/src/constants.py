@@ -23,8 +23,8 @@ OPENAI_BASE_URL_ENV_VAR: str = "OPENAI_BASE_URL"
 OPENAI_API_KEY_ENV_VAR: str = "OPENAI_API_KEY"
 OPENAI_BASE_URL: str = "https://api.openai.com/v1"
 
-PROMPT_FILE_PATH = Path(__file__).parent.parent / "prompts" / "root-prompt.md"
-PROMPT_FILE_STR = PROMPT_FILE_PATH.read_text(encoding="utf-8")
+ROOT_PROMPT_FILE_PATH = Path(__file__).parent.parent / "prompts" / "root-prompt.md"
+ROOT_PROMPT_FILE_STR = ROOT_PROMPT_FILE_PATH.read_text(encoding="utf-8")
 MAX_CONNECTOR_BUILD_STEPS = 100
 DEFAULT_CONNECTOR_BUILD_API_NAME: str = "JSONPlaceholder API"
 SESSION_ID: str = f"unified-mcp-session-{int(time.time())}"

@@ -68,31 +68,17 @@ async def run_connector_build(
                 "config values exactly as they appear in the dotenv file."
             )
 
-    if not interactive:
-        print("\n🤖 Building Connector using Manager-Developer Architecture", flush=True)
-        print("=" * 60, flush=True)
-        print(f"API: {api_name or 'N/A'}")
-        print(f"USER PROMPT: {instructions}", flush=True)
-        print("=" * 60, flush=True)
-        await run_manager_developer_build(
-            api_name=api_name,
-            instructions=instructions,
-            developer_model=developer_model,
-            manager_model=manager_model,
-        )
-    else:
-        print("\n🤖 Building Connector using Interactive AI", flush=True)
-        print("=" * 30, flush=True)
-        print(f"API: {api_name or 'N/A'}")
-        print(f"USER PROMPT: {instructions}", flush=True)
-        print("=" * 30, flush=True)
-        prompt_file = Path("./prompts") / "root-prompt.md"
-        prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
-        prompt += instructions
-        await run_interactive_build(
-            prompt=prompt,
-            model=developer_model,
-        )
+    print("\n🤖 Building Connector using Manager-Developer Architecture", flush=True)
+    print("=" * 60, flush=True)
+    print(f"API: {api_name or 'N/A'}")
+    print(f"USER PROMPT: {instructions}", flush=True)
+    print("=" * 60, flush=True)
+    await run_manager_developer_build(
+        api_name=api_name,
+        instructions=instructions,
+        developer_model=developer_model,
+        manager_model=manager_model,
+    )
 
 
 async def run_interactive_build(
@@ -197,9 +183,8 @@ async def run_manager_developer_build(
         trace_url = f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
 
         run_prompt = (
-            "You are working on a connector build task. "
-            f"You are managing a connector build for the API: '{api_name or 'N/A'}'. "
-            "Your goal is to ensure the successful completion of all phases as instructed."
+            f"You are working on a connector build task for the API: '{api_name or 'N/A'}'. "
+            "Your goal is to ensure the successful completion of all objectives as instructed."
         )
 
         update_progress_log("\n⚙️  Manager Agent is orchestrating the build...")
