@@ -479,21 +479,25 @@ def _generate_errors_section(run_data: dict) -> list[str]:
 
     # Only add section if there are errors
     if errors:
-        md_lines.extend([
-            "",
-            "## Errors",
-            "",
-        ])
+        md_lines.extend(
+            [
+                "",
+                "## Errors",
+                "",
+            ]
+        )
 
         for error_info in errors:
-            md_lines.extend([
-                f"### {error_info['connector']}",
-                "",
-                "```",
-                str(error_info['error']),
-                "```",
-                "",
-            ])
+            md_lines.extend(
+                [
+                    f"### {error_info['connector']}",
+                    "",
+                    "```",
+                    str(error_info["error"]),
+                    "```",
+                    "",
+                ]
+            )
 
     return md_lines
 
