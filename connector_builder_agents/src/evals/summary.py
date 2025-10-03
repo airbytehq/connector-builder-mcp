@@ -6,6 +6,8 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+from phoenix.client import Client
+
 
 logger = logging.getLogger(__name__)
 
@@ -164,20 +166,39 @@ def _generate_experiment_header(experiment: dict, client) -> list[str]:
             )
             md_lines.extend([
                 f"**Experiment:** [{experiment_id}]({current_url})",
-                "",
             ])
         except Exception as e:
             logger.warning(f"Failed to get current experiment URL: {e}")
             md_lines.extend([
                 f"**Experiment ID:** `{experiment_id}`",
-                "",
             ])
     elif experiment_id:
         md_lines.extend([
             f"**Experiment ID:** `{experiment_id}`",
-            "",
         ])
 
+    # Add run date from earliest task run
+    task_runs = experiment.get("task_runs", [])
+    if task_runs:
+        start_times = []
+        for run in task_runs:
+            start_time = run.get("start_time")
+            if start_time:
+                try:
+                    if isinstance(start_time, str):
+                        start_times.append(datetime.fromisoformat(start_time.replace("Z", "+00:00")))
+                    else:
+                        start_times.append(start_time)
+                except Exception as e:
+                    logger.warning(f"Failed to parse start_time: {e}")
+
+        if start_times:
+            earliest_start = min(start_times)
+            formatted_date = earliest_start.strftime("%Y-%m-%d %H:%M UTC")
+            md_lines.append("")
+            md_lines.append(f"**Run Date:** {formatted_date}")
+
+    md_lines.append("")
     return md_lines
 
 
@@ -416,18 +437,20 @@ def _generate_per_connector_table(
     return md_lines
 
 
-def generate_markdown_summary(experiment: dict, experiment_name: str, client=None) -> str | None:
+def generate_markdown_summary(experiment: dict, experiment_name: str) -> str | None:
     """Generate a markdown summary of experiment results.
 
     Args:
         experiment: The RanExperiment dict returned by run_experiment
         experiment_name: Name of the experiment
-        client: Optional Phoenix Client to fetch additional data
 
     Returns:
         Path to the generated markdown file
     """
     logger.info("Generating markdown summary")
+
+    # Create Phoenix client
+    client = Client()
 
     # Extract task runs and evaluation runs from the experiment
     task_runs = experiment.get("task_runs", [])
@@ -442,30 +465,27 @@ def generate_markdown_summary(experiment: dict, experiment_name: str, client=Non
         return None
 
     # Find prior experiment for comparison
-    prior_experiment = None
+    prior_experiment = find_prior_experiment(experiment, client)
     prior_scores = {}
-    if client:
-        prior_experiment = find_prior_experiment(experiment, client)
-        if prior_experiment:
-            prior_scores = extract_scores_by_connector(prior_experiment, client)
+    if prior_experiment:
+        prior_scores = extract_scores_by_connector(prior_experiment, client)
 
     # Fetch JSON data to get input details (including connector names)
     example_data_map = {}
-    if client:
-        try:
-            experiment_id = experiment.get("experiment_id")
-            json_response = client._client.get(f"v1/experiments/{experiment_id}/json")
-            json_data = json_response.json()
+    try:
+        experiment_id = experiment.get("experiment_id")
+        json_response = client._client.get(f"v1/experiments/{experiment_id}/json")
+        json_data = json_response.json()
 
-            for record in json_data:
-                example_id = record.get("example_id")
-                input_data = record.get("input", {})
-                example_data_map[example_id] = {
-                    "name": input_data.get("name", input_data.get("prompt_name", example_id)),
-                    "input": input_data,
-                }
-        except Exception as e:
-            logger.warning(f"Failed to fetch JSON data for input details: {e}")
+        for record in json_data:
+            example_id = record.get("example_id")
+            input_data = record.get("input", {})
+            example_data_map[example_id] = {
+                "name": input_data.get("name", input_data.get("prompt_name", example_id)),
+                "input": input_data,
+            }
+    except Exception as e:
+        logger.warning(f"Failed to fetch JSON data for input details: {e}")
 
     # Build a mapping from run_id to run data
     run_data = {}

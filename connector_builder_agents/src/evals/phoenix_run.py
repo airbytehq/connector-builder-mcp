@@ -7,7 +7,7 @@ of connector building tasks and evaluates the quality of generated connectors
 using multiple evaluation metrics.
 
 Usage:
-    poe run-evals
+    poe evals run
 
 Requirements:
     - OpenAI API key (OPENAI_API_KEY in a local '.env')
@@ -20,7 +20,7 @@ import logging
 import uuid
 
 from dotenv import load_dotenv
-from phoenix.client import AsyncClient, Client
+from phoenix.client import AsyncClient
 from phoenix.otel import register
 
 from .dataset import get_or_create_phoenix_dataset
@@ -70,9 +70,8 @@ async def main():
         )
         logger.info(f"Experiment '{experiment_name}' completed successfully")
 
-        # Generate markdown summary using a sync client
-        sync_client = Client()
-        summary_path = generate_markdown_summary(experiment, experiment_name, client=sync_client)
+        # Generate markdown summary
+        summary_path = generate_markdown_summary(experiment, experiment_name)
         if summary_path:
             logger.info(f"Results summary available at: {summary_path}")
 
