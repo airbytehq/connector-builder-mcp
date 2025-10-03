@@ -278,7 +278,12 @@ def _generate_score_distribution_table(
     # Calculate score distribution
     excellent = good = partial = poor = minimal = failed = 0
 
-    for run_id in run_data.keys():
+    for run_id, data in run_data.items():
+        # Check if there's an error - count as failed
+        if data.get("error"):
+            failed += 1
+            continue
+
         connector_scores = []
         for eval_name in eval_names:
             scores = eval_scores[eval_name].get(run_id, [])
@@ -299,6 +304,9 @@ def _generate_score_distribution_table(
                 minimal += 1
             else:
                 failed += 1
+        else:
+            # No scores available - count as failed
+            failed += 1
 
     total = len(run_data)
     md_lines = [
@@ -422,7 +430,10 @@ def _generate_per_connector_table(
                 row_line += " N/A |"
 
         # Add overall score
-        if connector_scores:
+        # Check if there's an error - show as failed
+        if data.get("error"):
+            row_line += " **❌ Error** |"
+        elif connector_scores:
             overall_score = sum(connector_scores) / len(connector_scores)
             overall_emoji = score_to_emoji(overall_score)
 
@@ -450,6 +461,39 @@ def _generate_per_connector_table(
             row_line += " N/A |"
 
         md_lines.append(row_line)
+
+    return md_lines
+
+
+def _generate_errors_section(run_data: dict) -> list[str]:
+    """Generate errors section showing failed runs."""
+    md_lines = []
+
+    # Collect errors
+    errors = []
+    for run_id, data in run_data.items():
+        error = data.get("error")
+        if error:
+            connector_name = data.get("connector_name", run_id)
+            errors.append({"connector": connector_name, "error": error})
+
+    # Only add section if there are errors
+    if errors:
+        md_lines.extend([
+            "",
+            "## Errors",
+            "",
+        ])
+
+        for error_info in errors:
+            md_lines.extend([
+                f"### {error_info['connector']}",
+                "",
+                "```",
+                str(error_info['error']),
+                "```",
+                "",
+            ])
 
     return md_lines
 
@@ -589,6 +633,7 @@ def generate_markdown_summary(experiment: dict, experiment_name: str) -> str | N
             eval_names, eval_scores, run_data, prior_scores, prior_experiment, client
         )
     )
+    md_lines.extend(_generate_errors_section(run_data))
 
     # Write to file
     output_dir = Path(__file__).parent / "results"
