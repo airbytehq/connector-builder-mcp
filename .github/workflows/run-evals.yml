@@ -1,0 +1,23 @@
+name: Run Evals
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-evals:
+    name: Run AI Builder Evals
+    runs-on: ubuntu-24.04
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PHOENIX_API_KEY: ${{ secrets.PHOENIX_API_KEY }}
+      PHOENIX_COLLECTOR_ENDPOINT: ${{ secrets.PHOENIX_COLLECTOR_ENDPOINT }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Run Poe Slash Command Processor
+        uses: aaronsteers/poe-command-processor@v1
+        with:
+          command: run-evals
+          github-token: ${{ secrets.GITHUB_TOKEN }}
