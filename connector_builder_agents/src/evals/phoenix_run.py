@@ -20,11 +20,12 @@ import logging
 import uuid
 
 from dotenv import load_dotenv
-from phoenix.client import AsyncClient
+from phoenix.client import AsyncClient, Client
 from phoenix.otel import register
 
 from .dataset import get_or_create_phoenix_dataset
 from .evaluators import READINESS_EVAL_MODEL, readiness_eval, streams_eval
+from .summary import generate_markdown_summary
 from .task import EVAL_DEVELOPER_MODEL, EVAL_MANAGER_MODEL, run_connector_build_task
 
 
@@ -55,7 +56,7 @@ async def main():
     try:
         client = AsyncClient()
         logger.info(f"Starting experiment: {experiment_name}")
-        await client.experiments.run_experiment(
+        experiment = await client.experiments.run_experiment(
             dataset=dataset,
             task=run_connector_build_task,
             evaluators=evaluators,
@@ -68,6 +69,13 @@ async def main():
             timeout=1800,
         )
         logger.info(f"Experiment '{experiment_name}' completed successfully")
+
+        # Generate markdown summary using a sync client
+        sync_client = Client()
+        summary_path = generate_markdown_summary(experiment, experiment_name, client=sync_client)
+        if summary_path:
+            logger.info(f"Results summary available at: {summary_path}")
+
     except Exception as e:
         logger.error(f"Experiment '{experiment_name}' failed: {e}")
         raise
