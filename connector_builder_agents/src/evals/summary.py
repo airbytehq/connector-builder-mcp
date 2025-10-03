@@ -165,18 +165,24 @@ def _generate_experiment_header(experiment: dict, client) -> list[str]:
             current_url = client.experiments.get_experiment_url(
                 experiment_id=experiment_id, dataset_id=dataset_id
             )
-            md_lines.extend([
-                f"**Experiment:** [{experiment_id}]({current_url})",
-            ])
+            md_lines.extend(
+                [
+                    f"**Experiment:** [{experiment_id}]({current_url})",
+                ]
+            )
         except Exception as e:
             logger.warning(f"Failed to get current experiment URL: {e}")
-            md_lines.extend([
-                f"**Experiment ID:** `{experiment_id}`",
-            ])
+            md_lines.extend(
+                [
+                    f"**Experiment ID:** `{experiment_id}`",
+                ]
+            )
     elif experiment_id:
-        md_lines.extend([
-            f"**Experiment ID:** `{experiment_id}`",
-        ])
+        md_lines.extend(
+            [
+                f"**Experiment ID:** `{experiment_id}`",
+            ]
+        )
 
     # Add run date from earliest task run
     task_runs = experiment.get("task_runs", [])
@@ -187,7 +193,9 @@ def _generate_experiment_header(experiment: dict, client) -> list[str]:
             if start_time:
                 try:
                     if isinstance(start_time, str):
-                        start_times.append(datetime.fromisoformat(start_time.replace("Z", "+00:00")))
+                        start_times.append(
+                            datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                        )
                     else:
                         start_times.append(start_time)
                 except Exception as e:
@@ -263,7 +271,9 @@ def _generate_experiment_stats_table(eval_names: list[str], eval_scores: dict) -
     return md_lines
 
 
-def _generate_score_distribution_table(eval_names: list[str], eval_scores: dict, run_data: dict) -> list[str]:
+def _generate_score_distribution_table(
+    eval_names: list[str], eval_scores: dict, run_data: dict
+) -> list[str]:
     """Generate score distribution table."""
     # Calculate score distribution
     excellent = good = partial = poor = minimal = failed = 0
@@ -320,7 +330,7 @@ def _generate_per_connector_table(
     run_data: dict,
     prior_scores: dict,
     prior_experiment: dict | None,
-    client
+    client,
 ) -> list[str]:
     """Generate per-connector results table."""
     md_lines = [
@@ -344,10 +354,12 @@ def _generate_per_connector_table(
             except Exception as e:
                 logger.warning(f"Failed to get prior experiment URL: {e}")
 
-        md_lines.extend([
-            f"_Comparing to prior experiment: {prior_link}_",
-            "",
-        ])
+        md_lines.extend(
+            [
+                f"_Comparing to prior experiment: {prior_link}_",
+                "",
+            ]
+        )
 
     # Create table header
     connector_header = "| Connector | Duration |"
@@ -391,7 +403,11 @@ def _generate_per_connector_table(
 
                 # Calculate delta from prior
                 delta_str = ""
-                if prior_scores and identifier in prior_scores and eval_name in prior_scores[identifier]:
+                if (
+                    prior_scores
+                    and identifier in prior_scores
+                    and eval_name in prior_scores[identifier]
+                ):
                     prior_score = prior_scores[identifier][eval_name]
                     delta = avg_score - prior_score
                     if delta > 0:
@@ -568,7 +584,11 @@ def generate_markdown_summary(experiment: dict, experiment_name: str) -> str | N
     md_lines.extend(_generate_metadata_table(experiment.get("experiment_metadata", {})))
     md_lines.extend(_generate_experiment_stats_table(eval_names, eval_scores))
     md_lines.extend(_generate_score_distribution_table(eval_names, eval_scores, run_data))
-    md_lines.extend(_generate_per_connector_table(eval_names, eval_scores, run_data, prior_scores, prior_experiment, client))
+    md_lines.extend(
+        _generate_per_connector_table(
+            eval_names, eval_scores, run_data, prior_scores, prior_experiment, client
+        )
+    )
 
     # Write to file
     output_dir = Path(__file__).parent / "results"
