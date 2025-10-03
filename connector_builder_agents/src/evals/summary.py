@@ -2,6 +2,7 @@
 """Generate markdown summaries of evaluation results."""
 
 import logging
+import os
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -574,8 +575,22 @@ def generate_markdown_summary(experiment: dict, experiment_name: str) -> str | N
     output_dir.mkdir(exist_ok=True)
     output_path = output_dir / f"{experiment_name}.md"
 
+    markdown_content = "\n".join(md_lines)
+
     with open(output_path, "w") as f:
-        f.write("\n".join(md_lines))
+        f.write(markdown_content)
 
     logger.info(f"Markdown summary written to: {output_path}")
+
+    # Write to GitHub step summary if running in CI
+    github_step_summary = os.getenv("GITHUB_STEP_SUMMARY")
+    if github_step_summary:
+        try:
+            with open(github_step_summary, "a") as f:
+                f.write(markdown_content)
+                f.write("\n")
+            logger.info("Summary written to GitHub step summary")
+        except Exception as e:
+            logger.warning(f"Failed to write to GitHub step summary: {e}")
+
     return str(output_path)
