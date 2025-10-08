@@ -34,7 +34,7 @@ def get_dataset_with_hash(connectors: list[str] | None = None) -> tuple[pd.DataF
             # Filter by connector names if specified
             if connectors:
                 original_count = len(df)
-                df = df[df["name"].isin(connectors)]
+                df = df[df["input"].apply(lambda x: x.get("name")).isin(connectors)]
                 logger.info(
                     f"Filtered dataset from {original_count} to {len(df)} connectors "
                     f"(requested: {', '.join(connectors)})"
@@ -42,7 +42,7 @@ def get_dataset_with_hash(connectors: list[str] | None = None) -> tuple[pd.DataF
                 if len(df) == 0:
                     raise ValueError(
                         f"No connectors found matching: {', '.join(connectors)}. "
-                        f"Available connectors: {', '.join(pd.DataFrame(evals_config['connectors'])['name'].tolist())}"
+                        f"Available connectors: {', '.join(pd.DataFrame(evals_config['connectors'])['input'].apply(lambda x: x.get('name')).tolist())}"
                     )
 
             # Compute hash based on the actual filtered data
