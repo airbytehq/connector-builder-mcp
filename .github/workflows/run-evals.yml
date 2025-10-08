@@ -2,6 +2,14 @@ name: Run Evals
 
 on:
   workflow_dispatch:
+    inputs:
+      dataset-prefix:
+        description: 'Dataset prefix for Phoenix dataset name (default: builder-evals-{branch})'
+        required: false
+        type: string
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
 
 jobs:
   run-evals:
@@ -25,5 +33,5 @@ jobs:
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
         with:
-          command: evals run
+          command: evals run --dataset-prefix ${{ inputs.dataset-prefix || format('builder-evals-{0}', github.ref_name) }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
