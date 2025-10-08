@@ -75,8 +75,8 @@ def streams_eval(expected: dict, output: dict) -> float:
     available_stream_names = [stream.get("name", "") for stream in available_streams]
     logger.info(f"Available stream names: {available_stream_names}")
 
-    # Get expected streams from the input (dataset row)
-    expected_stream_names = json.loads(expected.get("expected_streams", []))
+    expected_obj = json.loads(expected.get("expected", "{}"))
+    expected_stream_names = expected_obj.get("expected_streams", [])
     logger.info(f"Expected stream names: {expected_stream_names}")
 
     # Set attributes on span for visibility

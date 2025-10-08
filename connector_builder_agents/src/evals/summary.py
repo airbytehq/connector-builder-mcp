@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Generate markdown summaries of evaluation results."""
 
+import json
 import logging
 import os
 from collections import defaultdict
@@ -115,8 +116,10 @@ def extract_scores_by_connector(experiment: dict, client) -> dict:
             for record in json_data:
                 example_id = record.get("example_id")
                 input_data = record.get("input", {})
-                example_data_map[example_id] = input_data.get(
-                    "name", input_data.get("prompt_name", example_id)
+                input_json_str = input_data.get("input", "{}")
+                input_obj = json.loads(input_json_str)
+                example_data_map[example_id] = input_obj.get(
+                    "name", input_obj.get("prompt_name", example_id)
                 )
         except Exception as e:
             logger.warning(f"Failed to fetch connector names: {e}")
@@ -545,9 +548,11 @@ def generate_markdown_summary(experiment: dict, experiment_name: str) -> str | N
         for record in json_data:
             example_id = record.get("example_id")
             input_data = record.get("input", {})
+            input_json_str = input_data.get("input", "{}")
+            input_obj = json.loads(input_json_str)
             example_data_map[example_id] = {
-                "name": input_data.get("name", input_data.get("prompt_name", example_id)),
-                "input": input_data,
+                "name": input_obj.get("name", input_obj.get("prompt_name", example_id)),
+                "input": input_obj,
             }
     except Exception as e:
         logger.warning(f"Failed to fetch JSON data for input details: {e}")
@@ -564,8 +569,10 @@ def generate_markdown_summary(experiment: dict, experiment_name: str) -> str | N
         else:
             # Fallback to trying input from task run
             input_data = run.get("input", {})
-            connector_name = input_data.get(
-                "name", input_data.get("prompt_name", example_id or run_id)
+            input_json_str = input_data.get("input", "{}")
+            input_obj = json.loads(input_json_str)
+            connector_name = input_obj.get(
+                "name", input_obj.get("prompt_name", example_id or run_id)
             )
 
         # Calculate execution time

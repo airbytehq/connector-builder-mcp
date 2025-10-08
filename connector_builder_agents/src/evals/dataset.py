@@ -49,7 +49,8 @@ def get_dataset_with_hash(connectors: list[str] | None = None) -> tuple[pd.DataF
             filtered_config = {"connectors": df.to_dict("records")}
             hash_value = hashlib.sha256(yaml.safe_dump(filtered_config).encode()).hexdigest()[:8]
 
-            df["expected_streams"] = df["expected_streams"].apply(json.dumps)
+            df["input"] = df["input"].apply(json.dumps)
+            df["expected"] = df["expected"].apply(json.dumps)
 
             logger.info(
                 f"Successfully loaded evals dataset with {len(df)} connectors (hash: {hash_value})"
@@ -86,6 +87,6 @@ def get_or_create_phoenix_dataset(connectors: list[str] | None = None) -> Datase
         return px_client.datasets.create_dataset(
             name=dataset_name,
             dataframe=dataframe,
-            input_keys=["name", "prompt_name"],
-            output_keys=["expected_streams"],
+            input_keys=["input"],
+            output_keys=["expected"],
         )
