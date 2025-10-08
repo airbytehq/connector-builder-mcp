@@ -15,8 +15,12 @@ from phoenix.client.experiments import Dataset
 logger = logging.getLogger(__name__)
 
 
-def get_dataset_with_hash() -> tuple[pd.DataFrame, str]:
-    """Get the local evals dataset with a hash of the config."""
+def get_dataset_with_hash(connectors: list[str] | None = None) -> tuple[pd.DataFrame, str]:
+    """Get the local evals dataset with a hash of the config.
+
+    Args:
+        connectors: Optional list of connector names to filter by.
+    """
 
     # Get path relative to this file
     config_path = Path(__file__).parent / "data" / "connectors.yaml"
@@ -24,9 +28,27 @@ def get_dataset_with_hash() -> tuple[pd.DataFrame, str]:
     try:
         with open(config_path) as f:
             evals_config = yaml.safe_load(f)
-            hash_value = hashlib.sha256(yaml.safe_dump(evals_config).encode()).hexdigest()[:8]
 
             df = pd.DataFrame(evals_config["connectors"])
+
+            # Filter by connector names if specified
+            if connectors:
+                original_count = len(df)
+                df = df[df["name"].isin(connectors)]
+                logger.info(
+                    f"Filtered dataset from {original_count} to {len(df)} connectors "
+                    f"(requested: {', '.join(connectors)})"
+                )
+                if len(df) == 0:
+                    raise ValueError(
+                        f"No connectors found matching: {', '.join(connectors)}. "
+                        f"Available connectors: {', '.join(pd.DataFrame(evals_config['connectors'])['name'].tolist())}"
+                    )
+
+            # Compute hash based on the actual filtered data
+            filtered_config = {"connectors": df.to_dict("records")}
+            hash_value = hashlib.sha256(yaml.safe_dump(filtered_config).encode()).hexdigest()[:8]
+
             df["expected_streams"] = df["expected_streams"].apply(json.dumps)
 
             logger.info(
@@ -38,10 +60,20 @@ def get_dataset_with_hash() -> tuple[pd.DataFrame, str]:
         raise
 
 
-def get_or_create_phoenix_dataset() -> Dataset:
-    """Get or create a Phoenix dataset for the evals config."""
-    dataframe, dataset_hash = get_dataset_with_hash()
-    dataset_name = f"builder-connectors-{dataset_hash}"
+def get_or_create_phoenix_dataset(connectors: list[str] | None = None) -> Dataset:
+    """Get or create a Phoenix dataset for the evals config.
+
+    Args:
+        connectors: Optional list of connector names to filter by.
+    """
+    dataframe, dataset_hash = get_dataset_with_hash(connectors=connectors)
+
+    # Include connector names in dataset name for filtered datasets
+    if connectors:
+        connector_suffix = "-".join(sorted(connectors))[:30]  # Limit length
+        dataset_name = f"builder-connectors-{dataset_hash}-{connector_suffix}"
+    else:
+        dataset_name = f"builder-connectors-{dataset_hash}"
 
     px_client = Client()
 

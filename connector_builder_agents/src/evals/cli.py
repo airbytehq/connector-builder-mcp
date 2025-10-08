@@ -2,8 +2,10 @@
 """CLI for managing connector builder evaluations.
 
 Usage:
-    poe evals run              # Run all evaluations
-    poe evals report <exp_id>  # Generate report for a specific experiment
+    poe evals run                                      # Run all evaluations
+    poe evals run --connector source-jsonplaceholder   # Run for specific connector
+    poe evals run --connector source-starwars --connector source-rickandmorty  # Run for multiple connectors
+    poe evals report <exp_id>                          # Generate report for a specific experiment
 
 Requirements:
     - OpenAI API key (OPENAI_API_KEY in a local '.env')
@@ -30,10 +32,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run_command(_args: argparse.Namespace) -> None:
+def run_command(args: argparse.Namespace) -> None:
     """Run evaluations."""
-    logger.info("Running evaluations...")
-    asyncio.run(run_evals_main())
+    connectors = args.connectors
+    if connectors:
+        logger.info(f"Running evaluations for connectors: {', '.join(connectors)}")
+    else:
+        logger.info("Running evaluations...")
+    asyncio.run(run_evals_main(connectors=connectors))
 
 
 def report_command(args: argparse.Namespace) -> None:
@@ -77,6 +83,12 @@ def main() -> None:
     run_parser = subparsers.add_parser(
         "run",
         help="Run all evaluations",
+    )
+    run_parser.add_argument(
+        "--connector",
+        dest="connectors",
+        action="append",
+        help="Filter by connector name (can be specified multiple times)",
     )
     run_parser.set_defaults(func=run_command)
 
