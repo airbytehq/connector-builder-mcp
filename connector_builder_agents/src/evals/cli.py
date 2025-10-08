@@ -5,7 +5,7 @@ Usage:
     poe evals run                                      # Run all evaluations
     poe evals run --connector source-jsonplaceholder   # Run for specific connector
     poe evals run --connector source-starwars --connector source-rickandmorty  # Run for multiple connectors
-    poe evals run --dataset-prefix weekly-evals   # Use custom dataset prefix
+    poe evals run --dataset-prefix weekly-evals        # Use custom dataset prefix
     poe evals report <exp_id>                          # Generate report for a specific experiment
 
 Requirements:
