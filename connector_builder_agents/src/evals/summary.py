@@ -79,7 +79,8 @@ def find_prior_experiment(experiment: dict, client) -> dict | None:
             try:
                 dataset_response = client._client.get(f"v1/datasets/{dataset_id}")
                 dataset_data = dataset_response.json()
-                current_dataset_name = dataset_data.get("name", "")
+                current_dataset_name = dataset_data.get("data", {}).get("name", "")
+                logger.info(f"Current dataset name: {current_dataset_name}")
 
                 # Extract prefix from dataset name (format: {prefix}-{hash})
                 # Split by '-' and assume prefix is everything before the last '-'
