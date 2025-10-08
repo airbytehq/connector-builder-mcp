@@ -39,6 +39,9 @@ def score_to_emoji(score: float) -> str:
 def find_prior_experiment(experiment: dict, client) -> dict | None:
     """Find the most recent prior experiment for the same dataset that has evaluation runs.
 
+    If no prior experiments exist on the current dataset, looks for experiments on other
+    datasets with the same prefix (e.g., "builder-connectors-*").
+
     Args:
         experiment: The current experiment
         client: Phoenix Client to fetch experiments
@@ -68,6 +71,57 @@ def find_prior_experiment(experiment: dict, client) -> dict | None:
                 prior_experiments.append(exp)
 
         if not prior_experiments:
+            # HACK: Since we can't edit existing datasets, we are creating new datasets each time the connector test set inputs/outputs change. This means in order to reliably get the previous experiment run, we need to search across datasets.
+            logger.info(
+                "No prior experiments found on current dataset, searching other datasets with same prefix"
+            )
+            # Get the current dataset name to extract prefix
+            try:
+                dataset_response = client._client.get(f"v1/datasets/{dataset_id}")
+                dataset_data = dataset_response.json()
+                current_dataset_name = dataset_data.get("name", "")
+
+                # Extract prefix from dataset name (format: {prefix}-{hash})
+                # Split by '-' and assume prefix is everything before the last '-'
+                if current_dataset_name and "-" in current_dataset_name:
+                    dataset_prefix = current_dataset_name.rsplit("-", 1)[0]
+                    logger.info(f"Extracted dataset prefix: {dataset_prefix}")
+
+                    # Fetch all datasets and filter by prefix
+                    all_datasets_response = client._client.get("v1/datasets")
+                    all_datasets = all_datasets_response.json().get("data", [])
+
+                    matching_datasets = [
+                        ds
+                        for ds in all_datasets
+                        if ds.get("name", "").startswith(dataset_prefix + "-")
+                        and ds.get("id") != dataset_id
+                    ]
+
+                    logger.info(
+                        f"Found {len(matching_datasets)} other datasets with prefix '{dataset_prefix}'"
+                    )
+
+                    # Collect all experiments from matching datasets
+                    all_prefix_experiments = []
+                    for dataset in matching_datasets:
+                        ds_id = dataset.get("id")
+                        try:
+                            ds_exp_response = client._client.get(f"v1/datasets/{ds_id}/experiments")
+                            ds_experiments = ds_exp_response.json().get("data", [])
+                            all_prefix_experiments.extend(ds_experiments)
+                        except Exception as e:
+                            logger.warning(f"Failed to fetch experiments for dataset {ds_id}: {e}")
+
+                    prior_experiments = all_prefix_experiments
+                    logger.info(
+                        f"Found {len(prior_experiments)} total experiments across datasets with prefix '{dataset_prefix}'"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to search other datasets: {e}")
+
+        if not prior_experiments:
+            logger.info("No prior experiments with evaluation runs found")
             return None
 
         # Sort by created_at descending (most recent first)
@@ -76,12 +130,16 @@ def find_prior_experiment(experiment: dict, client) -> dict | None:
         # Find the first prior experiment that has evaluation runs
         for prior_exp in prior_experiments:
             prior_exp_id = prior_exp.get("id")
-            full_prior = client.experiments.get_experiment(experiment_id=prior_exp_id)
+            try:
+                full_prior = client.experiments.get_experiment(experiment_id=prior_exp_id)
 
-            # Check if it has evaluation runs
-            if full_prior.get("evaluation_runs"):
-                logger.info(f"Found prior experiment with evaluations: {prior_exp_id}")
-                return full_prior
+                # Check if it has evaluation runs
+                if full_prior.get("evaluation_runs"):
+                    logger.info(f"Found prior experiment with evaluations: {prior_exp_id}")
+                    return full_prior
+            except Exception as e:
+                logger.warning(f"Failed to fetch experiment {prior_exp_id}: {e}")
+                continue
 
         logger.info("No prior experiments with evaluation runs found")
         return None
