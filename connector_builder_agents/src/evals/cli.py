@@ -5,6 +5,7 @@ Usage:
     poe evals run                                      # Run all evaluations
     poe evals run --connector source-jsonplaceholder   # Run for specific connector
     poe evals run --connector source-starwars --connector source-rickandmorty  # Run for multiple connectors
+    poe evals run --dataset-prefix weekly-evals   # Use custom dataset prefix
     poe evals report <exp_id>                          # Generate report for a specific experiment
 
 Requirements:
@@ -35,11 +36,13 @@ logger = logging.getLogger(__name__)
 def run_command(args: argparse.Namespace) -> None:
     """Run evaluations."""
     connectors = args.connectors
+    dataset_prefix = args.dataset_prefix
     if connectors:
         logger.info(f"Running evaluations for connectors: {', '.join(connectors)}")
     else:
         logger.info("Running evaluations...")
-    asyncio.run(run_evals_main(connectors=connectors))
+    logger.info(f"Using dataset prefix: {dataset_prefix}")
+    asyncio.run(run_evals_main(connectors=connectors, dataset_prefix=dataset_prefix))
 
 
 def report_command(args: argparse.Namespace) -> None:
@@ -89,6 +92,12 @@ def main() -> None:
         dest="connectors",
         action="append",
         help="Filter by connector name (can be specified multiple times)",
+    )
+    run_parser.add_argument(
+        "--dataset-prefix",
+        dest="dataset_prefix",
+        default="builder-connectors",
+        help="Prefix for the Phoenix dataset name (default: builder-connectors)",
     )
     run_parser.set_defaults(func=run_command)
 

@@ -60,20 +60,23 @@ def get_dataset_with_hash(connectors: list[str] | None = None) -> tuple[pd.DataF
         raise
 
 
-def get_or_create_phoenix_dataset(connectors: list[str] | None = None) -> Dataset:
+def get_or_create_phoenix_dataset(
+    connectors: list[str] | None = None, *, dataset_prefix: str
+) -> Dataset:
     """Get or create a Phoenix dataset for the evals config.
 
     Args:
         connectors: Optional list of connector names to filter by.
+        dataset_prefix: Prefix for the dataset name.
     """
     dataframe, dataset_hash = get_dataset_with_hash(connectors=connectors)
 
     # Include connector names in dataset name for filtered datasets
     if connectors:
         connector_suffix = "-".join(sorted(connectors))[:30]  # Limit length
-        dataset_name = f"builder-connectors-{dataset_hash}-{connector_suffix}"
+        dataset_name = f"{dataset_prefix}-{connector_suffix}-{dataset_hash}"
     else:
-        dataset_name = f"builder-connectors-{dataset_hash}"
+        dataset_name = f"{dataset_prefix}-{dataset_hash}"
 
     px_client = Client()
 
