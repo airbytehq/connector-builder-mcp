@@ -127,5 +127,4 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PHOENIX_API_KEY: ${{ secrets.PHOENIX_API_KEY }}
-          PHOENIX_COLLECTOR_ENDPOINT: ${{ secrets.PHOENIX_COLLECTOR_ENDPOINT }}
         run: uv run poe evals run --connector source-jsonplaceholder
