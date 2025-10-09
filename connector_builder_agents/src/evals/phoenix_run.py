@@ -45,7 +45,9 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
     )
 
     logger.info("Getting Phoenix dataset")
-    dataset = get_or_create_phoenix_dataset(connectors=connectors, dataset_prefix=dataset_prefix)
+    dataset = get_or_create_phoenix_dataset(
+        filtered_connectors=connectors, dataset_prefix=dataset_prefix
+    )
 
     experiment_id = str(uuid.uuid4())[:5]
     experiment_name = f"builder-evals-{experiment_id}"
