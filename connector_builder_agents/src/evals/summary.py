@@ -84,9 +84,12 @@ def find_prior_experiment(experiment: dict, client) -> dict | None:
 
                 logger.info(f"Current dataset name: {current_dataset_name}")
 
+                # Skip cross-dataset search for filtered datasets
+                if current_dataset_name.startswith("filtered-"):
+                    logger.info("Skipping cross-dataset search for filtered dataset")
                 # Extract prefix from dataset name (format: {prefix}-{hash})
                 # Split by '-' and assume prefix is everything before the last '-'
-                if current_dataset_name and "-" in current_dataset_name:
+                elif current_dataset_name and "-" in current_dataset_name:
                     dataset_prefix = current_dataset_name.rsplit("-", 1)[0]
                     logger.info(f"Extracted dataset prefix: {dataset_prefix}")
 
