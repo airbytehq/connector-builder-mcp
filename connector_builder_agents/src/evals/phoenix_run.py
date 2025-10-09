@@ -15,7 +15,6 @@ Requirements:
     - Phoenix collector endpoint (PHOENIX_COLLECTOR_ENDPOINT in a local '.env')
 """
 
-import asyncio
 import logging
 import uuid
 
@@ -80,7 +79,3 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
     except Exception as e:
         logger.error(f"Experiment '{experiment_name}' failed: {e}")
         raise
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
