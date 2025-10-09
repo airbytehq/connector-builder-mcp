@@ -71,7 +71,11 @@ def get_or_create_phoenix_dataset(
     """
     dataframe, dataset_hash = get_dataset_with_hash(filtered_connectors=filtered_connectors)
 
-    dataset_name = f"{dataset_prefix}-{dataset_hash}"
+    # Prefix filtered datasets with "filtered-"
+    if filtered_connectors:
+        dataset_name = f"filtered-{dataset_prefix}-{dataset_hash}"
+    else:
+        dataset_name = f"{dataset_prefix}-{dataset_hash}"
 
     px_client = Client()
 
