@@ -17,6 +17,7 @@ Requirements:
 
 import asyncio
 import logging
+import sys
 import uuid
 
 from dotenv import load_dotenv
@@ -69,6 +70,18 @@ async def main(connectors: list[str] | None = None):
             timeout=1800,
         )
         logger.info(f"Experiment '{experiment_name}' completed successfully")
+
+        task_runs = experiment.get("task_runs", [])
+        failed_runs = [run for run in task_runs if run.get("error") is not None]
+
+        if failed_runs:
+            logger.error(
+                f"Experiment had {len(failed_runs)} failed task run(s) out of {len(task_runs)} total"
+            )
+            for run in failed_runs:
+                logger.error(f"  - Failed run {run.get('id')}: {run.get('error')}")
+            logger.error("Exiting with non-zero code due to task failures")
+            sys.exit(1)
 
         # Generate markdown summary
         summary_path = generate_markdown_summary(experiment, experiment_name)
