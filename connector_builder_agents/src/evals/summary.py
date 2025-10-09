@@ -75,25 +75,14 @@ def find_prior_experiment(experiment: dict, client) -> dict | None:
             logger.info(
                 "No prior experiments found on current dataset, searching other datasets with same prefix"
             )
-            # Get the current dataset name and metadata to extract prefix and filter status
+            # Get the current dataset name to extract prefix
             try:
                 dataset_response = client._client.get(f"v1/datasets/{dataset_id}")
                 dataset_data = dataset_response.json()
                 current_dataset_info = dataset_data.get("data", {})
                 current_dataset_name = current_dataset_info.get("name", "")
-                current_dataset_metadata = current_dataset_info.get("metadata", {})
-
-                current_is_filtered = current_dataset_metadata.get("is_filtered", False)
-                current_filtered_connectors = set(
-                    current_dataset_metadata.get("filtered_connectors", [])
-                )
 
                 logger.info(f"Current dataset name: {current_dataset_name}")
-                logger.info(f"Current dataset is_filtered: {current_is_filtered}")
-                if current_is_filtered:
-                    logger.info(
-                        f"Current filtered connectors: {sorted(current_filtered_connectors)}"
-                    )
 
                 # Extract prefix from dataset name (format: {prefix}-{hash})
                 # Split by '-' and assume prefix is everything before the last '-'
@@ -105,33 +94,15 @@ def find_prior_experiment(experiment: dict, client) -> dict | None:
                     all_datasets_response = client._client.get("v1/datasets")
                     all_datasets = all_datasets_response.json().get("data", [])
 
-                    # Filter datasets by prefix and matching filter criteria
-                    matching_datasets = []
-                    for ds in all_datasets:
-                        if ds.get("id") == dataset_id:
-                            continue
-                        if not ds.get("name", "").startswith(dataset_prefix + "-"):
-                            continue
-
-                        # Check metadata for matching filter status
-                        ds_metadata = ds.get("metadata", {})
-                        ds_is_filtered = ds_metadata.get("is_filtered", False)
-
-                        # If current dataset is not filtered, only match unfiltered datasets
-                        if not current_is_filtered:
-                            if not ds_is_filtered:
-                                matching_datasets.append(ds)
-                        # If current dataset is filtered, only match datasets with same connectors
-                        else:
-                            if ds_is_filtered:
-                                ds_filtered_connectors = set(
-                                    ds_metadata.get("filtered_connectors", [])
-                                )
-                                if ds_filtered_connectors == current_filtered_connectors:
-                                    matching_datasets.append(ds)
+                    matching_datasets = [
+                        ds
+                        for ds in all_datasets
+                        if ds.get("name", "").startswith(dataset_prefix + "-")
+                        and ds.get("id") != dataset_id
+                    ]
 
                     logger.info(
-                        f"Found {len(matching_datasets)} other datasets with prefix '{dataset_prefix}' and matching filter criteria"
+                        f"Found {len(matching_datasets)} other datasets with prefix '{dataset_prefix}'"
                     )
 
                     # Collect all experiments from matching datasets

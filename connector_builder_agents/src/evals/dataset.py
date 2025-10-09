@@ -73,14 +73,6 @@ def get_or_create_phoenix_dataset(
 
     dataset_name = f"{dataset_prefix}-{dataset_hash}"
 
-    # Build metadata to include connector names if filtered
-    metadata = {}
-    if filtered_connectors:
-        metadata["is_filtered"] = True
-        metadata["filtered_connectors"] = sorted(filtered_connectors)
-    else:
-        metadata["is_filtered"] = False
-
     px_client = Client()
 
     try:
@@ -94,5 +86,4 @@ def get_or_create_phoenix_dataset(
             dataframe=dataframe,
             input_keys=["name", "prompt_name"],
             output_keys=["expected_streams"],
-            metadata=metadata if metadata else None,
         )
