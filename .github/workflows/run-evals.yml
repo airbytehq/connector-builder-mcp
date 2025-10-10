@@ -28,9 +28,13 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
       (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.title, '[llm]') ||
-        contains(github.event.pull_request.title, '[agent]') ||
-        contains(github.event.pull_request.title, '[eval]')
+        github.event.action == 'ready_for_review' ||
+        github.event.action == 'reopened' ||
+        (github.event.action == 'synchronize' && (
+          contains(github.event.pull_request.title, '[llm]') ||
+          contains(github.event.pull_request.title, '[agent]') ||
+          contains(github.event.pull_request.title, '[eval]')
+        ))
       ))
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
