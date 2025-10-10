@@ -15,11 +15,11 @@ from phoenix.client.experiments import Dataset
 logger = logging.getLogger(__name__)
 
 
-def get_dataset_with_hash(connectors: list[str] | None = None) -> tuple[pd.DataFrame, str]:
+def get_dataset_with_hash(filtered_connectors: list[str] | None = None) -> tuple[pd.DataFrame, str]:
     """Get the local evals dataset with a hash of the config.
 
     Args:
-        connectors: Optional list of connector names to filter by.
+        filtered_connectors: Optional list of connector names to filter by.
     """
 
     # Get path relative to this file
@@ -32,16 +32,16 @@ def get_dataset_with_hash(connectors: list[str] | None = None) -> tuple[pd.DataF
             df = pd.DataFrame(evals_config["connectors"])
 
             # Filter by connector names if specified
-            if connectors:
+            if filtered_connectors:
                 original_count = len(df)
-                df = df[df["name"].isin(connectors)]
+                df = df[df["name"].isin(filtered_connectors)]
                 logger.info(
                     f"Filtered dataset from {original_count} to {len(df)} connectors "
-                    f"(requested: {', '.join(connectors)})"
+                    f"(requested: {', '.join(filtered_connectors)})"
                 )
                 if len(df) == 0:
                     raise ValueError(
-                        f"No connectors found matching: {', '.join(connectors)}. "
+                        f"No connectors found matching: {', '.join(filtered_connectors)}. "
                         f"Available connectors: {', '.join(pd.DataFrame(evals_config['connectors'])['name'].tolist())}"
                     )
 
@@ -60,20 +60,22 @@ def get_dataset_with_hash(connectors: list[str] | None = None) -> tuple[pd.DataF
         raise
 
 
-def get_or_create_phoenix_dataset(connectors: list[str] | None = None) -> Dataset:
+def get_or_create_phoenix_dataset(
+    filtered_connectors: list[str] | None = None, *, dataset_prefix: str
+) -> Dataset:
     """Get or create a Phoenix dataset for the evals config.
 
     Args:
-        connectors: Optional list of connector names to filter by.
+        filtered_connectors: Optional list of connector names to filter by.
+        dataset_prefix: Prefix for the dataset name.
     """
-    dataframe, dataset_hash = get_dataset_with_hash(connectors=connectors)
+    dataframe, dataset_hash = get_dataset_with_hash(filtered_connectors=filtered_connectors)
 
-    # Include connector names in dataset name for filtered datasets
-    if connectors:
-        connector_suffix = "-".join(sorted(connectors))[:30]  # Limit length
-        dataset_name = f"builder-connectors-{dataset_hash}-{connector_suffix}"
+    # Prefix filtered datasets with "filtered-"
+    if filtered_connectors:
+        dataset_name = f"filtered-{dataset_prefix}-{dataset_hash}"
     else:
-        dataset_name = f"builder-connectors-{dataset_hash}"
+        dataset_name = f"{dataset_prefix}-{dataset_hash}"
 
     px_client = Client()
 
