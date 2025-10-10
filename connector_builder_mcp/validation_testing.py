@@ -328,8 +328,9 @@ def execute_stream_test_read(  # noqa: PLR0914
         bool | str | None,
         Field(
             description="Include raw API responses and request/response metadata. "
-            "Defaults to 'None', which means raw data is included only if an error occurs. "
-            "If set to 'False', raw data is not included even on errors."
+            "Defaults to 'None', which auto-enables raw data when an error occurs or zero records are returned. "
+            "If set to 'True', raw data is always included. "
+            "If set to 'False', raw data is excluded UNLESS zero records are returned (in which case it's auto-enabled for debugging)."
         ),
     ] = None,
     dotenv_file_uris: Annotated[
@@ -434,8 +435,19 @@ def execute_stream_test_read(  # noqa: PLR0914
     if include_record_stats and records_data:
         record_stats = _calculate_record_stats(records_data)
 
-    # Toggle to include_raw_responses=True if we had an error or if we are returning no records
+    if len(records_data) == 0 and success:
+        execution_logs.append(
+            {
+                "level": "WARNING",
+                "message": "Read attempt returned zero records. Please review the included raw responses to ensure the zero-records result is correct.",
+            }
+        )
+        # Override include_raw_responses_data to ensure caller confirms correctness:
+        include_raw_responses_data = True
+
+    # Toggle to include_raw_responses=True if we had an error
     include_raw_responses_data = include_raw_responses_data or not success
+
     return StreamTestResult(
         success=success,
         message=(
