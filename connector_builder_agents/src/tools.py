@@ -200,7 +200,7 @@ def update_progress_log(
 
     # Detect if the first character of message is an emoji (unicode range):
     if message and ord(message[0]) in range(0x1F600, 0x1F64F):
-        emoji: message = message[0], message[1:].lstrip()
+        emoji, message = message[0], message[1:].lstrip()
 
     emoji = emoji or "📍"
     update_str = f"{emoji} Update [{timestamp}] ({elapsed_str} elapsed): {message}\n"

@@ -1,6 +1,8 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Agent implementations for the Airbyte connector builder."""
 
+from collections.abc import Callable
+
 from agents import Agent as OpenAIAgent
 from agents import (
     WebSearchTool,
@@ -73,7 +75,7 @@ def create_manager_agent(
                 tool_name_override="delegate_to_developer",
                 tool_description_override="Delegating work to the developer agent",
                 input_type=DelegatedDeveloperTask,
-                on_handoff=on_developer_delegation,
+                on_handoff=create_on_developer_delegation(session_state),
             ),
         ],
         mcp_servers=mcp_servers,
@@ -108,12 +110,18 @@ class ManagerHandoffInput(BaseModel):
     is_blocked: bool
 
 
-async def on_developer_delegation(ctx, input_data: DelegatedDeveloperTask) -> None:
-    update_progress_log(
-        f"🤝 Delegating task to developer agent."
-        f"\n Task Name: {input_data.assignment_title}"
-        f"\n Task Description: {input_data.assignment_description}"
-    )
+def create_on_developer_delegation(session_state: SessionState) -> Callable:
+    """Create an on_developer_delegation callback bound to a specific session state."""
+
+    async def on_developer_delegation(ctx, input_data: DelegatedDeveloperTask) -> None:
+        update_progress_log(
+            f"🤝 Delegating task to developer agent."
+            f"\n Task Name: {input_data.assignment_title}"
+            f"\n Task Description: {input_data.assignment_description}",
+            session_state,
+        )
+
+    return on_developer_delegation
 
 
 def create_on_manager_handback(session_state: SessionState):
