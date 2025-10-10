@@ -14,7 +14,6 @@ on:
     types:
       - ready_for_review
       - reopened
-      - synchronize
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,14 +25,7 @@ jobs:
     if: |
       github.event_name == 'push' ||
       github.event.action == 'ready_for_review' ||
-      github.event.action == 'reopened' ||
-      ( github.event.action == 'synchronize'
-        && (
-          contains(github.event.head_commit.message, '[llm]') ||
-          contains(github.event.head_commit.message, '[agent]') ||
-          contains(github.event.head_commit.message, '[eval')
-        )
-      )
+      github.event.action == 'reopened'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
