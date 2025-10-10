@@ -147,19 +147,21 @@ def add_handback_to_manager(
     session_state: SessionState,
 ) -> None:
     """Add a handoff from the developer back to the manager to report progress."""
-    developer_agent.handoffs.extend([
-        handoff(
-            agent=manager_agent,
-            tool_name_override="report_back_to_manager",
-            tool_description_override="Report progress or issues back to the manager agent",
-            input_type=ManagerHandoffInput,
-            on_handoff=create_on_manager_handback(session_state),
-        ),
-        handoff(
-            agent=manager_agent,
-            tool_name_override="report_task_completion_to_manager",
-            tool_description_override="Report task completion to the manager agent",
-            input_type=ManagerHandoffInput,
-            on_handoff=create_on_manager_handback(session_state),
-        ),
-    ])
+    developer_agent.handoffs.extend(
+        [
+            handoff(
+                agent=manager_agent,
+                tool_name_override="report_back_to_manager",
+                tool_description_override="Report progress or issues back to the manager agent",
+                input_type=ManagerHandoffInput,
+                on_handoff=create_on_manager_handback(session_state),
+            ),
+            handoff(
+                agent=manager_agent,
+                tool_name_override="report_task_completion_to_manager",
+                tool_description_override="Report task completion to the manager agent",
+                input_type=ManagerHandoffInput,
+                on_handoff=create_on_manager_handback(session_state),
+            ),
+        ]
+    )
