@@ -572,7 +572,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                 raise ValueError(
                     f"Invalid manifest structure: 'streams' must be a list of stream definition objects (dicts), "
                     f"but found {len(invalid_streams)} invalid entry(ies). "
-                    f"Each stream should be a dict with at least a 'name' field and stream configuration. "
+                    f"Each stream should be an object with at least a 'name' field and stream configuration. "
                     f"Invalid entries: {invalid_streams[:3]}"
                 )
 
