@@ -64,8 +64,7 @@ def create_session(session_id: str):
         return OpenAIConversationsSession()
     else:
         raise ValueError(
-            f"Invalid OPENAI_SESSION_BACKEND value: '{backend}'. "
-            "Must be 'openai' or 'sqlite'"
+            f"Invalid OPENAI_SESSION_BACKEND value: '{backend}'. Must be 'openai' or 'sqlite'"
         )
 
 
