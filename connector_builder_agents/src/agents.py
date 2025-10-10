@@ -1,6 +1,8 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Agent implementations for the Airbyte connector builder."""
 
+from collections.abc import Callable
+
 from agents import Agent as OpenAIAgent
 from agents import (
     WebSearchTool,
@@ -10,7 +12,6 @@ from pydantic.main import BaseModel
 
 # from agents import OpenAIConversationsSession
 from .guidance import get_default_developer_prompt, get_default_manager_prompt
-from .phases import Phase1Data, Phase2Data, Phase3Data
 from .tools import (
     SessionState,
     create_get_latest_readiness_report_tool,
@@ -61,22 +62,6 @@ def create_manager_agent(
     mcp_servers: list,
 ) -> OpenAIAgent:
     """Create the manager agent that orchestrates the 3-phase workflow."""
-
-    async def on_phase1_handoff(ctx, input_data: Phase1Data) -> None:
-        update_progress_log(
-            f"🚀 Starting {input_data.phase_description} for {input_data.api_name}", session_state
-        )
-
-    async def on_phase2_handoff(ctx, input_data: Phase2Data) -> None:
-        update_progress_log(
-            f"🔄 Starting {input_data.phase_description} for {input_data.api_name}", session_state
-        )
-
-    async def on_phase3_handoff(ctx, input_data: Phase3Data) -> None:
-        update_progress_log(
-            f"🎯 Starting {input_data.phase_description} for {input_data.api_name}", session_state
-        )
-
     return OpenAIAgent(
         name="Connector Builder Manager",
         instructions=get_default_manager_prompt(
@@ -87,24 +72,10 @@ def create_manager_agent(
         handoffs=[
             handoff(
                 agent=developer_agent,
-                tool_name_override="start_phase_1_stream_read",
-                tool_description_override="Start Phase 1: First successful stream read",
-                input_type=Phase1Data,
-                on_handoff=on_phase1_handoff,
-            ),
-            handoff(
-                agent=developer_agent,
-                tool_name_override="start_phase_2_pagination",
-                tool_description_override="Start Phase 2: Working pagination",
-                input_type=Phase2Data,
-                on_handoff=on_phase2_handoff,
-            ),
-            handoff(
-                agent=developer_agent,
-                tool_name_override="start_phase_3_remaining_streams",
-                tool_description_override="Start Phase 3: Add remaining streams",
-                input_type=Phase3Data,
-                on_handoff=on_phase3_handoff,
+                tool_name_override="delegate_to_developer",
+                tool_description_override="Delegating work to the developer agent",
+                input_type=DelegatedDeveloperTask,
+                on_handoff=create_on_developer_delegation(session_state),
             ),
         ],
         mcp_servers=mcp_servers,
@@ -121,14 +92,36 @@ def create_manager_agent(
     )
 
 
+class DelegatedDeveloperTask(BaseModel):
+    """Input data for handoff from manager to developer."""
+
+    api_name: str
+    assignment_title: str
+    assignment_description: str
+
+
 class ManagerHandoffInput(BaseModel):
     """Input data for handoff from developer back to manager."""
 
     short_status: str
     detailed_progress_update: str
-    is_blocked: bool
-    is_partial_success: bool
     is_full_success: bool
+    is_partial_success: bool
+    is_blocked: bool
+
+
+def create_on_developer_delegation(session_state: SessionState) -> Callable:
+    """Create an on_developer_delegation callback bound to a specific session state."""
+
+    async def on_developer_delegation(ctx, input_data: DelegatedDeveloperTask) -> None:
+        update_progress_log(
+            f"🤝 Delegating task to developer agent."
+            f"\n Task Name: {input_data.assignment_title}"
+            f"\n Task Description: {input_data.assignment_description}",
+            session_state,
+        )
+
+    return on_developer_delegation
 
 
 def create_on_manager_handback(session_state: SessionState):
@@ -154,12 +147,21 @@ def add_handback_to_manager(
     session_state: SessionState,
 ) -> None:
     """Add a handoff from the developer back to the manager to report progress."""
-    developer_agent.handoffs.append(
-        handoff(
-            agent=manager_agent,
-            tool_name_override="report_back_to_manager",
-            tool_description_override="Report progress or issues back to the manager agent",
-            input_type=ManagerHandoffInput,
-            on_handoff=create_on_manager_handback(session_state),
-        )
+    developer_agent.handoffs.extend(
+        [
+            handoff(
+                agent=manager_agent,
+                tool_name_override="report_back_to_manager",
+                tool_description_override="Report progress or issues back to the manager agent",
+                input_type=ManagerHandoffInput,
+                on_handoff=create_on_manager_handback(session_state),
+            ),
+            handoff(
+                agent=manager_agent,
+                tool_name_override="report_task_completion_to_manager",
+                tool_description_override="Report task completion to the manager agent",
+                input_type=ManagerHandoffInput,
+                on_handoff=create_on_manager_handback(session_state),
+            ),
+        ]
     )

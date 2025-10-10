@@ -245,9 +245,8 @@ async def run_manager_developer_build(
         trace_url = f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
 
         run_prompt = (
-            "You are working on a connector build task. "
-            f"You are managing a connector build for the API: '{api_name or 'N/A'}'. "
-            "Your goal is to ensure the successful completion of all phases as instructed."
+            f"You are working on a connector build task for the API: '{api_name or 'N/A'}'. "
+            "Your goal is to ensure the successful completion of all objectives as instructed."
         )
 
         update_progress_log("\n⚙️  Manager Agent is orchestrating the build...", session_state)
