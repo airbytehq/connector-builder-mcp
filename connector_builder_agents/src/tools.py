@@ -6,6 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated
 
+import emoji
 from agents.mcp import (
     MCPServer,
     MCPServerStdio,
@@ -190,7 +191,7 @@ class AgentEnum(str, Enum):
 def update_progress_log(
     message: str,
     session_state: SessionState,
-    emoji: str | None = None,
+    emoji_char: str | None = None,
 ) -> None:
     """Log a milestone message for tracking progress."""
     now = datetime.now()
@@ -198,12 +199,15 @@ def update_progress_log(
     elapsed = now - session_state.start_time
     elapsed_str = str(elapsed).split(".")[0]  # Remove microseconds for readability
 
-    # Detect if the first character of message is an emoji (unicode range):
-    if message and ord(message[0]) in range(0x1F600, 0x1F64F):
-        emoji, message = message[0], message[1:].lstrip()
+    # Detect if the first character(s) of message is an emoji:
+    if message and emoji.is_emoji(message[0]):
+        emoji_char = message[0] + (
+            message[1] if len(message) > 1 and emoji.is_emoji(message[1]) else ""
+        )
+        message = message[len(emoji_char) :].lstrip()
 
-    emoji = emoji or "📍"
-    update_str = f"{emoji} Update [{timestamp}] ({elapsed_str} elapsed): {message}\n"
+    emoji_char = emoji_char or "📍"
+    update_str = f"{emoji_char} Update [{timestamp}] ({elapsed_str} elapsed): {message}\n"
 
     with session_state.execution_log_file.open("a", encoding="utf-8") as f:
         f.write(update_str)
