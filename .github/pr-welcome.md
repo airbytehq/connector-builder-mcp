@@ -42,7 +42,7 @@ AI builder evaluations run automatically under the following conditions:
 - When a PR is reopened
 - When commit messages contain `[llm]`, `[agent]`, or `[eval]`
 
-Evaluations also run on a schedule (Mon/Wed/Fri at midnight UTC) and can be manually triggered via workflow dispatch.
+A set of standardized evaluations also run on a schedule (Mon/Wed/Fri at midnight UTC) and can be manually triggered via workflow dispatch.
 
 ### Helpful Resources
 
