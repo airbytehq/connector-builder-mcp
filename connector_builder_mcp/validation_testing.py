@@ -566,6 +566,16 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     if isinstance(streams, str):
         stream_names = [s.strip() for s in streams.split(",") if s.strip()]
     else:
+        if available_streams:
+            invalid_streams = [s for s in available_streams if not isinstance(s, dict)]
+            if invalid_streams:
+                raise ValueError(
+                    f"Invalid manifest structure: 'streams' must be a list of stream definition objects (dicts), "
+                    f"but found {len(invalid_streams)} invalid entry(ies). "
+                    f"Each stream should be an object with at least a 'name' field and stream configuration. "
+                    f"Invalid entries: {invalid_streams[:3]}"
+                )
+
         stream_names = [
             stream.get("name", f"stream_{i}") for i, stream in enumerate(available_streams)
         ]

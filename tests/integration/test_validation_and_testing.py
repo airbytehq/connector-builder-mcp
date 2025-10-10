@@ -174,6 +174,32 @@ def test_simple_api_manifest_workflow(simple_api_manifest_yaml) -> None:
     assert "streams" in resolved_manifest
 
 
+def test_malformed_manifest_streams_validation() -> None:
+    """Test that malformed manifest with streams as list of strings raises clear error."""
+    malformed_manifest = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - test_stream
+  - another_stream
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+    with pytest.raises(
+        ValueError,
+        match=r"Invalid manifest structure.*streams.*must be a list of stream definition objects",
+    ):
+        run_connector_readiness_test_report(manifest=malformed_manifest, config={}, max_records=5)
+
+
 @pytest.mark.parametrize(
     "manifest_fixture,stream_name",
     [
