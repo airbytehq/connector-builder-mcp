@@ -111,7 +111,6 @@ dependencies = [
     { name = "emoji" },
     { name = "mcp-agent" },
     { name = "openai-agents" },
-    { name = "openai-agents-mcp" },
     { name = "openinference-instrumentation-openai" },
     { name = "openinference-instrumentation-openai-agents" },
     { name = "pandas" },
@@ -133,7 +132,6 @@ requires-dist = [
     { name = "emoji", specifier = ">=2.15.0,<3.0" },
     { name = "mcp-agent", specifier = ">=0.1.15" },
     { name = "openai-agents", specifier = ">=0.3.3" },
-    { name = "openai-agents-mcp", specifier = ">=0.0.8" },
     { name = "openinference-instrumentation-openai", specifier = ">=0.1.33" },
     { name = "openinference-instrumentation-openai-agents", specifier = ">=1.3.0" },
     { name = "pandas", specifier = ">=2.0.0" },
@@ -1055,19 +1053,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a4/37/2b4f828840d3ff32d82b813c3371ec9ee26b3b8dc6b4acbb7a4a579f617a/openai_agents-0.3.3.tar.gz", hash = "sha256:b016381a6890e1cb6879eb23c53c35f8c2312be1117f1cd4e4b5e2463150839f", size = 1816230 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/65/59/fd49fd2c3184c0d5fedb8c9c456ae9852154828bca7ee69dce004ea83188/openai_agents-0.3.3-py3-none-any.whl", hash = "sha256:aa2c74e010b923c09f166e63a51fae8c850c62df8581b84bafcbe5bd208d1505", size = 210893 },
-]
-
-[[package]]
-name = "openai-agents-mcp"
-version = "0.0.8"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "mcp-agent" },
-    { name = "openai-agents" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f2/11/155573e7622aab5bf0db4e1b65019d69e5182351ad3db930f9040d028114/openai_agents_mcp-0.0.8.tar.gz", hash = "sha256:1b108dc9a612a3b1195390bf95ff37bbc9d63479543bfb915e0c13d9cb1b93e4", size = 131132 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/0b/60e3f86a3802c4235f8fd484de3083c92b04cc667660bf844b44c8a729b6/openai_agents_mcp-0.0.8-py3-none-any.whl", hash = "sha256:3bdcce1819f4040e6451e6837f21df8e8a54504c0e055a886e17b383d3328124", size = 14862 },
 ]
 
 [[package]]
