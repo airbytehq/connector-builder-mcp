@@ -51,6 +51,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_AGENTS_LOG: info
+          HTTPX_LOG_LEVEL: warning
           PHOENIX_API_KEY: ${{ secrets.AIRBYTE_CI_TESTING_PHOENIX_API_KEY }}
           PHOENIX_COLLECTOR_ENDPOINT: ${{ vars.AIRBYTE_CI_TESTING_PHOENIX_COLLECTOR_ENDPOINT }}
         run: uv run poe evals run --connector source-jsonplaceholder
