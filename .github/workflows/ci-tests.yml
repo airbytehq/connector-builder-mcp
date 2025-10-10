@@ -5,7 +5,7 @@
 # 2. `pytest`: Run all tests, across multiple Python versions.
 #
 # Note that `pytest-fast` also skips tests that require credentials, allowing it to run on forks.
-name: PyTest Matrix
+name: CI Tests
 
 on:
   push:
