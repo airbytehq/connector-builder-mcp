@@ -168,7 +168,7 @@ async def run_interactive_build(
         session_url = None
         if isinstance(session, OpenAIConversationsSession):
             conversation_id = await session._get_session_id()
-            session_url = f"https://platform.openai.com/conversations/{conversation_id}"
+            session_url = f"https://platform.openai.com/logs/conv_{conversation_id}"
             update_progress_log(f"🔗 Session URL: {session_url}", session_state)
             open_if_browser_available(session_url)
 
@@ -280,7 +280,7 @@ async def run_manager_developer_build(
         session_url = None
         if isinstance(session, OpenAIConversationsSession):
             conversation_id = await session._get_session_id()
-            session_url = f"https://platform.openai.com/conversations/{conversation_id}"
+            session_url = f"https://platform.openai.com/logs/conv_{conversation_id}"
             update_progress_log(f"🔗 Session URL: {session_url}", session_state)
             open_if_browser_available(session_url)
 
