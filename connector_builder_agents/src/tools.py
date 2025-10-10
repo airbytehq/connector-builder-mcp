@@ -199,9 +199,12 @@ def update_progress_log(
     elapsed = now - session_state.start_time
     elapsed_str = str(elapsed).split(".")[0]  # Remove microseconds for readability
 
-    # Detect if the first character of message is an emoji:
+    # Detect if the first character(s) of message is an emoji:
     if message and emoji.is_emoji(message[0]):
-        emoji_char, message = message[0], message[1:].lstrip()
+        emoji_char = message[0] + (
+            message[1] if len(message) > 1 and emoji.is_emoji(message[1]) else ""
+        )
+        message = message[len(emoji_char) :].lstrip()
 
     emoji_char = emoji_char or "📍"
     update_str = f"{emoji_char} Update [{timestamp}] ({elapsed_str} elapsed): {message}\n"
