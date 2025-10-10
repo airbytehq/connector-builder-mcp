@@ -34,20 +34,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
       
-      - name: Check commit messages for keywords
+      - name: Check latest commit message for keywords
         id: check-commits
         if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          COMMITS=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits" --jq '.[].commit.message')
+          COMMIT_MSG=$(git log -1 --pretty=%B)
           
-          if echo "$COMMITS" | grep -qiE '\[llm\]|\[agent\]|\[eval\]'; then
+          if echo "$COMMIT_MSG" | grep -qiE '\[llm\]|\[agent\]|\[eval\]'; then
             echo "found=true" >> $GITHUB_OUTPUT
-            echo "Keywords found in commit messages - will run evals"
+            echo "Keywords found in latest commit message - will run evals"
           else
             echo "found=false" >> $GITHUB_OUTPUT
-            echo "No keywords found in commit messages - will skip evals"
+            echo "No keywords found in latest commit message - will skip evals"
           fi
       
       - name: Set up uv
