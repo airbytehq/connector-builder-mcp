@@ -435,9 +435,6 @@ def execute_stream_test_read(  # noqa: PLR0914
     if include_record_stats and records_data:
         record_stats = _calculate_record_stats(records_data)
 
-    # Toggle to include_raw_responses=True if we had an error or if we are returning no records
-    include_raw_responses_data = include_raw_responses_data or not success or len(records_data) == 0
-
     if len(records_data) == 0 and success:
         execution_logs.append(
             {
@@ -445,6 +442,11 @@ def execute_stream_test_read(  # noqa: PLR0914
                 "message": "Read attempt returned zero records. Please review the included raw responses to ensure the zero-records result is correct.",
             }
         )
+        # Override include_raw_responses_data to ensure caller confirms correctness:
+        include_raw_responses_data = True
+
+    # Toggle to include_raw_responses=True if we had an error
+    include_raw_responses_data = include_raw_responses_data or not success
 
     return StreamTestResult(
         success=success,
