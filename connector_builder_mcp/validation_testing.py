@@ -435,7 +435,7 @@ def execute_stream_test_read(  # noqa: PLR0914
         record_stats = _calculate_record_stats(records_data)
 
     # Toggle to include_raw_responses=True if we had an error or if we are returning no records
-    include_raw_responses_data = include_raw_responses_data or not success
+    include_raw_responses_data = include_raw_responses_data or not success or len(records_data) == 0
     return StreamTestResult(
         success=success,
         message=(
