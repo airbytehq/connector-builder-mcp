@@ -39,6 +39,10 @@ Based on the connector readiness report below, classify whether the test PASSED 
 def readiness_eval(output: dict) -> int:
     """Create Phoenix LLM classifier for readiness evaluation. Return 1 if PASSED, 0 if FAILED."""
 
+    if output is None:
+        logger.warning("Output is None, cannot evaluate readiness")
+        return 0
+
     readiness_report = output.get("artifacts", {}).get("readiness_report", None)
     if readiness_report is None:
         logger.warning("No readiness report found")
@@ -65,6 +69,10 @@ def readiness_eval(output: dict) -> int:
 def streams_eval(expected: dict, output: dict) -> float:
     """Evaluate if all expected streams were built. Return the percentage of expected streams that are present in available streams."""
 
+    if output is None:
+        logger.warning("Output is None, cannot evaluate streams")
+        return 0.0
+
     manifest_str = output.get("artifacts", {}).get("manifest", None)
     if manifest_str is None:
         logger.warning("No manifest found")
@@ -75,8 +83,8 @@ def streams_eval(expected: dict, output: dict) -> float:
     available_stream_names = [stream.get("name", "") for stream in available_streams]
     logger.info(f"Available stream names: {available_stream_names}")
 
-    # Get expected streams from the input (dataset row)
-    expected_stream_names = json.loads(expected.get("expected_streams", []))
+    expected_obj = json.loads(expected.get("expected", "{}"))
+    expected_stream_names = expected_obj.get("expected_streams", [])
     logger.info(f"Expected stream names: {expected_stream_names}")
 
     # Set attributes on span for visibility

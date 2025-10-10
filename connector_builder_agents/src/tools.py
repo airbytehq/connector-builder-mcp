@@ -137,7 +137,7 @@ def create_mcp_filesystem_server(session_state: SessionState) -> MCPServerStdio:
             env={},
         ),
         cache_tools_list=True,
-        client_session_timeout_seconds=10,
+        client_session_timeout_seconds=60,
     )
 
 

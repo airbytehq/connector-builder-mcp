@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 
+import json
 import logging
 import time
 
@@ -15,8 +16,9 @@ EVAL_MANAGER_MODEL = DEFAULT_MANAGER_MODEL
 
 
 async def run_connector_build_task(dataset_row: dict) -> dict:
-    connector_name = dataset_row.get("name", "unknown")
-    prompt_name = dataset_row.get("prompt_name", "unknown")
+    input_obj = json.loads(dataset_row.get("input", "{}"))
+    connector_name = input_obj.get("name", "unknown")
+    prompt_name = input_obj.get("prompt_name", "unknown")
     session_id = f"eval-{connector_name}-{int(time.time())}"
 
     logger.info(

@@ -34,7 +34,7 @@ def get_dataset_with_hash(filtered_connectors: list[str] | None = None) -> tuple
             # Filter by connector names if specified
             if filtered_connectors:
                 original_count = len(df)
-                df = df[df["name"].isin(filtered_connectors)]
+                df = df[df["input"].apply(lambda x: x.get("name")).isin(filtered_connectors)]
                 logger.info(
                     f"Filtered dataset from {original_count} to {len(df)} connectors "
                     f"(requested: {', '.join(filtered_connectors)})"
@@ -42,14 +42,15 @@ def get_dataset_with_hash(filtered_connectors: list[str] | None = None) -> tuple
                 if len(df) == 0:
                     raise ValueError(
                         f"No connectors found matching: {', '.join(filtered_connectors)}. "
-                        f"Available connectors: {', '.join(pd.DataFrame(evals_config['connectors'])['name'].tolist())}"
+                        f"Available connectors: {', '.join(pd.DataFrame(evals_config['connectors'])['input'].apply(lambda x: x.get('name')).tolist())}"
                     )
 
             # Compute hash based on the actual filtered data
             filtered_config = {"connectors": df.to_dict("records")}
             hash_value = hashlib.sha256(yaml.safe_dump(filtered_config).encode()).hexdigest()[:8]
 
-            df["expected_streams"] = df["expected_streams"].apply(json.dumps)
+            df["input"] = df["input"].apply(json.dumps)
+            df["expected"] = df["expected"].apply(json.dumps)
 
             logger.info(
                 f"Successfully loaded evals dataset with {len(df)} connectors (hash: {hash_value})"
@@ -88,6 +89,6 @@ def get_or_create_phoenix_dataset(
         return px_client.datasets.create_dataset(
             name=dataset_name,
             dataframe=dataframe,
-            input_keys=["name", "prompt_name"],
-            output_keys=["expected_streams"],
+            input_keys=["input"],
+            output_keys=["expected"],
         )
