@@ -115,7 +115,7 @@ def create_on_developer_delegation(session_state: SessionState) -> Callable:
 
     async def on_developer_delegation(ctx, input_data: DelegatedDeveloperTask) -> None:
         update_progress_log(
-            f"🤝 Delegating task to developer agent."
+            f"🤝 [MANAGER → DEVELOPER] Manager delegating task to developer agent."
             f"\n Task Name: {input_data.assignment_title}"
             f"\n Task Description: {input_data.assignment_description}",
             session_state,
@@ -129,7 +129,7 @@ def create_on_manager_handback(session_state: SessionState):
 
     async def on_manager_handback(ctx, input_data: ManagerHandoffInput) -> None:
         update_progress_log(
-            f"🤝 Handing back control to manager."
+            f"🤝 [DEVELOPER → MANAGER] Developer handing back control to manager."
             f"\n Summary of status: {input_data.short_status}"
             f"\n Partial success: {input_data.is_partial_success}"
             f"\n Full success: {input_data.is_full_success}"
