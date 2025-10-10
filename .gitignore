@@ -5,6 +5,7 @@ secrets
 # Generated files
 ai-generated-files/
 docs/generated/
+connector_builder_agents/src/evals/results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

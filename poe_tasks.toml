@@ -45,6 +45,8 @@ docs-generate.help = "Generate API documentation"
 # Agentic Connector Build Testing
 build-connector = { cmd = "uv run --project=connector_builder_agents python -m connector_builder_agents.src.cli", help = "Run the MCP agent" }
 build-connector-interactive = { cmd = "uv run --project=connector_builder_agents python -m connector_builder_agents.src.cli --interactive", help = "Run the MCP agent interactively (user is manager)" }
+evals = { cmd = "uv run --project=connector_builder_agents python -m connector_builder_agents.src.evals.cli", help = "Manage connector builder evaluations (use 'poe evals run' or 'poe evals report <experiment_id>')" }
+
 
 # Codex Tests
 codex.cmd = "npx @openai/codex --sandbox=workspace-write"
