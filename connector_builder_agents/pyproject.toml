@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "python-dotenv>=1.1.1",
     "openai-agents-mcp>=0.0.8",
-    "openai-agents>=0.2.11",
+    "openai-agents>=0.3.3",
     "mcp-agent>=0.1.15", # Transitive dependency of openai-agents
     "pydantic>=2.11.9,<3.0",
     "pyyaml>=6.0.1",
