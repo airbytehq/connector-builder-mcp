@@ -8,8 +8,8 @@ on:
         required: false
         type: string
   schedule:
-    # Run weekly on Mondays at 00:00 UTC
-    - cron: '0 0 * * 1'
+    # Run weekly on Mondays, Wednesdays, and Fridays at 00:00 UTC
+    - cron: '0 0 * * 1,3,5'
 
 jobs:
   run-evals:
