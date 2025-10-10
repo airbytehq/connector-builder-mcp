@@ -53,5 +53,5 @@ jobs:
           comment-id: ${{ github.event.inputs.comment-id }}
           start-message: "🛠️ Building connector..."
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          command: poe evals run --connector source-jsonplaceholder
+          command: poe evals run --connector ${{ inputs.connector }}
           no-commit: true
