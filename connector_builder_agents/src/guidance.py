@@ -69,6 +69,7 @@ def get_default_manager_prompt(
                 api_name=api_name,
                 instructions=instructions,
             ),
+            INTERNAL_MONOLOGUE_GUIDANCE,
             get_project_directory_prompt(project_directory),
             RECOMMENDED_PROMPT_PREFIX,
             ROOT_PROMPT_FILE_STR,
