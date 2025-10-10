@@ -1,0 +1,56 @@
+name: CI Run Evals
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "connector_builder_mcp/**"
+      - "connector_builder_agents/**"
+      - "tests/**"
+      - "uv.lock"
+      - "pyproject.toml"
+  pull_request:
+    types:
+      - ready_for_review
+      - reopened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-evals:
+    name: Run Evals (Single Connector)
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && (
+        github.event.action == 'ready_for_review' ||
+        github.event.action == 'reopened' ||
+        (github.event.action == 'synchronize' && (
+          contains(github.event.pull_request.title, '[llm]') ||
+          contains(github.event.pull_request.title, '[agent]') ||
+          contains(github.event.pull_request.title, '[eval]')
+        ))
+      ))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6.6.1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: uv sync --all-extras
+      - name: Run Evals
+        timeout-minutes: 30
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_AGENTS_LOG: info
+          PHOENIX_API_KEY: ${{ secrets.AIRBYTE_CI_TESTING_PHOENIX_API_KEY }}
+          PHOENIX_COLLECTOR_ENDPOINT: ${{ vars.AIRBYTE_CI_TESTING_PHOENIX_COLLECTOR_ENDPOINT }}
+        run: uv run poe evals run --connector source-jsonplaceholder

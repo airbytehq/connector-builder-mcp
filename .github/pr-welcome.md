@@ -31,7 +31,7 @@ uvx 'git+https://github.com/{{ .repo_name }}.git@{{ .branch_name }}#egg=airbyte-
 Airbyte Maintainers can execute the following slash commands on your PR:
 
 - `/autofix` - Fixes most formatting and linting issues
-- `/run-evals` - Runs AI builder evaluations
+- `/build-connector prompt="<your prompt>"` - Builds a connector on-demand using the AI builder
 - `/poe <command>` - Runs any poe command in the uv virtual environment
 - `/test` - Runs the test suite
 
@@ -41,7 +41,6 @@ AI builder evaluations run automatically under the following conditions:
 - When a PR is marked as "ready for review"
 - When a PR is reopened
 - When the PR title contains `[llm]`, `[agent]`, or `[eval]`
-- When manually triggered via the `/run-evals` slash command
 
 Evaluations also run on a schedule (Mon/Wed/Fri at midnight UTC) and can be manually triggered via workflow dispatch.
 

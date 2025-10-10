@@ -34,7 +34,6 @@ jobs:
             autofix
             build-connector
             poe
-            run-evals
             test
 
           # TODO: Add 'publish' slash command when we have time to properly map the PR number to git
@@ -67,7 +66,6 @@ jobs:
 
           - \`/autofix\` - Corrects any linting or formatting issues
           - \`/test\` - Runs the test suite
-          - \`/run-evals\` - Runs AI builder evaluations
           - \`/uv-lock\` - Re-locks dependencies and updates the uv.lock file
           - \`/help\` - Shows this help message"
 
