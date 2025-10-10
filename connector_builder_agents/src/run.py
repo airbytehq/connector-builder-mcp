@@ -259,7 +259,13 @@ async def run_manager_developer_build(
             # We loop until the manager calls the `mark_job_success` or `mark_job_failed` tool.
             # prev_response_id: str | None = None
             all_run_results = []
+            iteration_count = 0
             while not is_complete(session_state):
+                iteration_count += 1
+                update_progress_log(
+                    f"\n🔄 Starting iteration {iteration_count} with agent: {manager_agent.name}",
+                    session_state,
+                )
                 run_result: RunResult = await Runner.run(
                     starting_agent=manager_agent,
                     input=run_prompt,
@@ -269,7 +275,9 @@ async def run_manager_developer_build(
                 )
                 all_run_results.append(run_result)  # Collect all run results
                 # prev_response_id = run_result.raw_responses[-1].response_id if run_result.raw_responses else None
-                status_msg = f"\n🤖 {run_result.last_agent.name}: {run_result.final_output}"
+                status_msg = f"\n🤖 Iteration {iteration_count} completed. Last agent: {run_result.last_agent.name}"
+                update_progress_log(status_msg, session_state)
+                status_msg = f"🤖 {run_result.last_agent.name}: {run_result.final_output}"
                 update_progress_log(status_msg, session_state)
                 run_prompt = (
                     "You are still working on the connector build task. "
