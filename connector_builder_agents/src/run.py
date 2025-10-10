@@ -257,7 +257,7 @@ async def run_manager_developer_build(
 
         try:
             # We loop until the manager calls the `mark_job_success` or `mark_job_failed` tool.
-            # prev_response_id: str | None = None
+            prev_response_id: str | None = None
             all_run_results = []
             while not is_complete(session_state):
                 run_result: RunResult = await Runner.run(
@@ -265,10 +265,12 @@ async def run_manager_developer_build(
                     input=run_prompt,
                     max_turns=MAX_CONNECTOR_BUILD_STEPS,
                     session=session,
-                    # previous_response_id=prev_response_id,
+                    previous_response_id=prev_response_id,
                 )
                 all_run_results.append(run_result)  # Collect all run results
-                # prev_response_id = run_result.raw_responses[-1].response_id if run_result.raw_responses else None
+                prev_response_id = (
+                    run_result.raw_responses[-1].response_id if run_result.raw_responses else None
+                )
                 status_msg = f"\n🤖 {run_result.last_agent.name}: {run_result.final_output}"
                 update_progress_log(status_msg, session_state)
                 run_prompt = (
