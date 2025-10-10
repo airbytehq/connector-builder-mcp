@@ -104,28 +104,3 @@ jobs:
         with:
           name: py${{ matrix.python-version }}-${{ matrix.os }}-test-coverage
           path: htmlcov/
-
-  run-evals:
-    name: Run Evals (Single Connector)
-    if: >
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v6.6.1
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: uv sync --all-extras
-      - name: Run Evals
-        timeout-minutes: 30
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PHOENIX_API_KEY: ${{ secrets.AIRBYTE_CI_TESTING_PHOENIX_API_KEY }}
-          PHOENIX_COLLECTOR_ENDPOINT: ${{ vars.AIRBYTE_CI_TESTING_PHOENIX_COLLECTOR_ENDPOINT }}
-        run: uv run poe evals run --connector source-jsonplaceholder

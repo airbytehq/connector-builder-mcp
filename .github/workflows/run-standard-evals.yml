@@ -1,4 +1,4 @@
-name: Run Evals
+name: Run Standard Evals
 
 on:
   workflow_dispatch:
