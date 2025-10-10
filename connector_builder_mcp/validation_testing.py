@@ -328,8 +328,9 @@ def execute_stream_test_read(  # noqa: PLR0914
         bool | str | None,
         Field(
             description="Include raw API responses and request/response metadata. "
-            "Defaults to 'None', which means raw data is included only if an error occurs. "
-            "If set to 'False', raw data is not included even on errors."
+            "Defaults to 'None', which auto-enables raw data when an error occurs or zero records are returned. "
+            "If set to 'True', raw data is always included. "
+            "If set to 'False', raw data is excluded UNLESS zero records are returned (in which case it's auto-enabled for debugging)."
         ),
     ] = None,
     dotenv_file_uris: Annotated[
