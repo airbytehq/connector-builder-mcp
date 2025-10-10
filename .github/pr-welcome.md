@@ -40,7 +40,7 @@ Airbyte Maintainers can execute the following slash commands on your PR:
 AI builder evaluations run automatically under the following conditions:
 - When a PR is marked as "ready for review"
 - When a PR is reopened
-- When the PR title contains `[llm]`, `[agent]`, or `[eval]`
+- When commit messages contain `[llm]`, `[agent]`, or `[eval]`
 
 Evaluations also run on a schedule (Mon/Wed/Fri at midnight UTC) and can be manually triggered via workflow dispatch.
 

@@ -25,29 +25,52 @@ jobs:
     name: Run Evals (Single Connector)
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && (
-        github.event.action == 'ready_for_review' ||
-        github.event.action == 'reopened' ||
-        (github.event.action == 'synchronize' && (
-          contains(github.event.pull_request.title, '[llm]') ||
-          contains(github.event.pull_request.title, '[agent]') ||
-          contains(github.event.pull_request.title, '[eval]')
-        ))
-      ))
+      github.event.action == 'ready_for_review' ||
+      github.event.action == 'reopened' ||
+      github.event.action == 'synchronize'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+      
+      - name: Check commit messages for keywords
+        id: check-commits
+        if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COMMITS=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits" --jq '.[].commit.message')
+          
+          if echo "$COMMITS" | grep -qiE '\[llm\]|\[agent\]|\[eval\]'; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "Keywords found in commit messages - will run evals"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "No keywords found in commit messages - will skip evals"
+          fi
+      
       - name: Set up uv
+        if: |
+          github.event.action != 'synchronize' ||
+          steps.check-commits.outputs.found == 'true'
         uses: astral-sh/setup-uv@v6.6.1
       - name: Set up Python
+        if: |
+          github.event.action != 'synchronize' ||
+          steps.check-commits.outputs.found == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Install dependencies
+        if: |
+          github.event.action != 'synchronize' ||
+          steps.check-commits.outputs.found == 'true'
         run: uv sync --all-extras
       - name: Run Evals
+        if: |
+          github.event.action != 'synchronize' ||
+          steps.check-commits.outputs.found == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_AGENTS_LOG: info
