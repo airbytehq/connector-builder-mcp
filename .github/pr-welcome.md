@@ -1,6 +1,6 @@
 ## 👋 Welcome to the Airbyte Connector Builder MCP!
 
-Thank you for your contribution! We're excited to have you in the Airbyte community.
+Thank you for your contribution! Here are some helpful tips and reminders for your convenience.
 
 ### Testing This Branch via MCP
 
@@ -31,9 +31,9 @@ uvx 'git+https://github.com/{{ .repo_name }}.git@{{ .branch_name }}#egg=airbyte-
 Airbyte Maintainers can execute the following slash commands on your PR:
 
 - `/autofix` - Fixes most formatting and linting issues
+- `/build-connector` - Builds the default connector on-demand using the AI builder
 - `/build-connector prompt="<your prompt>"` - Builds a connector on-demand using the AI builder
 - `/poe <command>` - Runs any poe command in the uv virtual environment
-- `/test` - Runs the test suite
 
 ### AI Builder Evaluations
 
