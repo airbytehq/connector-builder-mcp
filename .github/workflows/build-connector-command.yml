@@ -1,13 +1,6 @@
 name: On-Demand Connector Builder
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types:
-      - ready_for_review
-      - reopened
   workflow_dispatch:
     inputs:
       comment-id:
@@ -16,6 +9,12 @@ on:
       pr:
         description: "PR Number"
         required: false
+      connector:
+        description: |
+          Optional connector name to update (e.g. source-hubspot). If not provided, defaults to
+          'source-jsonplaceholder'.
+        required: false
+        default: "source-jsonplaceholder"
 
 permissions:
   contents: read
@@ -26,22 +25,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   run-connector-build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      # matrix: ${{ fromJson(needs.get-connector-jobs.outputs.jobs) }}
-      matrix:
-        include:
-        - api_name: "JSONPlaceholder"
-        - api_name: "PokemonTGG"
-        - api_name: "Hubspot"
-          connector_name: "source-hubspot"
-          config_name: "config"
-    name: Build ${{ matrix.api_name }} Connector
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    name: Build '${{ inputs.connector }}' Connector
     steps:
 
       # Some MCP Servers need npx/node, so set that up:
@@ -58,15 +44,14 @@ jobs:
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1
         env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          PHOENIX_API_KEY: ${{ secrets.AIRBYTE_CI_TESTING_PHOENIX_API_KEY }}
+          PHOENIX_COLLECTOR_ENDPOINT: ${{ vars.AIRBYTE_CI_TESTING_PHOENIX_COLLECTOR_ENDPOINT }}
         with:
           pr: ${{ github.event.inputs.pr }}
           comment-id: ${{ github.event.inputs.comment-id }}
           start-message: "🛠️ Building connector..."
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          command: >
-            build-connector
-            --api-name='${{ matrix.api_name }}'
-            ${{ matrix.connector_name && format('--existing-connector-name={0}', matrix.connector_name) || '' }}
-            ${{ matrix.config_name && format('--existing-config-name={0}', matrix.config_name) || '' }}
+          command: poe evals run --connector source-jsonplaceholder
           no-commit: true
