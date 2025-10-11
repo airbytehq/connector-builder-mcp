@@ -4,6 +4,8 @@
 import json
 import logging
 import re
+from collections.abc import Callable
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -111,7 +113,8 @@ def stream_names_eval(expected: dict, output: dict) -> float:
     return _eval_expected_stream_props(
         expected_stream_props=_parse_expected_streams_dict(expected),
         output_stream_props={
-            stream.get("name", "(undeclared)"): stream for stream in _get_manifest_streams(output) or []
+            stream.get("name", "(undeclared)"): stream
+            for stream in _get_manifest_streams(output) or []
         },
         prop="name",
     )
@@ -125,7 +128,7 @@ def _eval_expected_stream_props(
     eval_fn: Callable[[Any, Any], bool] = lambda expected, actual: expected == actual,
     span: Any | None = None,  # TODO: replace `Any` with proper type
 ) -> float:
-     """Generic evaluator for expected stream properties."""
+    """Generic evaluator for expected stream properties."""
     matched_count = 0
     total_count = len(expected_stream_props)
 
@@ -158,38 +161,14 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
 
     Returns the percentage of streams with correct primary keys.
     """
-    available_streams = _get_manifest_streams(output)
-    if available_streams is None:
-        logger.warning("No manifest found")
-        return 0.0
-
-    expected_streams = _parse_expected_streams_dict(expected, having="primary_key")
-
-    matched_count = 0
-
-    for stream in available_streams:
-        stream_name = stream.get("name", "")
-        if stream_name not in expected_streams:
-            continue
-
-        expected_pk = expected_streams[stream_name]["primary_key"]
-        actual_pk = stream.get("primary_key", [])
-
-        if actual_pk == expected_pk:
-            matched_count += 1
-            logger.info(f"✓ {stream_name}: primary key matches {expected_pk}")
-        else:
-            logger.warning(
-                f"✗ {stream_name}: primary key mismatch - expected {expected_pk}, got {actual_pk}"
-            )
-
-    span = get_current_span()
-    span.set_attribute("matched_primary_keys_count", matched_count)
-    span.set_attribute("total_evaluated_streams", len(expected_streams))
-
-    percent_matched = matched_count / len(expected_streams) if len(expected_streams) > 0 else 1.0
-    logger.info(f"Primary keys percent matched: {percent_matched}")
-    return float(percent_matched)
+    return _eval_expected_stream_props(
+        expected_stream_props=_parse_expected_streams_dict(expected, having="primary_key"),
+        output_stream_props={
+            stream.get("name", "(undeclared)"): stream
+            for stream in _get_manifest_streams(output) or []
+        },
+        prop="primary_key",
+    )
 
 
 def records_eval(expected: dict, output: dict) -> float:
