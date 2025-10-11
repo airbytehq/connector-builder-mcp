@@ -210,7 +210,7 @@ def extract_scores_by_connector(experiment: dict, client) -> dict:
         score = None
         if result and isinstance(result, dict):
             score = result.get("score")
-        elif result and isinstance(result, (list, tuple)) and len(result) > 0:
+        elif result and isinstance(result, list | tuple) and len(result) > 0:
             first_result = result[0]
             if isinstance(first_result, dict):
                 score = first_result.get("score")
@@ -680,7 +680,7 @@ def generate_markdown_summary(experiment: dict, experiment_name: str) -> str | N
         score = None
         if result and isinstance(result, dict):
             score = result.get("score")
-        elif result and isinstance(result, (list, tuple)) and len(result) > 0:
+        elif result and isinstance(result, list | tuple) and len(result) > 0:
             # Handle list of results - take the first one
             first_result = result[0]
             if isinstance(first_result, dict):
