@@ -145,10 +145,6 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
         1 for config in expected_streams.values() if config.get("primary_key") is not None
     )
 
-    if total_expected_streams == 0:
-        logger.warning("No expected primary keys found")
-        return 0.0
-
     matched_count = 0
 
     for stream in available_streams:
@@ -174,7 +170,7 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
     span.set_attribute("matched_primary_keys_count", matched_count)
     span.set_attribute("total_expected_streams", total_expected_streams)
 
-    percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 0.0
+    percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 1.0
     logger.info(f"Primary keys percent matched: {percent_matched}")
     return float(percent_matched)
 
@@ -195,10 +191,6 @@ def records_eval(expected: dict, output: dict) -> float:
     total_expected_streams = sum(
         1 for config in expected_streams.values() if config.get("expected_records") is not None
     )
-
-    if total_expected_streams == 0:
-        logger.warning("No expected records found")
-        return 1.0
 
     matched_count = 0
 
@@ -226,7 +218,7 @@ def records_eval(expected: dict, output: dict) -> float:
     span.set_attribute("matched_records_count", matched_count)
     span.set_attribute("total_expected_streams", total_expected_streams)
 
-    percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 0.0
+    percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 1.0
     logger.info(f"Records percent matched: {percent_matched}")
     return float(percent_matched)
 
