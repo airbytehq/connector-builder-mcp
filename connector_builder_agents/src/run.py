@@ -235,7 +235,7 @@ async def run_manager_developer_build(
     manager_model: str = DEFAULT_MANAGER_MODEL,
     session_id: str | None = None,
 ) -> list[RunResult]:
-    """Run a 3-phase connector build using manager-developer architecture."""
+    """Run connector build using manager-developer architecture."""
     # Generate session_id if not provided
     if session_id is None:
         session_id = generate_session_id()

@@ -34,7 +34,7 @@ def create_developer_agent(
     session_state: SessionState,
     mcp_servers: list,
 ) -> OpenAIAgent:
-    """Create the developer agent that executes specific phases."""
+    """Create the developer agent that will work on the connector build tasks."""
     return OpenAIAgent(
         name="MCP Connector Developer",
         instructions=get_default_developer_prompt(
@@ -61,7 +61,7 @@ def create_manager_agent(
     session_state: SessionState,
     mcp_servers: list,
 ) -> OpenAIAgent:
-    """Create the manager agent that orchestrates the 3-phase workflow."""
+    """Create the manager agent that orchestrates connector builds."""
     return OpenAIAgent(
         name="Connector Builder Manager",
         instructions=get_default_manager_prompt(
