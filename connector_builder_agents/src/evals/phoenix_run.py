@@ -29,7 +29,7 @@ from .evaluators import (
     primary_keys_eval,
     readiness_eval,
     records_eval,
-    streams_eval,
+    stream_names_eval,
 )
 from .summary import generate_markdown_summary
 from .task import EVAL_DEVELOPER_MODEL, EVAL_MANAGER_MODEL, run_connector_build_task
@@ -59,7 +59,7 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
     experiment_name = f"builder-evals-{experiment_id}"
     evaluators = [
         readiness_eval,
-        streams_eval,
+        stream_names_eval,
         primary_keys_eval,
         records_eval,
     ]

@@ -98,7 +98,7 @@ def readiness_eval(output: dict) -> int:
     return score
 
 
-def streams_eval(expected: dict, output: dict) -> float:
+def stream_names_eval(expected: dict, output: dict) -> float:
     """Evaluate if all expected streams were built. Return the percentage of expected streams that are present in available streams."""
     available_streams = _get_manifest_streams(output)
     if available_streams is None:
@@ -140,7 +140,7 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
 
     expected_streams = _parse_expected_streams_dict(expected)
 
-    total_expected_streams = sum(
+    total_evaluated_streams = sum(
         1 for config in expected_streams.values() if config.get("primary_key") is not None
     )
 
@@ -167,9 +167,11 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
 
     span = get_current_span()
     span.set_attribute("matched_primary_keys_count", matched_count)
-    span.set_attribute("total_expected_streams", total_expected_streams)
+    span.set_attribute("total_evaluated_streams", total_evaluated_streams)
 
-    percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 1.0
+    percent_matched = (
+        matched_count / total_evaluated_streams if total_evaluated_streams > 0 else 1.0
+    )
     logger.info(f"Primary keys percent matched: {percent_matched}")
     return float(percent_matched)
 
@@ -187,7 +189,7 @@ def records_eval(expected: dict, output: dict) -> float:
 
     expected_streams = _parse_expected_streams_dict(expected)
 
-    total_expected_streams = sum(
+    total_evaluated_streams = sum(
         1 for config in expected_streams.values() if config.get("expected_records") is not None
     )
 
@@ -215,9 +217,11 @@ def records_eval(expected: dict, output: dict) -> float:
 
     span = get_current_span()
     span.set_attribute("matched_records_count", matched_count)
-    span.set_attribute("total_expected_streams", total_expected_streams)
+    span.set_attribute("total_evaluated_streams", total_evaluated_streams)
 
-    percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 1.0
+    percent_matched = (
+        matched_count / total_evaluated_streams if total_evaluated_streams > 0 else 1.0
+    )
     logger.info(f"Records percent matched: {percent_matched}")
     return float(percent_matched)
 
