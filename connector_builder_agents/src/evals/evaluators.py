@@ -136,6 +136,41 @@ def stream_names_eval(expected: dict, output: dict) -> float:
     return float(percent_matched)
 
 
+def _eval_expected_stream_props(
+    expected_stream_props: dict[str, Any],
+    output_stream_props: dict[str, Any],
+    prop: str,
+    eval_fn: Callable[[Any, Any], bool],
+    span: Any | None = None,  # TODO: replace `Any` with proper type
+) -> float:
+     """Generic evaluator for expected stream properties."""
+    matched_count = 0
+    total_count = len(expected_stream_props)
+
+    for stream_name, expected_props in expected_stream_props.items():
+        expected_value = expected_props.get(prop)
+        actual_value = output_stream_props.get(stream_name, {}).get(prop)
+
+        if expected_value is None:
+            continue
+
+        if eval_fn(expected_value, actual_value):
+            matched_count += 1
+            logger.info(f"✓ {stream_name}: {prop} matches {expected_value}")
+        else:
+            logger.warning(
+                f"✗ {stream_name}: {prop} mismatch - expected {expected_value}, got {actual_value}"
+            )
+
+    span = get_current_span()
+    span.set_attribute(f"{prop}_matched_count", matched_count)
+    span.set_attribute(f"{prop}_evaluated_streams", total_count)
+
+    percent_matched = (matched_count * 1.0) / (total_count * 1.0) if total_count > 0 else 1.0
+    logger.info(f"{prop.capitalize()} percent matched: {percent_matched}")
+    return float(percent_matched)
+
+
 def primary_keys_eval(expected: dict, output: dict) -> float:
     """Evaluate if primary keys match expected values for each stream.
 
