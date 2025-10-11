@@ -36,10 +36,19 @@ Based on the connector readiness report below, classify whether the test PASSED 
 """
 
 
-def _parse_expected_streams(expected: dict) -> list:
-    """Parse and return the expected_streams list from the expected dict."""
+def _parse_expected_streams_dict(expected: dict) -> dict:
+    """Parse and return expected streams as a dict mapping stream_name -> stream_config."""
     expected_obj = json.loads(expected.get("expected", "{}"))
-    return expected_obj.get("expected_streams", [])
+    expected_streams = expected_obj.get("expected_streams", [])
+
+    result = {}
+    for stream_obj in expected_streams:
+        if isinstance(stream_obj, dict):
+            result.update(stream_obj)
+        elif isinstance(stream_obj, str):
+            result[stream_obj] = {}
+
+    return result
 
 
 def _get_manifest_streams(output: dict) -> list | None:
@@ -98,14 +107,8 @@ def streams_eval(expected: dict, output: dict) -> float:
     available_stream_names = [stream.get("name", "") for stream in available_streams]
     logger.info(f"Available stream names: {available_stream_names}")
 
-    expected_streams = _parse_expected_streams(expected)
-    expected_stream_names = []
-    for stream_obj in expected_streams:
-        if isinstance(stream_obj, dict):
-            expected_stream_names.extend(stream_obj.keys())
-        elif isinstance(stream_obj, str):
-            expected_stream_names.append(stream_obj)
-
+    expected_streams = _parse_expected_streams_dict(expected)
+    expected_stream_names = list(expected_streams.keys())
     logger.info(f"Expected stream names: {expected_stream_names}")
 
     # Set attributes on span for visibility
@@ -135,30 +138,28 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
         logger.warning("No manifest found")
         return 0.0
 
-    expected_streams = _parse_expected_streams(expected)
-    expected_primary_keys = {}
-    for stream_obj in expected_streams:
-        if isinstance(stream_obj, dict):
-            for stream_name, stream_config in stream_obj.items():
-                if isinstance(stream_config, dict) and "primary_key" in stream_config:
-                    expected_primary_keys[stream_name] = stream_config["primary_key"]
+    expected_streams = _parse_expected_streams_dict(expected)
 
-    logger.info(f"Expected primary keys: {expected_primary_keys}")
+    total_expected_streams = sum(
+        1 for config in expected_streams.values() if config.get("primary_key") is not None
+    )
 
-    if not expected_primary_keys:
+    if total_expected_streams == 0:
         logger.warning("No expected primary keys found")
         return 0.0
 
     matched_count = 0
-    total_expected_streams = len(expected_primary_keys)
 
     for stream in available_streams:
         stream_name = stream.get("name", "")
-        if stream_name not in expected_primary_keys:
+        if stream_name not in expected_streams:
+            continue
+
+        expected_pk = expected_streams[stream_name].get("primary_key")
+        if expected_pk is None:
             continue
 
         actual_pk = stream.get("primary_key", [])
-        expected_pk = expected_primary_keys[stream_name]
 
         if actual_pk == expected_pk:
             matched_count += 1
@@ -188,24 +189,22 @@ def records_eval(expected: dict, output: dict) -> float:
         logger.warning("No readiness report found")
         return 0.0
 
-    expected_streams = _parse_expected_streams(expected)
-    expected_records = {}
-    for stream_obj in expected_streams:
-        if isinstance(stream_obj, dict):
-            for stream_name, stream_config in stream_obj.items():
-                if isinstance(stream_config, dict) and "expected_records" in stream_config:
-                    expected_records[stream_name] = stream_config["expected_records"]
+    expected_streams = _parse_expected_streams_dict(expected)
 
-    logger.info(f"Expected records: {expected_records}")
+    total_expected_streams = sum(
+        1 for config in expected_streams.values() if config.get("expected_records") is not None
+    )
 
-    if not expected_records:
+    if total_expected_streams == 0:
         logger.warning("No expected records found")
         return 1.0
 
     matched_count = 0
-    total_expected_streams = len(expected_records)
 
-    for stream_name, expected_value in expected_records.items():
+    for stream_name, stream_config in expected_streams.items():
+        expected_value = stream_config.get("expected_records")
+        if expected_value is None:
+            continue
         actual_count = _extract_record_count(readiness_report, stream_name)
 
         if actual_count is None:
