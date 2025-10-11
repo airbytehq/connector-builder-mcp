@@ -108,39 +108,21 @@ def readiness_eval(output: dict) -> int:
 
 def stream_names_eval(expected: dict, output: dict) -> float:
     """Evaluate if all expected streams were built. Return the percentage of expected streams that are present in available streams."""
-    available_streams = _get_manifest_streams(output)
-    if available_streams is None:
-        logger.warning("No manifest found")
-        return 0.0
-
-    available_stream_names = [stream.get("name", "") for stream in available_streams]
-    logger.info(f"Available stream names: {available_stream_names}")
-
-    expected_streams = _parse_expected_streams_dict(expected)
-    logger.info(f"Expected stream names: {list(expected_streams.keys())}")
-
-    # Set attributes on span for visibility
-    span = get_current_span()
-    span.set_attribute("available_stream_names", available_stream_names)
-    span.set_attribute("expected_stream_names", list(expected_streams.keys()))
-
-    if not expected_streams:
-        logger.warning("No expected streams found")
-        return 0.0
-
-    # Calculate the percentage of expected streams that are present in available streams
-    matched_streams = set(available_stream_names) & set(expected_streams.keys())
-    logger.info(f"Matched streams: {matched_streams}")
-    percent_matched = len(matched_streams) / len(expected_streams)
-    logger.info(f"Percent matched: {percent_matched}")
-    return float(percent_matched)
+    return _eval_expected_stream_props(
+        expected_stream_props=_parse_expected_streams_dict(expected),
+        output_stream_props={
+            stream.get("name", "(undeclared)"): stream for stream in _get_manifest_streams(output) or []
+        },
+        prop="name",
+    )
 
 
 def _eval_expected_stream_props(
+    *,
     expected_stream_props: dict[str, Any],
     output_stream_props: dict[str, Any],
     prop: str,
-    eval_fn: Callable[[Any, Any], bool],
+    eval_fn: Callable[[Any, Any], bool] = lambda expected, actual: expected == actual,
     span: Any | None = None,  # TODO: replace `Any` with proper type
 ) -> float:
      """Generic evaluator for expected stream properties."""
