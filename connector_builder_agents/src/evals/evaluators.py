@@ -37,8 +37,13 @@ Based on the connector readiness report below, classify whether the test PASSED 
 """
 
 
-def _parse_expected_streams_dict(expected: dict) -> dict:
-    """Parse and return expected streams as a dict mapping stream_name -> stream_config."""
+def _parse_expected_streams_dict(expected: dict, having: str | None = None) -> dict:
+    """Parse and return expected streams as a dict mapping stream_name -> stream_config.
+
+    Args:
+        expected: The expected dictionary containing stream configurations
+        having: Optional key name to filter streams - only returns streams where this key exists
+    """
     expected_obj = json.loads(expected.get("expected", "{}"))
     expected_streams = expected_obj.get("expected_streams", [])
 
@@ -48,6 +53,9 @@ def _parse_expected_streams_dict(expected: dict) -> dict:
             result.update(stream_obj)
         elif isinstance(stream_obj, str):
             result[stream_obj] = {}
+
+    if having is not None:
+        result = {name: config for name, config in result.items() if config.get(having) is not None}
 
     return result
 
@@ -138,11 +146,7 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
         logger.warning("No manifest found")
         return 0.0
 
-    expected_streams = _parse_expected_streams_dict(expected)
-
-    total_evaluated_streams = sum(
-        1 for config in expected_streams.values() if config.get("primary_key") is not None
-    )
+    expected_streams = _parse_expected_streams_dict(expected, having="primary_key")
 
     matched_count = 0
 
@@ -151,10 +155,7 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
         if stream_name not in expected_streams:
             continue
 
-        expected_pk = expected_streams[stream_name].get("primary_key")
-        if expected_pk is None:
-            continue
-
+        expected_pk = expected_streams[stream_name]["primary_key"]
         actual_pk = stream.get("primary_key", [])
 
         if actual_pk == expected_pk:
@@ -167,11 +168,9 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
 
     span = get_current_span()
     span.set_attribute("matched_primary_keys_count", matched_count)
-    span.set_attribute("total_evaluated_streams", total_evaluated_streams)
+    span.set_attribute("total_evaluated_streams", len(expected_streams))
 
-    percent_matched = (
-        matched_count / total_evaluated_streams if total_evaluated_streams > 0 else 1.0
-    )
+    percent_matched = matched_count / len(expected_streams) if len(expected_streams) > 0 else 1.0
     logger.info(f"Primary keys percent matched: {percent_matched}")
     return float(percent_matched)
 
@@ -187,18 +186,12 @@ def records_eval(expected: dict, output: dict) -> float:
         logger.warning("No readiness report found")
         return 0.0
 
-    expected_streams = _parse_expected_streams_dict(expected)
-
-    total_evaluated_streams = sum(
-        1 for config in expected_streams.values() if config.get("expected_records") is not None
-    )
+    expected_streams = _parse_expected_streams_dict(expected, having="expected_records")
 
     matched_count = 0
 
     for stream_name, stream_config in expected_streams.items():
-        expected_value = stream_config.get("expected_records")
-        if expected_value is None:
-            continue
+        expected_value = stream_config["expected_records"]
         actual_count = _extract_record_count(readiness_report, stream_name)
 
         if actual_count is None:
@@ -217,11 +210,9 @@ def records_eval(expected: dict, output: dict) -> float:
 
     span = get_current_span()
     span.set_attribute("matched_records_count", matched_count)
-    span.set_attribute("total_evaluated_streams", total_evaluated_streams)
+    span.set_attribute("total_evaluated_streams", len(expected_streams))
 
-    percent_matched = (
-        matched_count / total_evaluated_streams if total_evaluated_streams > 0 else 1.0
-    )
+    percent_matched = matched_count / len(expected_streams) if len(expected_streams) > 0 else 1.0
     logger.info(f"Records percent matched: {percent_matched}")
     return float(percent_matched)
 
