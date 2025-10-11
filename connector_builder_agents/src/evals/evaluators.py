@@ -126,7 +126,6 @@ def _eval_expected_stream_props(
     output_stream_props: dict[str, Any],
     prop: str,
     eval_fn: Callable[[Any, Any], bool] = lambda expected, actual: expected == actual,
-    span: Any | None = None,  # TODO: replace `Any` with proper type
 ) -> float:
     """Generic evaluator for expected stream properties."""
     matched_count = 0
