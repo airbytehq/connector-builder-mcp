@@ -84,7 +84,16 @@ def streams_eval(expected: dict, output: dict) -> float:
     logger.info(f"Available stream names: {available_stream_names}")
 
     expected_obj = json.loads(expected.get("expected", "{}"))
-    expected_stream_names = expected_obj.get("expected_streams", [])
+    expected_streams = expected_obj.get("expected_streams", [])
+
+    # expected_streams is now a list of dicts like [{"posts": {"primary_key": ["id"]}}, ...]
+    expected_stream_names = []
+    for stream_obj in expected_streams:
+        if isinstance(stream_obj, dict):
+            expected_stream_names.extend(stream_obj.keys())
+        elif isinstance(stream_obj, str):
+            expected_stream_names.append(stream_obj)
+
     logger.info(f"Expected stream names: {expected_stream_names}")
 
     # Set attributes on span for visibility
@@ -122,7 +131,16 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
     available_streams = manifest.get("streams", [])
 
     expected_obj = json.loads(expected.get("expected", "{}"))
-    expected_primary_keys = expected_obj.get("expected_primary_keys", {})
+    expected_streams = expected_obj.get("expected_streams", [])
+
+    # expected_streams is now a list of dicts like [{"posts": {"primary_key": ["id"]}}, ...]
+    expected_primary_keys = {}
+    for stream_obj in expected_streams:
+        if isinstance(stream_obj, dict):
+            for stream_name, stream_config in stream_obj.items():
+                if isinstance(stream_config, dict) and "primary_key" in stream_config:
+                    expected_primary_keys[stream_name] = stream_config["primary_key"]
+
     logger.info(f"Expected primary keys: {expected_primary_keys}")
 
     if not expected_primary_keys:
@@ -155,3 +173,103 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
     percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 0.0
     logger.info(f"Primary keys percent matched: {percent_matched}")
     return float(percent_matched)
+
+
+def records_eval(expected: dict, output: dict) -> float:
+    """Evaluate if record counts match expected values for each stream.
+
+    Returns the percentage of streams with correct record counts.
+    Supports both integer values and constraint strings like ">100", "<999", ">100,<999".
+    """
+    if output is None:
+        logger.warning("Output is None, cannot evaluate records")
+        return 0.0
+
+    readiness_report = output.get("artifacts", {}).get("readiness_report", None)
+    if readiness_report is None:
+        logger.warning("No readiness report found")
+        return 0.0
+
+    expected_obj = json.loads(expected.get("expected", "{}"))
+    expected_streams = expected_obj.get("expected_streams", [])
+
+    expected_records = {}
+    for stream_obj in expected_streams:
+        if isinstance(stream_obj, dict):
+            for stream_name, stream_config in stream_obj.items():
+                if isinstance(stream_config, dict) and "expected_records" in stream_config:
+                    expected_records[stream_name] = stream_config["expected_records"]
+
+    logger.info(f"Expected records: {expected_records}")
+
+    if not expected_records:
+        logger.warning("No expected records found")
+        return 1.0
+
+    matched_count = 0
+    total_expected_streams = len(expected_records)
+
+    for stream_name, expected_value in expected_records.items():
+        actual_count = _extract_record_count(readiness_report, stream_name)
+
+        if actual_count is None:
+            logger.warning(f"✗ {stream_name}: could not extract record count from report")
+            continue
+
+        if _validate_record_count(actual_count, expected_value):
+            matched_count += 1
+            logger.info(
+                f"✓ {stream_name}: record count {actual_count} meets expectation {expected_value}"
+            )
+        else:
+            logger.warning(
+                f"✗ {stream_name}: record count {actual_count} does not meet expectation {expected_value}"
+            )
+
+    span = get_current_span()
+    span.set_attribute("matched_records_count", matched_count)
+    span.set_attribute("total_expected_streams", total_expected_streams)
+
+    percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 0.0
+    logger.info(f"Records percent matched: {percent_matched}")
+    return float(percent_matched)
+
+
+def _extract_record_count(readiness_report: str, stream_name: str) -> int | None:
+    """Extract record count for a stream from the readiness report."""
+    lines = readiness_report.split("\n")
+    for i, line in enumerate(lines):
+        if f"**{stream_name}**" in line or f"`{stream_name}`" in line:
+            for j in range(i, min(i + 10, len(lines))):
+                if "records" in lines[j].lower():
+                    import re
+
+                    match = re.search(r"(\d+)\s+records?", lines[j], re.IGNORECASE)
+                    if match:
+                        return int(match.group(1))
+    return None
+
+
+def _validate_record_count(actual_count: int, expected_value: int | str) -> bool:
+    """Validate record count against expected value or constraint string."""
+    if isinstance(expected_value, int):
+        return actual_count == expected_value
+
+    if not isinstance(expected_value, str):
+        return False
+
+    constraints = [c.strip() for c in expected_value.split(",")]
+    for constraint in constraints:
+        if constraint.startswith(">"):
+            threshold = int(constraint[1:])
+            if actual_count <= threshold:
+                return False
+        elif constraint.startswith("<"):
+            threshold = int(constraint[1:])
+            if actual_count >= threshold:
+                return False
+        elif constraint.isdigit():
+            if actual_count != int(constraint):
+                return False
+
+    return True
