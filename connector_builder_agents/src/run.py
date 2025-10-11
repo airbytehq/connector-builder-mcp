@@ -47,7 +47,7 @@ def get_workspace_dir(session_id: str) -> Path:
     return workspace_dir
 
 
-def create_session(session_id: str):
+def create_session(session_id: str) -> OpenAIConversationsSession | SQLiteSession:
     """Create a session based on OPENAI_SESSION_BACKEND environment variable.
 
     Args:
@@ -61,7 +61,9 @@ def create_session(session_id: str):
     if backend == "sqlite":
         return SQLiteSession(session_id=session_id)
     elif backend == "openai":
-        return OpenAIConversationsSession(conversation_id=session_id)
+        # OpenAI conversation_id has stricter name requirements than session_id.
+        # We'll let the OpenAIConversationsSession handle that internally.
+        return OpenAIConversationsSession()
     else:
         raise ValueError(
             f"Invalid OPENAI_SESSION_BACKEND value: '{backend}'. Must be 'openai' or 'sqlite'"
