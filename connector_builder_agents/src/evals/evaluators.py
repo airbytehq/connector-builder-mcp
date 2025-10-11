@@ -110,14 +110,33 @@ def readiness_eval(output: dict) -> int:
 
 def stream_names_eval(expected: dict, output: dict) -> float:
     """Evaluate if all expected streams were built. Return the percentage of expected streams that are present in available streams."""
-    return _eval_expected_stream_props(
-        expected_stream_props=_parse_expected_streams_dict(expected),
-        output_stream_props={
-            stream.get("name", "(undeclared)"): stream
-            for stream in _get_manifest_streams(output) or []
-        },
-        prop="name",
-    )
+    expected_streams = _parse_expected_streams_dict(expected)
+    output_streams = {
+        stream.get("name", "(undeclared)"): stream for stream in _get_manifest_streams(output) or []
+    }
+
+    expected_stream_names = set(expected_streams.keys())
+    output_stream_names = set(output_streams.keys())
+
+    if not expected_stream_names:
+        logger.warning("No expected streams found")
+        return 1.0
+
+    matched_streams = expected_stream_names & output_stream_names
+
+    span = get_current_span()
+    span.set_attribute("name_matched_count", len(matched_streams))
+    span.set_attribute("name_evaluated_streams", len(expected_stream_names))
+
+    for stream_name in expected_stream_names:
+        if stream_name in output_stream_names:
+            logger.info(f"✓ {stream_name}: name matches")
+        else:
+            logger.warning(f"✗ {stream_name}: name not found in output")
+
+    percent_matched = len(matched_streams) / len(expected_stream_names)
+    logger.info(f"Name percent matched: {percent_matched}")
+    return float(percent_matched)
 
 
 def _eval_expected_stream_props(
