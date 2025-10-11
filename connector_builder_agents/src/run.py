@@ -37,7 +37,7 @@ from .tools import (
 
 def generate_session_id() -> str:
     """Generate a unique session ID based on current timestamp."""
-    return f"unified-mcp-session-{int(time.time())}"
+    return f"conv-unified-mcp-session-{int(time.time())}"
 
 
 def get_workspace_dir(session_id: str) -> Path:
