@@ -28,8 +28,8 @@ from .evaluators import (
     READINESS_EVAL_MODEL,
     primary_keys_eval,
     readiness_eval,
-    records_eval,
     stream_names_eval,
+    stream_record_counts_eval,
 )
 from .summary import generate_markdown_summary
 from .task import EVAL_DEVELOPER_MODEL, EVAL_MANAGER_MODEL, run_connector_build_task
@@ -61,7 +61,7 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
         readiness_eval,
         stream_names_eval,
         primary_keys_eval,
-        records_eval,
+        stream_record_counts_eval,
     ]
 
     logger.info(f"Using evaluators: {[eval.__name__ for eval in evaluators]}")

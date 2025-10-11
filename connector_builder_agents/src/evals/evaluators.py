@@ -170,7 +170,7 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
     )
 
 
-def records_eval(expected: dict, output: dict) -> float:
+def stream_record_counts_eval(expected: dict, output: dict) -> float:
     """Evaluate if record counts match expected values for each stream.
 
     Returns the percentage of streams with correct record counts.
@@ -183,33 +183,18 @@ def records_eval(expected: dict, output: dict) -> float:
 
     expected_streams = _parse_expected_streams_dict(expected, having="expected_records")
 
-    matched_count = 0
+    output_stream_props = {}
+    for stream_name in expected_streams.keys():
+        record_count = _extract_record_count(readiness_report, stream_name)
+        output_stream_props[stream_name] = {"expected_records": record_count}
 
-    for stream_name, stream_config in expected_streams.items():
-        expected_value = stream_config["expected_records"]
-        actual_count = _extract_record_count(readiness_report, stream_name)
-
-        if actual_count is None:
-            logger.warning(f"✗ {stream_name}: could not extract record count from report")
-            continue
-
-        if _validate_record_count(actual_count, expected_value):
-            matched_count += 1
-            logger.info(
-                f"✓ {stream_name}: record count {actual_count} meets expectation {expected_value}"
-            )
-        else:
-            logger.warning(
-                f"✗ {stream_name}: record count {actual_count} does not meet expectation {expected_value}"
-            )
-
-    span = get_current_span()
-    span.set_attribute("matched_records_count", matched_count)
-    span.set_attribute("total_evaluated_streams", len(expected_streams))
-
-    percent_matched = matched_count / len(expected_streams) if len(expected_streams) > 0 else 1.0
-    logger.info(f"Records percent matched: {percent_matched}")
-    return float(percent_matched)
+    return _eval_expected_stream_props(
+        expected_stream_props=expected_streams,
+        output_stream_props=output_stream_props,
+        prop="expected_records",
+        eval_fn=lambda expected, actual: actual is not None
+        and _validate_record_count(actual, expected),
+    )
 
 
 def _extract_record_count(readiness_report: str, stream_name: str) -> int | None:
