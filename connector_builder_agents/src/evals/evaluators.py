@@ -109,22 +109,21 @@ def streams_eval(expected: dict, output: dict) -> float:
     logger.info(f"Available stream names: {available_stream_names}")
 
     expected_streams = _parse_expected_streams_dict(expected)
-    expected_stream_names = list(expected_streams.keys())
-    logger.info(f"Expected stream names: {expected_stream_names}")
+    logger.info(f"Expected stream names: {list(expected_streams.keys())}")
 
     # Set attributes on span for visibility
     span = get_current_span()
     span.set_attribute("available_stream_names", available_stream_names)
-    span.set_attribute("expected_stream_names", expected_stream_names)
+    span.set_attribute("expected_stream_names", list(expected_streams.keys()))
 
-    if not expected_stream_names:
+    if not expected_streams:
         logger.warning("No expected streams found")
         return 0.0
 
     # Calculate the percentage of expected streams that are present in available streams
-    matched_streams = set(available_stream_names) & set(expected_stream_names)
+    matched_streams = set(available_stream_names) & set(expected_streams.keys())
     logger.info(f"Matched streams: {matched_streams}")
-    percent_matched = len(matched_streams) / len(expected_stream_names)
+    percent_matched = len(matched_streams) / len(expected_streams)
     logger.info(f"Percent matched: {percent_matched}")
     return float(percent_matched)
 
