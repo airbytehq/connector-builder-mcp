@@ -36,14 +36,36 @@ Based on the connector readiness report below, classify whether the test PASSED 
 """
 
 
+def _parse_expected_streams(expected: dict) -> list:
+    """Parse and return the expected_streams list from the expected dict."""
+    expected_obj = json.loads(expected.get("expected", "{}"))
+    return expected_obj.get("expected_streams", [])
+
+
+def _get_manifest_streams(output: dict) -> list | None:
+    """Extract and parse the manifest streams from output artifacts."""
+    if output is None:
+        return None
+
+    manifest_str = output.get("artifacts", {}).get("manifest", None)
+    if manifest_str is None:
+        return None
+
+    manifest = yaml.safe_load(manifest_str)
+    return manifest.get("streams", [])
+
+
+def _get_readiness_report(output: dict) -> str | None:
+    """Extract the readiness report from output artifacts."""
+    if output is None:
+        return None
+
+    return output.get("artifacts", {}).get("readiness_report", None)
+
+
 def readiness_eval(output: dict) -> int:
     """Create Phoenix LLM classifier for readiness evaluation. Return 1 if PASSED, 0 if FAILED."""
-
-    if output is None:
-        logger.warning("Output is None, cannot evaluate readiness")
-        return 0
-
-    readiness_report = output.get("artifacts", {}).get("readiness_report", None)
+    readiness_report = _get_readiness_report(output)
     if readiness_report is None:
         logger.warning("No readiness report found")
         return 0
@@ -68,25 +90,15 @@ def readiness_eval(output: dict) -> int:
 
 def streams_eval(expected: dict, output: dict) -> float:
     """Evaluate if all expected streams were built. Return the percentage of expected streams that are present in available streams."""
-
-    if output is None:
-        logger.warning("Output is None, cannot evaluate streams")
+    available_streams = _get_manifest_streams(output)
+    if available_streams is None:
+        logger.warning("No manifest found")
         return 0.0
 
-    manifest_str = output.get("artifacts", {}).get("manifest", None)
-    if manifest_str is None:
-        logger.warning("No manifest found")
-        return 0
-
-    manifest = yaml.safe_load(manifest_str)
-    available_streams = manifest.get("streams", [])
     available_stream_names = [stream.get("name", "") for stream in available_streams]
     logger.info(f"Available stream names: {available_stream_names}")
 
-    expected_obj = json.loads(expected.get("expected", "{}"))
-    expected_streams = expected_obj.get("expected_streams", [])
-
-    # expected_streams is now a list of dicts like [{"posts": {"primary_key": ["id"]}}, ...]
+    expected_streams = _parse_expected_streams(expected)
     expected_stream_names = []
     for stream_obj in expected_streams:
         if isinstance(stream_obj, dict):
@@ -118,22 +130,12 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
 
     Returns the percentage of streams with correct primary keys.
     """
-    if output is None:
-        logger.warning("Output is None, cannot evaluate primary keys")
-        return 0.0
-
-    manifest_str = output.get("artifacts", {}).get("manifest", None)
-    if manifest_str is None:
+    available_streams = _get_manifest_streams(output)
+    if available_streams is None:
         logger.warning("No manifest found")
         return 0.0
 
-    manifest = yaml.safe_load(manifest_str)
-    available_streams = manifest.get("streams", [])
-
-    expected_obj = json.loads(expected.get("expected", "{}"))
-    expected_streams = expected_obj.get("expected_streams", [])
-
-    # expected_streams is now a list of dicts like [{"posts": {"primary_key": ["id"]}}, ...]
+    expected_streams = _parse_expected_streams(expected)
     expected_primary_keys = {}
     for stream_obj in expected_streams:
         if isinstance(stream_obj, dict):
@@ -181,18 +183,12 @@ def records_eval(expected: dict, output: dict) -> float:
     Returns the percentage of streams with correct record counts.
     Supports both integer values and constraint strings like ">100", "<999", ">100,<999".
     """
-    if output is None:
-        logger.warning("Output is None, cannot evaluate records")
-        return 0.0
-
-    readiness_report = output.get("artifacts", {}).get("readiness_report", None)
+    readiness_report = _get_readiness_report(output)
     if readiness_report is None:
         logger.warning("No readiness report found")
         return 0.0
 
-    expected_obj = json.loads(expected.get("expected", "{}"))
-    expected_streams = expected_obj.get("expected_streams", [])
-
+    expected_streams = _parse_expected_streams(expected)
     expected_records = {}
     for stream_obj in expected_streams:
         if isinstance(stream_obj, dict):
