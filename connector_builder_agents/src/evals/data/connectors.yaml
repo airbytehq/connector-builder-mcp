@@ -10,6 +10,13 @@ connectors:
         - "photos"
         - "todos"
         - "users"
+      expected_primary_keys:
+        posts: ["id"]
+        comments: ["id"]
+        albums: ["id"]
+        photos: ["id"]
+        todos: ["id"]
+        users: ["id"]
   - input:
       name: "source-starwars"
       prompt_name: "StarWars API (https://swapi.info/)"
@@ -21,6 +28,13 @@ connectors:
         - "species"
         - "starships"
         - "vehicles"
+      expected_primary_keys:
+        people: ["url"]
+        films: ["url"]
+        planets: ["url"]
+        species: ["url"]
+        starships: ["url"]
+        vehicles: ["url"]
   - input:
       name: "source-rickandmorty"
       prompt_name: "Rick and Morty API"
@@ -29,3 +43,7 @@ connectors:
         - "characters"
         - "episodes"
         - "locations"
+      expected_primary_keys:
+        characters: ["id"]
+        episodes: ["id"]
+        locations: ["id"]

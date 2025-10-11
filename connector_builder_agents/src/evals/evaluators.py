@@ -102,3 +102,56 @@ def streams_eval(expected: dict, output: dict) -> float:
     percent_matched = len(matched_streams) / len(expected_stream_names)
     logger.info(f"Percent matched: {percent_matched}")
     return float(percent_matched)
+
+
+def primary_keys_eval(expected: dict, output: dict) -> float:
+    """Evaluate if primary keys match expected values for each stream.
+
+    Returns the percentage of streams with correct primary keys.
+    """
+    if output is None:
+        logger.warning("Output is None, cannot evaluate primary keys")
+        return 0.0
+
+    manifest_str = output.get("artifacts", {}).get("manifest", None)
+    if manifest_str is None:
+        logger.warning("No manifest found")
+        return 0.0
+
+    manifest = yaml.safe_load(manifest_str)
+    available_streams = manifest.get("streams", [])
+
+    expected_obj = json.loads(expected.get("expected", "{}"))
+    expected_primary_keys = expected_obj.get("expected_primary_keys", {})
+    logger.info(f"Expected primary keys: {expected_primary_keys}")
+
+    if not expected_primary_keys:
+        logger.warning("No expected primary keys found")
+        return 0.0
+
+    matched_count = 0
+    total_expected_streams = len(expected_primary_keys)
+
+    for stream in available_streams:
+        stream_name = stream.get("name", "")
+        if stream_name not in expected_primary_keys:
+            continue
+
+        actual_pk = stream.get("primary_key", [])
+        expected_pk = expected_primary_keys[stream_name]
+
+        if actual_pk == expected_pk:
+            matched_count += 1
+            logger.info(f"✓ {stream_name}: primary key matches {expected_pk}")
+        else:
+            logger.warning(
+                f"✗ {stream_name}: primary key mismatch - expected {expected_pk}, got {actual_pk}"
+            )
+
+    span = get_current_span()
+    span.set_attribute("matched_primary_keys_count", matched_count)
+    span.set_attribute("total_expected_streams", total_expected_streams)
+
+    percent_matched = matched_count / total_expected_streams if total_expected_streams > 0 else 0.0
+    logger.info(f"Primary keys percent matched: {percent_matched}")
+    return float(percent_matched)

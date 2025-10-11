@@ -612,6 +612,22 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                         f"Records have only {result.record_stats.get('num_properties', 0)} field(s), expected at least 2"
                     )
 
+                stream_config = next(
+                    (s for s in available_streams if s.get("name") == stream_name),
+                    None,
+                )
+                if stream_config:
+                    primary_key = stream_config.get("primary_key", [])
+                    if not primary_key:
+                        field_count_warnings.append("No primary key defined in manifest")
+                    elif result.record_stats:
+                        properties = result.record_stats.get("properties", {})
+                        missing_pk_fields = [pk for pk in primary_key if pk not in properties]
+                        if missing_pk_fields:
+                            field_count_warnings.append(
+                                f"Primary key field(s) missing from records: {', '.join(missing_pk_fields)}"
+                            )
+
                 smoke_test_result = StreamSmokeTest(
                     stream_name=stream_name,
                     success=True,
