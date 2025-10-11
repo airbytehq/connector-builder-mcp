@@ -3,6 +3,7 @@
 
 import json
 import logging
+import re
 
 import pandas as pd
 import yaml
@@ -237,8 +238,6 @@ def _extract_record_count(readiness_report: str, stream_name: str) -> int | None
         if f"**{stream_name}**" in line or f"`{stream_name}`" in line:
             for j in range(i, min(i + 10, len(lines))):
                 if "records" in lines[j].lower():
-                    import re
-
                     match = re.search(r"(\d+)\s+records?", lines[j], re.IGNORECASE)
                     if match:
                         return int(match.group(1))
