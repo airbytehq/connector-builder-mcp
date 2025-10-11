@@ -19,7 +19,7 @@ async def run_connector_build_task(dataset_row: dict) -> dict:
     input_obj = json.loads(dataset_row.get("input", "{}"))
     connector_name = input_obj.get("name", "unknown")
     prompt_name = input_obj.get("prompt_name", "unknown")
-    session_id = f"conv_eval_{connector_name.replace('-', '_')}_{int(time.time())}"
+    session_id = f"eval_{connector_name.replace('-', '_')}_{int(time.time())}"
 
     logger.info(
         f"Starting connector build task for '{connector_name}' with prompt '{prompt_name}' (session: {session_id})"
