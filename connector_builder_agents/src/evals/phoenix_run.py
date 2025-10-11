@@ -57,7 +57,12 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
 
     experiment_id = str(uuid.uuid4())[:5]
     experiment_name = f"builder-evals-{experiment_id}"
-    evaluators = [readiness_eval, streams_eval, primary_keys_eval, records_eval]
+    evaluators = [
+        readiness_eval,
+        streams_eval,
+        primary_keys_eval,
+        records_eval,
+    ]
 
     logger.info(f"Using evaluators: {[eval.__name__ for eval in evaluators]}")
 
