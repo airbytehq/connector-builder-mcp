@@ -174,10 +174,42 @@ def _eval_expected_stream_props(
     return float(percent_matched)
 
 
+def _normalize_primary_key(pk: Any) -> list[str]:
+    """Normalize primary key to a list of strings.
+
+    Handles:
+    - str -> [str] (e.g., "id" -> ["id"])
+    - [str] -> [str] (already normalized)
+    - [[str]] -> [str] (flatten nested lists)
+    """
+    if pk is None:
+        return []
+
+    if isinstance(pk, str):
+        return [pk]
+
+    if isinstance(pk, list):
+        if not pk:
+            return []
+
+        if all(isinstance(item, str) for item in pk):
+            return pk
+
+        if all(isinstance(item, list) for item in pk):
+            flattened = []
+            for sublist in pk:
+                if isinstance(sublist, list):
+                    flattened.extend(sublist)
+            return flattened
+
+    return [str(pk)]
+
+
 def primary_keys_eval(expected: dict, output: dict) -> float:
     """Evaluate if primary keys match expected values for each stream.
 
     Returns the percentage of streams with correct primary keys.
+    Normalizes primary keys before comparison (str -> [str], [[str]] -> [str]).
     """
     return _eval_expected_stream_props(
         expected_stream_props=_parse_expected_streams_dict(expected, having="primary_key"),
@@ -186,6 +218,8 @@ def primary_keys_eval(expected: dict, output: dict) -> float:
             for stream in _get_manifest_streams(output) or []
         },
         prop="primary_key",
+        eval_fn=lambda expected, actual: _normalize_primary_key(expected)
+        == _normalize_primary_key(actual),
     )
 
 
