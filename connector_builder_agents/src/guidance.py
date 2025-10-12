@@ -3,8 +3,6 @@
 
 from pathlib import Path
 
-from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
-
 from .constants import ROOT_PROMPT_FILE_STR
 
 
@@ -70,7 +68,6 @@ def get_default_manager_prompt(
                 instructions=instructions,
             ),
             get_project_directory_prompt(project_directory),
-            RECOMMENDED_PROMPT_PREFIX,
             ROOT_PROMPT_FILE_STR,
         ]
     )
