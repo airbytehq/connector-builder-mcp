@@ -2,6 +2,7 @@
 """Agent implementations for the Airbyte connector builder."""
 
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.tools import duckduckgo_search
 
 from .guidance import get_default_developer_prompt, get_default_manager_prompt
 from .tools import (
@@ -40,6 +41,7 @@ def create_developer_agent(
             create_log_progress_milestone_from_developer_tool(session_state),
             create_log_problem_encountered_by_developer_tool(session_state),
             create_log_tool_failure_tool(session_state),
+            duckduckgo_search,
         ],
     )
 
