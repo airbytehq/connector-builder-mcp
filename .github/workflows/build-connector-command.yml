@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 1
 
       - name: Run Poe Slash Command Processor
-        uses: aaronsteers/poe-command-processor@v1
+        uses: aaronsteers/poe-command-processor@v1.3.3
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
