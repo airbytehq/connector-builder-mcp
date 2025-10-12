@@ -36,7 +36,7 @@ jobs:
           node-version: '20'
 
       - name: Run Poe Slash Command Processor
-        uses: aaronsteers/poe-command-processor@v1
+        uses: aaronsteers/poe-command-processor@v1.3.3
         with:
           pr: ${{ github.event.inputs.pr }}
           comment-id: ${{ github.event.inputs.comment-id }}
