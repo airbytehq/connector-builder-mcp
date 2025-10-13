@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "connector-builder-mcp": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "airbyte-connector-builder-mcp"
+      ],
+      "env": {}
+    }
+  }
+}
