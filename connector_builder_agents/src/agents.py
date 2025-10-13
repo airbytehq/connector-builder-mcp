@@ -28,7 +28,7 @@ def create_developer_agent(
     mcp_servers: list,
 ) -> Agent:
     """Create the developer agent that executes specific phases."""
-    developer_agent = Agent(
+    return Agent(
         model,
         name="MCP Connector Developer",
         deps_type=SessionState,
@@ -43,12 +43,8 @@ def create_developer_agent(
             create_log_tool_failure_tool(session_state),
             duckduckgo_search_tool(),
         ],
+        toolsets=mcp_servers,
     )
-
-    for mcp_server in mcp_servers:
-        developer_agent.toolsets.append(mcp_server)
-
-    return developer_agent
 
 
 def create_manager_agent(
@@ -78,10 +74,8 @@ def create_manager_agent(
             create_get_latest_readiness_report_tool(session_state),
             create_get_progress_log_text_tool(session_state),
         ],
+        toolsets=mcp_servers,
     )
-
-    for mcp_server in mcp_servers:
-        manager_agent.toolsets.append(mcp_server)
 
     @manager_agent.tool
     async def delegate_to_developer(
