@@ -51,7 +51,7 @@ async def run_connector_build_task(dataset_row: dict) -> dict:
         result = {
             "workspace_dir": str(workspace_dir.absolute()),
             "success": success,
-            "final_output": final_result.final_output if final_result else None,
+            "final_output": final_result.output if final_result else None,
             "num_turns": num_turns,
             "artifacts": {
                 "readiness_report": readiness_report_content,
