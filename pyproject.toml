@@ -38,7 +38,7 @@ dev = [
     "types-requests>=2.25.0",
     # Blocked by `numpy<2` condition in the CDK:
     # "openai-agents-mcp>=0.0.8",
-    # "openai-agents>=0.0.9",
+    # "openai-agents>=0.0.9",  # Updated version used in connector_builder_agents
 ]
 
 [project.scripts]
