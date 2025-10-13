@@ -24,7 +24,7 @@ from phoenix.client import AsyncClient
 from phoenix.otel import register
 
 from .dataset import get_or_create_phoenix_dataset
-from .evaluators import READINESS_EVAL_MODEL, readiness_eval, streams_eval
+from .evaluators import UNIFIED_EVAL_MODEL, unified_eval
 from .summary import generate_markdown_summary
 from .task import EVAL_DEVELOPER_MODEL, EVAL_MANAGER_MODEL, run_connector_build_task
 
@@ -51,7 +51,7 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
 
     experiment_id = str(uuid.uuid4())[:5]
     experiment_name = f"builder-evals-{experiment_id}"
-    evaluators = [readiness_eval, streams_eval]
+    evaluators = [unified_eval]
 
     logger.info(f"Using evaluators: {[eval.__name__ for eval in evaluators]}")
 
@@ -66,7 +66,7 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
             experiment_metadata={
                 "developer_model": EVAL_DEVELOPER_MODEL,
                 "manager_model": EVAL_MANAGER_MODEL,
-                "readiness_eval_model": READINESS_EVAL_MODEL,
+                "unified_eval_model": UNIFIED_EVAL_MODEL,
             },
             timeout=1800,
         )
