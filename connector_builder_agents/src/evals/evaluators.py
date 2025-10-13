@@ -152,12 +152,6 @@ def unified_eval(expected: dict, output: dict) -> dict:
     if not expected_streams:
         logger.warning("No expected streams provided")
 
-    prompt = UNIFIED_EVAL_TEMPLATE.format(
-        readiness_report=readiness_report,
-        manifest=manifest,
-        expected_streams=json.dumps(expected_streams),
-    )
-
     try:
         eval_df = llm_classify(
             model=OpenAIModel(model=UNIFIED_EVAL_MODEL),
@@ -170,7 +164,7 @@ def unified_eval(expected: dict, output: dict) -> dict:
                     }
                 ]
             ),
-            template=prompt,
+            template=UNIFIED_EVAL_TEMPLATE,
             rails=None,
             provide_explanation=True,
         )
@@ -178,6 +172,10 @@ def unified_eval(expected: dict, output: dict) -> dict:
         logger.info(f"Unified evaluation result: {eval_df}")
 
         response_text = eval_df["label"][0]
+
+        if response_text is None:
+            logger.error("LLM returned None response")
+            return {"readiness": 0.0, "streams": 0.0}
 
         readiness_score = 0.0
         streams_score = 0.0
