@@ -140,7 +140,11 @@ def unified_eval(expected: dict, output: dict) -> dict:
     if manifest == "Not available":
         logger.warning("No manifest found")
 
-    expected_obj = json.loads(expected.get("expected", "{}"))
+    try:
+        expected_obj = json.loads(expected.get("expected", "{}"))
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse expected JSON: {e}", exc_info=True)
+        return {"readiness": 0.0, "streams": 0.0}
     expected_streams = expected_obj.get("expected_streams", [])
 
     logger.info(f"Expected streams: {expected_streams}")
