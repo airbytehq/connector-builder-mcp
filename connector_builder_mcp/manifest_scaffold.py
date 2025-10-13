@@ -80,8 +80,6 @@ streams:
       #   pagination_strategy:
       #     type: PageIncrement
       #     start_from_page: 1
-      schema_loader:
-        type: DynamicSchemaLoader  # TODO: Consider switching to static schema for production performance
     # TODO: Uncomment and configure incremental sync when known
     # incremental_sync:
     #   type: DatetimeBasedCursor
