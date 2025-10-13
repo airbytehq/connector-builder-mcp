@@ -111,13 +111,13 @@ def create_manager_agent(
 
         update_progress_log(
             f"🤝 [DEVELOPER → MANAGER] Developer completed task: {assignment_title}"
-            f"\n Result: {result.data}",
+            f"\n Result: {result.output}",
             ctx.deps,
         )
 
         ctx.deps.message_history.extend(result.new_messages())
 
-        return str(result.data)
+        return str(result.output)
 
     @developer_agent.tool
     async def report_back_to_manager(
