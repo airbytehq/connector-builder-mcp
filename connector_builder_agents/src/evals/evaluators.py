@@ -1,5 +1,14 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
-"""Unified LLM-based evaluator for connector builder agents."""
+"""Unified LLM-based evaluator for connector builder agents.
+
+This module provides a single LLM-based evaluator that assesses connector quality
+across multiple criteria (readiness and stream presence) using GPT-4o. This approach
+simplifies the evaluation system by replacing separate programmatic and LLM evaluators
+with a unified prompt-based approach.
+
+The evaluator is designed for use with the Phoenix evaluation framework and returns
+structured scores that can be aggregated and reported in evaluation summaries.
+"""
 
 import json
 import logging
@@ -15,6 +24,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 UNIFIED_EVAL_MODEL = "gpt-4o"
+"""Model used for unified LLM-based evaluation."""
 
 UNIFIED_EVAL_TEMPLATE = """You are evaluating the quality of a generated Airbyte connector.
 
@@ -89,14 +99,33 @@ STREAMS: <percentage as decimal, e.g., 0.67>
 def unified_eval(expected: dict, output: dict) -> dict:
     """Unified LLM-based evaluator for all connector quality criteria.
 
-    Evaluates both readiness (pass/fail) and streams (percentage match) using a single LLM call.
+    This evaluator replaces the previous hybrid approach (readiness_eval + streams_eval)
+    with a single LLM-based evaluation using GPT-4o. It evaluates both readiness
+    (pass/fail based on test results) and stream presence (percentage match against
+    expected streams) in a single LLM call.
+
+    The evaluator uses a structured prompt template that instructs the LLM to analyze
+    connector artifacts (readiness report and manifest) and return scores in a
+    standardized format that can be parsed programmatically.
 
     Args:
-        expected: Dict containing expected criteria (e.g., expected_streams list)
-        output: Dict containing task output with artifacts (readiness_report, manifest)
+        expected: Dict containing expected evaluation criteria. Should include an
+            'expected' key with JSON string containing 'expected_streams' list.
+        output: Dict containing task output with 'artifacts' key containing:
+            - 'readiness_report': Markdown report of connector test results
+            - 'manifest': YAML manifest defining connector streams and config
 
     Returns:
-        Dict with 'readiness' (0.0 or 1.0) and 'streams' (0.0-1.0) scores
+        Dict with two float scores:
+            - 'readiness': 0.0 (failed) or 1.0 (passed) based on test results
+            - 'streams': 0.0-1.0 representing percentage of expected streams found
+
+    Example:
+        >>> expected = {"expected": '{"expected_streams": ["users", "posts"]}'}
+        >>> output = {"artifacts": {"readiness_report": "...", "manifest": "..."}}
+        >>> scores = unified_eval(expected, output)
+        >>> scores
+        {'readiness': 1.0, 'streams': 1.0}
     """
     if output is None:
         logger.warning("Output is None, cannot evaluate")
