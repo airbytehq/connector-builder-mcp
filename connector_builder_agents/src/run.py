@@ -140,7 +140,7 @@ async def run_interactive_build(
 
             session_state.message_history.extend(result.new_messages())
 
-            update_progress_log(f"\n🤖  AI Agent: {result.data}", session_state)
+            update_progress_log(f"\n🤖  AI Agent: {result.output}", session_state)
 
             input_prompt = input("\n👤  You: ")
             if input_prompt.lower() in {"exit", "quit"}:
@@ -221,14 +221,14 @@ async def run_manager_developer_build(
                 f"\n🤖 Iteration {iteration_count} completed. Last agent: {manager_agent.name}"
             )
             update_progress_log(status_msg, session_state)
-            status_msg = f"🤖 {manager_agent.name}: {run_result.data}"
+            status_msg = f"🤖 {manager_agent.name}: {run_result.output}"
             update_progress_log(status_msg, session_state)
 
             run_prompt = (
                 "You are still working on the connector build task. "
                 "Continue to the next step or raise an issue if needed. "
                 "The previous step output was:\n"
-                f"{run_result.data}"
+                f"{run_result.output}"
             )
 
         return all_run_results
