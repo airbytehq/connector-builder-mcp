@@ -38,7 +38,11 @@ For information on running from source, see the [Contributing Guide](./CONTRIBUT
 
 The below MCP servers have been tested to work well with the Connector Builder MCP server and will complement its capabilities.
 
-#### Airbyte MCP
+- **Claude Code Users:** You should only need the PyAirbyte MCP server for most tasks. Specifically, this enables publishing to Airbyte Cloud, running local tests, and validating manifests and configurations.
+- **Claude Desktop Users:** As of this writing, Claude Desktop does not have built-in file system or timekeeping capabilities. Therefore, you will likely _also_ want to add the Files Server MCP.
+- **Other Clients:** Depending on your client, you may want to add the Timer MCP and/or the Playwright MCP for web browsing capabilities.
+
+#### PyAirbyte MCP
 
 The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html) (powered by [PyAirbyte](https://github.com/airbytehq/PyAirbyte)) gives the ability to publish and test connector definitions to your Airbyte Cloud workspace. It also includes tools for more extensive local tests, including syncing data locally to a cache and querying the results with SQL.
 
@@ -100,7 +104,7 @@ If your agent doesn't already have the ability to read-write files, you can add 
 
 #### Playright MCP (Web Browsing)
 
-Playright is the most common tool used for web browsing, as it doesn't require an API key and it can accomplish most web tasks.  
+Playright is the most common tool used for web browsing, as it doesn't require an API key and it can accomplish most web tasks.
 
 ```jsonc
 {
