@@ -36,7 +36,7 @@ For information on running from source, see the [Contributing Guide](./CONTRIBUT
 
 ### Complementary MCP Servers
 
-If your agents don't already have files and/or internet access, you may want to add one or more of the below.
+The below MCP servers have been tested to work well with the Connector Builder MCP server and will complement its capabilities.
 
 #### Airbyte MCP
 
