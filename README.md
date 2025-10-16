@@ -68,7 +68,40 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 
 ### Complementary MCP Servers
 
-If your agents don't already have files and/or internet access, you may want to add one or more of these:
+If your agents don't already have files and/or internet access, you may want to add one or more of the below.
+
+#### Airbyte MCP
+
+The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html) (powered by [PyAirbyte](https://github.com/airbytehq/PyAirbyte)) gives ability to publish and test connector definitions in Airbyte Cloud. It also includes tools for more extensive local tests, including syncing data locally to a cache and querying the results with SQL.
+
+For detailed setup instructions, please see the [docs here](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
+
+```json
+{
+  "mcpServers": {
+    // ... other servers defined here ...
+    "airbyte-mcp": {
+      "type": "stdio",
+      "command": "poetry",
+      "args": [
+        "--project=../PyAirbyte",
+        "run",
+        "airbyte-mcp"
+      ],
+      "env": {
+        "AIRBYTE_CLOUD_WORKSPACE_ID": "workspace-id",
+        "AIRBYTE_CLOUD_CLIENT_ID": "project-id",
+        "AIRBYTE_CLOUD_CLIENT_SECRET": "secret",
+        "AIRBYTE_MCP_ENV_FILE": "/Users/aj.steers/.mcp/airbyte_mcp.env"
+      }
+    }
+  }
+}
+```
+
+#### Files Server MCP
+
+If your agent doesn't already have ability to read-write files, you can add this:
 
 ```json
 {
@@ -80,7 +113,19 @@ If your agents don't already have files and/or internet access, you may want to 
         "mcp-server-filesystem",
         "/path/to/your/build-artifacts/"
       ]
-    },
+    }
+  }
+}
+```
+
+#### Playright MCP (Web Browsing)
+
+Playright is the most common tool used for web browsing, as it doesn't require and API key and it can accomplish most web tasks.
+
+```json
+{
+  "mcpServers": {
+    // ... other servers defined here ...
     "playwright-web-browser": {
       "command": "npx",
       "args": [
@@ -93,7 +138,9 @@ If your agents don't already have files and/or internet access, you may want to 
 }
 ```
 
-If you'd like to time your agent, you can add this timer tool:
+#### Timer MCP
+
+If you'd like to time your agent and it does not already include time keeping ability, you can add this timer tool:
 
 ```json
 {
