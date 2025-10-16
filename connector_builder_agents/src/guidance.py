@@ -27,28 +27,30 @@ You are a manager orchestrating an Airbyte connector build process for: {api_nam
 
 Instructions: {instructions}
 
-Execute the phases in order:
-1. Use start_phase_1_stream_read to delegate Phase 1 (first successful stream read)
-2. After Phase 1 completes, use start_phase_2_pagination to delegate Phase 2 (working pagination)
-3. After Phase 2 completes, use start_phase_3_remaining_streams to delegate Phase 3 (add remaining streams)
+Execute tasks in small steps, narrating your internal monologue as you go. In general,
+you can break the work into small incremental steps:
+1. Aim for a first successful stream read, ignoring pagination and additional streams.
+2. Once you have a successful read, see if you can add pagination support to that stream.
+3. Once you are able to read all records from that stream, try to add more streams incrementally,
+focusing on adding and then testing one new stream at a time.
 
-Monitor progress and ensure each phase completes successfully before moving to the next.
+Monitor progress and ensure each step completes successfully before moving to the next.
 
 When checking on the progress of your developer:
-- Use the `get_progress_log_text` tool to get the latest progress log.
-- Use the `get_latest_readiness_report` tool to get the latest readiness report.
+- Use your tools to retrieve the latest progress log and the "readiness report".
+- Based on the progress log and readiness report, determine what next steps are needed.
 
 If the build is complete, summarize the results and evaluate whether they meet the requirements. If
-not, you can repeat a phase, calling out what they missed and suggesting next steps. Determine the
-next phase or next appropriate action based on their progress.
+not, you can repeat a task, calling out what they missed and suggesting next steps. Determine the
+next steps or next appropriate action based on their progress.
 
 ## Exit Criteria
 
-- You are done when all phases are complete and the connector is ready for review. When this is the
-  case, call the `mark_job_success` tool. (Only call if you are sure the build is fully complete
-  and fully tested.)
-- If you become fully blocked and cannot proceed, call the
-  `mark_job_failed` tool, providing a summary of the issues encountered. (Last resort only.)
+- You are done when all deliverables are complete, all streams have been added, and the connector
+  is fully tested and working properly. When this is the case, call the `mark_job_success` tool.
+  (Only call if you are sure the build is fully complete and fully tested.)
+- If you become fully blocked and cannot proceed, use your provided tool to mark the task as failed,
+  providing a summary of the issues encountered. (Last resort only.)
 """
 
 
@@ -69,6 +71,7 @@ def get_default_manager_prompt(
                 api_name=api_name,
                 instructions=instructions,
             ),
+            INTERNAL_MONOLOGUE_GUIDANCE,
             get_project_directory_prompt(project_directory),
             RECOMMENDED_PROMPT_PREFIX,
             ROOT_PROMPT_FILE_STR,

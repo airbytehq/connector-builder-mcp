@@ -220,9 +220,9 @@ def create_mark_job_success_tool(session_state: SessionState):
 
     @function_tool
     def mark_job_success() -> None:
-        """Mark the current phase as complete.
+        """Mark the current job as complete.
 
-        This should be called when all objectives for the current phase are met, and only after
+        This should be called when all objectives for the current job are met, and only after
         a successful connector readiness report has been saved to the workspace directory.
         """
         session_state.is_success = True
@@ -236,7 +236,7 @@ def create_mark_job_failed_tool(session_state: SessionState):
 
     @function_tool
     def mark_job_failed() -> None:
-        """Mark the current phase as failed.
+        """Mark the job as failed.
 
         This should only be called in the event that it is no longer possible to make progress.
         Before calling this tool, you should attempt to save the latest output of the
