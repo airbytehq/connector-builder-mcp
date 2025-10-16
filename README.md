@@ -32,39 +32,7 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 }
 ```
 
-### Development Version (Main Branch)
-
-```json
-{
-  "mcpServers": {
-    "connector-builder-mcp--dev-main": {
-      "command": "uvx",
-      "args": [
-        "--from=git+https://github.com/airbytehq/connector-builder-mcp.git@main",
-        "airbyte-connector-builder-mcp"
-      ]
-    }
-  }
-}
-```
-
-### Local Development
-
-```json
-{
-  "mcpServers": {
-    "connector-builder-mcp--local-dev": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--project",
-        "/path/to/repos/connector-builder-mcp",
-        "airbyte-connector-builder-mcp"
-      ]
-    }
-  }
-}
-```
+For information on running from source, see the [Contributing Guide](./CONTRIBUTING.md).
 
 ### Complementary MCP Servers
 
