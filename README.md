@@ -102,9 +102,9 @@ If your agent doesn't already have the ability to read-write files, you can add 
 }
 ```
 
-#### Playright MCP (Web Browsing)
+#### playwright MCP (Web Browsing)
 
-Playright is the most common tool used for web browsing, as it doesn't require an API key and it can accomplish most web tasks.
+Playwright is the most common tool used for web browsing, and it doesn't require an API key and it can accomplish most web tasks.
 
 ```jsonc
 {
