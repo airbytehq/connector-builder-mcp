@@ -102,7 +102,7 @@ If your agent doesn't already have the ability to read-write files, you can add 
 }
 ```
 
-#### playwright MCP (Web Browsing)
+#### Playwright MCP (Web Browsing)
 
 Playwright is the most common tool used for web browsing, and it doesn't require an API key and it can accomplish most web tasks.
 
