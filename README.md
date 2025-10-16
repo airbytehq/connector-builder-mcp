@@ -40,11 +40,11 @@ If your agents don't already have files and/or internet access, you may want to 
 
 #### Airbyte MCP
 
-The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html) (powered by [PyAirbyte](https://github.com/airbytehq/PyAirbyte)) gives ability to publish and test connector definitions in Airbyte Cloud. It also includes tools for more extensive local tests, including syncing data locally to a cache and querying the results with SQL.
+The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html) (powered by [PyAirbyte](https://github.com/airbytehq/PyAirbyte)) gives the ability to publish and test connector definitions to your Airbyte Cloud workspace. It also includes tools for more extensive local tests, including syncing data locally to a cache and querying the results with SQL.
 
 For detailed setup instructions, please see the [docs here](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
 
-```json
+```jsonc
 {
   "mcpServers": {
     // ... other servers defined here ...
@@ -60,7 +60,7 @@ For detailed setup instructions, please see the [docs here](https://airbytehq.gi
         "AIRBYTE_CLOUD_WORKSPACE_ID": "workspace-id",
         "AIRBYTE_CLOUD_CLIENT_ID": "project-id",
         "AIRBYTE_CLOUD_CLIENT_SECRET": "secret",
-        "AIRBYTE_MCP_ENV_FILE": "/Users/aj.steers/.mcp/airbyte_mcp.env"
+        "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env"
       }
     }
   }
@@ -69,7 +69,7 @@ For detailed setup instructions, please see the [docs here](https://airbytehq.gi
 
 #### Files Server MCP
 
-If your agent doesn't already have ability to read-write files, you can add this:
+If your agent doesn't already have the ability to read-write files, you can add this:
 
 ```json
 {
@@ -88,9 +88,9 @@ If your agent doesn't already have ability to read-write files, you can add this
 
 #### Playright MCP (Web Browsing)
 
-Playright is the most common tool used for web browsing, as it doesn't require and API key and it can accomplish most web tasks.
+Playright is the most common tool used for web browsing, as it doesn't require an API key and it can accomplish most web tasks.  
 
-```json
+```jsonc
 {
   "mcpServers": {
     // ... other servers defined here ...
@@ -108,7 +108,7 @@ Playright is the most common tool used for web browsing, as it doesn't require a
 
 #### Timer MCP
 
-If you'd like to time your agent and it does not already include time keeping ability, you can add this timer tool:
+If you'd like to time your agent and it does not already include timekeeping ability, you can add this timer tool:  
 
 ```json
 {
