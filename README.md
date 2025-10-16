@@ -42,30 +42,42 @@ The below MCP servers have been tested to work well with the Connector Builder M
 
 The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html) (powered by [PyAirbyte](https://github.com/airbytehq/PyAirbyte)) gives the ability to publish and test connector definitions to your Airbyte Cloud workspace. It also includes tools for more extensive local tests, including syncing data locally to a cache and querying the results with SQL.
 
-For detailed setup instructions, please see the [docs here](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
-
 ```jsonc
 {
   "mcpServers": {
     // ... other servers defined here ...
     "airbyte-mcp": {
       "type": "stdio",
-      "command": "poetry",
+      "command": "uvx",
       "args": [
-        "--project=../PyAirbyte",
-        "run",
+        "--python=3.11",
+        "--from=airbyte@latest",
         "airbyte-mcp"
       ],
       "env": {
-        "AIRBYTE_CLOUD_WORKSPACE_ID": "workspace-id",
-        "AIRBYTE_CLOUD_CLIENT_ID": "project-id",
-        "AIRBYTE_CLOUD_CLIENT_SECRET": "secret",
         "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env"
       }
     }
   }
 }
 ```
+
+Your `airbyte_mcp.env` file should contain your Airbyte Cloud credentials:
+
+```ini
+# Airbyte Project Artifacts Directory
+AIRBYTE_PROJECT_DIR=/path/to/any/writeable/project-dir
+
+# Airbyte Cloud Credentials (Required for Airbyte Cloud Operations)
+AIRBYTE_CLOUD_WORKSPACE_ID=your_workspace_id
+AIRBYTE_CLOUD_CLIENT_ID=your_api_key
+AIRBYTE_CLOUD_CLIENT_SECRET=your_api_secret
+
+# Optional: Google Creds to Use for GCP GSM (Google Secret Manager):
+GCP_GSM_CREDENTIALS_JSON={...inline-json...}
+```
+
+For more detailed setup instructions, please see the [PyAirbyte MCP docs](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
 
 #### Files Server MCP
 
