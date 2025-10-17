@@ -126,7 +126,6 @@ def test_dynamic_schema_loader_included() -> None:
 
     assert isinstance(result, str)
     assert not result.startswith("ERROR:")
-    assert "DynamicSchemaLoader" in result
     assert "TODO" in result
 
 

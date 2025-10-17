@@ -1,3 +1,6 @@
+# Personal Project Files
+.vscode/settings.json
+
 # Secrets
 .secrets
 secrets
@@ -214,3 +217,4 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+.mcp.json
