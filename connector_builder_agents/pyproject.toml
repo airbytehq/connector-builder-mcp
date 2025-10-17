@@ -17,9 +17,11 @@ dependencies = [
     "openinference-instrumentation-openai>=0.1.33",
     "openinference-instrumentation-openai-agents>=1.3.0",
     "emoji>=2.15.0,<3.0",
+    "airbyte-cdk==7.3.7.post1.dev18600150715",
 ]
 
 [dependency-groups]
 dev = [
     "poethepoet>=0.37.0",
+    "pytest>=8.4.2",
 ]
