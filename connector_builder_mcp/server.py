@@ -21,9 +21,10 @@ register_connector_builder_tools(app)
 
 def main() -> None:
     """Main entry point for the Builder MCP server."""
+    print("=" * 60, flush=True, file=sys.stderr)
     print("Starting Builder MCP server.", file=sys.stderr)
     try:
-        asyncio.run(app.run_stdio_async())
+        asyncio.run(app.run_stdio_async(show_banner=False))
     except KeyboardInterrupt:
         print("Builder MCP server interrupted by user.", file=sys.stderr)
     except Exception as ex:
@@ -31,6 +32,7 @@ def main() -> None:
         sys.exit(1)
 
     print("Builder MCP server stopped.", file=sys.stderr)
+    print("=" * 60, flush=True, file=sys.stderr)
     sys.exit(0)
 
 

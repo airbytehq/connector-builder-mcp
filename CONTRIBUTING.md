@@ -53,6 +53,48 @@ poe agent-run       # Run a connector build using the Pytest test script.
 
 You can see what any Poe task does by checking the `poe_tasks.toml` file at the root of the repo.
 
+## Testing with MCP Clients
+
+To test the MCP server with various clients, you can configure the clients to point to your local or development server.
+
+### Development Version (Main Branch)
+
+This version pulls the latest code from the main branch of the repository:
+
+```json
+{
+  "mcpServers": {
+    "connector-builder-mcp--dev-main": {
+      "command": "uvx",
+      "args": [
+        "--from=git+https://github.com/airbytehq/connector-builder-mcp.git@main",
+        "airbyte-connector-builder-mcp"
+      ]
+    }
+  }
+}
+```
+
+### Local Development
+
+This version runs the MCP server from your local clone of the repository. Make sure to replace `/path/to/repos/connector-builder-mcp` with the actual path to your local repository.
+
+```json
+{
+  "mcpServers": {
+    "connector-builder-mcp--local-dev": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "/path/to/repos/connector-builder-mcp",
+        "airbyte-connector-builder-mcp"
+      ]
+    }
+  }
+}
+```
+
 ## Testing with GitHub Models
 
 ```bash

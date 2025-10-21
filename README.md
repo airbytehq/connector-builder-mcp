@@ -32,43 +32,60 @@ To use with MCP clients like Claude Desktop, add the following configuration:
 }
 ```
 
-### Development Version (Main Branch)
-
-```json
-{
-  "mcpServers": {
-    "connector-builder-mcp--dev-main": {
-      "command": "uvx",
-      "args": [
-        "--from=git+https://github.com/airbytehq/connector-builder-mcp.git@main",
-        "airbyte-connector-builder-mcp"
-      ]
-    }
-  }
-}
-```
-
-### Local Development
-
-```json
-{
-  "mcpServers": {
-    "connector-builder-mcp--local-dev": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--project",
-        "/path/to/repos/connector-builder-mcp",
-        "airbyte-connector-builder-mcp"
-      ]
-    }
-  }
-}
-```
+For information on running from source, see the [Contributing Guide](./CONTRIBUTING.md).
 
 ### Complementary MCP Servers
 
-If your agents don't already have files and/or internet access, you may want to add one or more of these:
+The below MCP servers have been tested to work well with the Connector Builder MCP server and will complement its capabilities.
+
+- **Claude Code Users:** You should only need the PyAirbyte MCP server for most tasks. Specifically, this enables publishing to Airbyte Cloud, running local tests, and validating manifests and configurations.
+- **Claude Desktop Users:** As of this writing, Claude Desktop does not have built-in file system or timekeeping capabilities. Therefore, you will likely _also_ want to add the Files Server MCP.
+- **Other Clients:** Depending on your client, you may want to add the Timer MCP and/or the Playwright MCP for web browsing capabilities.
+
+#### PyAirbyte MCP
+
+The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html) (powered by [PyAirbyte](https://github.com/airbytehq/PyAirbyte)) gives the ability to publish and test connector definitions to your Airbyte Cloud workspace. It also includes tools for more extensive local tests, including syncing data locally to a cache and querying the results with SQL.
+
+```jsonc
+{
+  "mcpServers": {
+    // ... other servers defined here ...
+    "airbyte-mcp": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--python=3.11",
+        "--from=airbyte@latest",
+        "airbyte-mcp"
+      ],
+      "env": {
+        "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env"
+      }
+    }
+  }
+}
+```
+
+Your `airbyte_mcp.env` file should contain your Airbyte Cloud credentials:
+
+```ini
+# Airbyte Project Artifacts Directory
+AIRBYTE_PROJECT_DIR=/path/to/any/writeable/project-dir
+
+# Airbyte Cloud Credentials (Required for Airbyte Cloud Operations)
+AIRBYTE_CLOUD_WORKSPACE_ID=your_workspace_id
+AIRBYTE_CLOUD_CLIENT_ID=your_api_key
+AIRBYTE_CLOUD_CLIENT_SECRET=your_api_secret
+
+# Optional: Google Creds to Use for GCP GSM (Google Secret Manager):
+GCP_GSM_CREDENTIALS_JSON={...inline-json...}
+```
+
+For more detailed setup instructions, please see the [PyAirbyte MCP docs](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
+
+#### Files Server MCP
+
+If your agent doesn't already have the ability to read-write files, you can add this:
 
 ```json
 {
@@ -80,7 +97,19 @@ If your agents don't already have files and/or internet access, you may want to 
         "mcp-server-filesystem",
         "/path/to/your/build-artifacts/"
       ]
-    },
+    }
+  }
+}
+```
+
+#### Playwright MCP (Web Browsing)
+
+Playwright is the most common tool used for web browsing, and it doesn't require an API key and it can accomplish most web tasks.
+
+```jsonc
+{
+  "mcpServers": {
+    // ... other servers defined here ...
     "playwright-web-browser": {
       "command": "npx",
       "args": [
@@ -93,7 +122,9 @@ If your agents don't already have files and/or internet access, you may want to 
 }
 ```
 
-If you'd like to time your agent, you can add this timer tool:
+#### Timer MCP
+
+If you'd like to time your agent and it does not already include timekeeping ability, you can add this timer tool:  
 
 ```json
 {

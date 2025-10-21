@@ -1,33 +1,25 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Functions to run connector builder agents in different modalities."""
 
-import os
 import sys
 import time
 from pathlib import Path
 
-from agents import (
-    Agent,
-    OpenAIConversationsSession,
-    Runner,
-    SQLiteSession,
-    gen_trace_id,
-    trace,
-)
-from agents.result import RunResult
+from pydantic_ai import Agent
+from pydantic_ai.settings import ModelSettings
 
-from ._util import get_secrets_dotenv, open_if_browser_available
+from ._util import get_secrets_dotenv
 from .agents import (
-    add_handback_to_manager,
     create_developer_agent,
     create_manager_agent,
 )
 from .constants import (
     DEFAULT_DEVELOPER_MODEL,
     DEFAULT_MANAGER_MODEL,
-    MAX_CONNECTOR_BUILD_STEPS,
+    ROOT_PROMPT_FILE_PATH,
 )
 from .tools import (
+    SessionState,
     create_session_mcp_servers,
     create_session_state,
     is_complete,
@@ -47,29 +39,6 @@ def get_workspace_dir(session_id: str) -> Path:
     return workspace_dir
 
 
-def create_session(session_id: str) -> OpenAIConversationsSession | SQLiteSession:
-    """Create a session based on OPENAI_SESSION_BACKEND environment variable.
-
-    Args:
-        session_id: The session identifier
-
-    Returns:
-        A session instance (either OpenAIConversationsSession or SQLiteSession)
-    """
-    backend = os.getenv("OPENAI_SESSION_BACKEND", "openai").lower()
-
-    if backend == "sqlite":
-        return SQLiteSession(session_id=session_id)
-    elif backend == "openai":
-        # OpenAI conversation_id has stricter name requirements than session_id.
-        # We'll let the OpenAIConversationsSession handle that internally.
-        return OpenAIConversationsSession()
-    else:
-        raise ValueError(
-            f"Invalid OPENAI_SESSION_BACKEND value: '{backend}'. Must be 'openai' or 'sqlite'"
-        )
-
-
 async def run_connector_build(
     api_name: str | None = None,
     instructions: str | None = None,
@@ -80,14 +49,14 @@ async def run_connector_build(
     *,
     interactive: bool = False,
     session_id: str | None = None,
-) -> list[RunResult] | None:
+) -> list | None:
     """Run an agentic AI connector build session with automatic mode selection."""
     if not api_name and not instructions:
         raise ValueError("Either api_name or instructions must be provided.")
 
     if api_name:
         instructions = (
-            f"Fully build and test a connector for '{api_name}'. \n" + (instructions or "")
+            f"Fully build and test an Airbyte source connector for '{api_name}'. \n" + (instructions or "")
         ).strip()
     assert instructions, "By now, instructions should be non-null."
     if existing_connector_name and existing_config_name:
@@ -128,7 +97,7 @@ async def run_connector_build(
         print(f"API: {api_name or 'N/A'}")
         print(f"USER PROMPT: {instructions}", flush=True)
         print("=" * 30, flush=True)
-        prompt_file = Path("./prompts") / "root-prompt.md"
+        prompt_file = ROOT_PROMPT_FILE_PATH
         prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
         prompt += instructions
         await run_interactive_build(
@@ -145,87 +114,46 @@ async def run_interactive_build(
     session_id: str,
 ) -> None:
     """Run the agent using interactive mode with conversation loop."""
-    # Create workspace directory and session state
     workspace_dir = get_workspace_dir(session_id)
     session_state = create_session_state(workspace_dir)
 
-    session = create_session(session_id)
-    all_mcp_servers, _, _ = create_session_mcp_servers(session_state)
+    _, _, developer_servers = create_session_mcp_servers(session_state)
     agent = Agent(
+        model,
         name="MCP Connector Builder",
-        instructions=(
+        deps_type=SessionState,
+        system_prompt=(
             "You are a helpful assistant with access to MCP tools for building Airbyte connectors."
         ),
-        mcp_servers=all_mcp_servers,
-        model=model,
+        toolsets=developer_servers,
     )
 
-    for server in all_mcp_servers:
-        await server.connect()
+    input_prompt: str = prompt
+    while True:
+        update_progress_log("\n⚙️  AI Agent is working...", session_state)
+        try:
+            result = await agent.run(
+                input_prompt,
+                message_history=session_state.message_history,
+                deps=session_state,
+            )
 
-    trace_id = gen_trace_id()
-    with trace(workflow_name="Interactive Connector Builder Session", trace_id=trace_id):
-        trace_url = f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
+            session_state.message_history.extend(result.new_messages())
 
-        session_url = None
-        if isinstance(session, OpenAIConversationsSession):
-            conversation_id = await session._get_session_id()
-            session_url = f"https://platform.openai.com/logs/{conversation_id}"
-            update_progress_log(f"🔗 Session URL: {session_url}", session_state)
-            open_if_browser_available(session_url)
+            update_progress_log(f"\n🤖  AI Agent: {result.output}", session_state)
 
-        input_prompt: str = prompt
-        while True:
-            update_progress_log("\n⚙️  AI Agent is working...", session_state)
-            update_progress_log(f"🔗 Follow along at: {trace_url}", session_state)
-            open_if_browser_available(trace_url)
-            try:
-                # Kick off the streaming execution
-                result_stream = Runner.run_streamed(
-                    starting_agent=agent,
-                    input=input_prompt,
-                    max_turns=100,
-                    session=session,
-                )
+            input_prompt = input("\n👤  You: ")
+            if input_prompt.lower() in {"exit", "quit"}:
+                update_progress_log("☑️ Ending conversation...", session_state)
+                break
 
-                # Iterate through events as they arrive
-                async for event in result_stream.stream_events():
-                    if event.type in {"tool_start", "tool_end", "agent_action"}:
-                        update_progress_log(
-                            f"[{event.name if hasattr(event, 'name') else event.type}] {str(event)[:120]}...",
-                            session_state,
-                        )
-                        continue
+        except KeyboardInterrupt:
+            update_progress_log(
+                "\n🛑 Conversation terminated (ctrl+c input received).", session_state
+            )
+            sys.exit(0)
 
-                    if event.type == "raw_response_event":
-                        continue
-
-                    update_progress_log(f"[{event.type}] {str(event)[:120]}...", session_state)
-
-                # After streaming ends, get the final result
-                update_progress_log(f"\n🤖  AI Agent: {result_stream.final_output}", session_state)
-
-                input_prompt = input("\n👤  You: ")
-                if input_prompt.lower() in {"exit", "quit"}:
-                    update_progress_log("☑️ Ending conversation...", session_state)
-                    if session_url:
-                        update_progress_log(f"🪵 Review session at: {session_url}", session_state)
-                    update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
-                    break
-
-            except KeyboardInterrupt:
-                update_progress_log(
-                    "\n🛑 Conversation terminated (ctrl+c input received).", session_state
-                )
-                if session_url:
-                    update_progress_log(f"🪵 Review session at: {session_url}", session_state)
-                update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
-                sys.exit(0)
-            finally:
-                for server in all_mcp_servers:
-                    await server.cleanup()
-
-        return None
+    return None
 
 
 async def run_manager_developer_build(
@@ -234,20 +162,15 @@ async def run_manager_developer_build(
     developer_model: str = DEFAULT_DEVELOPER_MODEL,
     manager_model: str = DEFAULT_MANAGER_MODEL,
     session_id: str | None = None,
-) -> list[RunResult]:
+) -> list:
     """Run a 3-phase connector build using manager-developer architecture."""
-    # Generate session_id if not provided
     if session_id is None:
         session_id = generate_session_id()
 
-    session = create_session(session_id)
-
-    # Create workspace directory and session state
     workspace_dir = get_workspace_dir(session_id)
     session_state = create_session_state(workspace_dir)
 
-    # Create MCP servers for this session
-    all_servers, manager_servers, developer_servers = create_session_mcp_servers(session_state)
+    _, manager_servers, developer_servers = create_session_mcp_servers(session_state)
 
     developer_agent = create_developer_agent(
         model=developer_model,
@@ -264,82 +187,55 @@ async def run_manager_developer_build(
         session_state=session_state,
         mcp_servers=manager_servers,
     )
-    add_handback_to_manager(
-        developer_agent=developer_agent,
-        manager_agent=manager_agent,
-        session_state=session_state,
+
+    run_prompt = (
+        f"You are working on a connector build task for the API: '{api_name or 'N/A'}'. "
+        "Your goal is to ensure the successful completion of all objectives as instructed."
     )
 
-    for server in all_servers:
-        print(f"🔗 Connecting to MCP server: {server.name}...")
-        await server.connect()
-        print(f"✅ Connected to MCP server: {server.name}")
+    update_progress_log("\n⚙️  Manager Agent is orchestrating the build...", session_state)
+    update_progress_log(f"API Name: {api_name or 'N/A'}", session_state)
+    update_progress_log(f"Additional Instructions: {instructions or 'N/A'}", session_state)
 
-    trace_id = gen_trace_id()
-    with trace(workflow_name="Manager-Developer Connector Build", trace_id=trace_id):
-        trace_url = f"https://platform.openai.com/traces/trace?trace_id={trace_id}"
+    try:
+        all_run_results = []
+        iteration_count = 0
+        while not is_complete(session_state):
+            iteration_count += 1
+            update_progress_log(
+                f"\n🔄 Starting iteration {iteration_count} with agent: {manager_agent.name}",
+                session_state,
+            )
 
-        session_url = None
-        if isinstance(session, OpenAIConversationsSession):
-            conversation_id = await session._get_session_id()
-            session_url = f"https://platform.openai.com/logs/{conversation_id}"
-            update_progress_log(f"🔗 Session URL: {session_url}", session_state)
-            open_if_browser_available(session_url)
+            run_result = await manager_agent.run(
+                run_prompt,
+                message_history=session_state.message_history,
+                deps=session_state,
+            )
 
-        run_prompt = (
-            f"You are working on a connector build task for the API: '{api_name or 'N/A'}'. "
-            "Your goal is to ensure the successful completion of all objectives as instructed."
-        )
+            all_run_results.append(run_result)
 
-        update_progress_log("\n⚙️  Manager Agent is orchestrating the build...", session_state)
-        update_progress_log(f"API Name: {api_name or 'N/A'}", session_state)
-        update_progress_log(f"Additional Instructions: {instructions or 'N/A'}", session_state)
-        update_progress_log(f"🔗 Follow along at: {trace_url}", session_state)
-        open_if_browser_available(trace_url)
+            session_state.message_history.extend(run_result.new_messages())
 
-        try:
-            # We loop until the manager calls the `mark_job_success` or `mark_job_failed` tool.
-            # prev_response_id: str | None = None
-            all_run_results = []
-            iteration_count = 0
-            while not is_complete(session_state):
-                iteration_count += 1
-                update_progress_log(
-                    f"\n🔄 Starting iteration {iteration_count} with agent: {manager_agent.name}",
-                    session_state,
-                )
-                run_result: RunResult = await Runner.run(
-                    starting_agent=manager_agent,
-                    input=run_prompt,
-                    max_turns=MAX_CONNECTOR_BUILD_STEPS,
-                    session=session,
-                    # previous_response_id=prev_response_id,
-                )
-                all_run_results.append(run_result)  # Collect all run results
-                # prev_response_id = run_result.raw_responses[-1].response_id if run_result.raw_responses else None
-                status_msg = f"\n🤖 Iteration {iteration_count} completed. Last agent: {run_result.last_agent.name}"
-                update_progress_log(status_msg, session_state)
-                status_msg = f"🤖 {run_result.last_agent.name}: {run_result.final_output}"
-                update_progress_log(status_msg, session_state)
-                run_prompt = (
-                    "You are still working on the connector build task. "
-                    "Continue to the next step or raise an issue if needed. "
-                    "The previous step output was:\n"
-                    f"{run_result.final_output}"
-                )
+            status_msg = (
+                f"\n🤖 Iteration {iteration_count} completed. Last agent: {manager_agent.name}"
+            )
+            update_progress_log(status_msg, session_state)
+            status_msg = f"🤖 {manager_agent.name}: {run_result.output}"
+            update_progress_log(status_msg, session_state)
 
-            # Return all run results
-            return all_run_results
+            run_prompt = (
+                "You are still working on the connector build task. "
+                "Continue to the next step or raise an issue if needed. "
+                "The previous step output was:\n"
+                f"{run_result.output}"
+            )
 
-        except KeyboardInterrupt:
-            update_progress_log("\n🛑 Build terminated (ctrl+c input received).", session_state)
-            if session_url:
-                update_progress_log(f"🪵 Review session at: {session_url}", session_state)
-            update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
-            sys.exit(0)
-        except Exception as ex:
-            update_progress_log(f"\n❌ Unexpected error during build: {ex}", session_state)
-            if session_url:
-                update_progress_log(f"🪵 Review session at: {session_url}", session_state)
-            update_progress_log(f"🪵 Review trace logs at: {trace_url}", session_state)
-            raise ex
+        return all_run_results
+
+    except KeyboardInterrupt:
+        update_progress_log("\n🛑 Build terminated (ctrl+c input received).", session_state)
+        sys.exit(0)
+    except Exception as ex:
+        update_progress_log(f"\n❌ Unexpected error during build: {ex}", session_state)
+        raise ex
