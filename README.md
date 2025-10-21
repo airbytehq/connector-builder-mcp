@@ -28,6 +28,7 @@ The MCP server follows the established PyAirbyte pattern with:
 - **Stream Testing**: Test connector stream reading capabilities  
 - **Configuration Management**: Validate connector configurations
 - **Test Execution**: Run connector tests with proper limits and constraints
+- **Secure Secrets**: Session-scoped encryption for remote secrets (optional, see [ENCRYPTION.md](docs/ENCRYPTION.md))
 
 ## Getting Started
 

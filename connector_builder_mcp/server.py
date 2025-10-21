@@ -10,12 +10,21 @@ import sys
 from fastmcp import FastMCP
 
 from connector_builder_mcp._connector_builder import register_connector_builder_tools
+from connector_builder_mcp._encryption import (
+    SessionEncryptionManager,
+    is_encryption_enabled,
+)
 from connector_builder_mcp._util import initialize_logging
 
 initialize_logging()
 
 app: FastMCP = FastMCP("connector-builder-mcp")
-register_connector_builder_tools(app)
+
+encryption_manager: SessionEncryptionManager | None = None
+if is_encryption_enabled():
+    encryption_manager = SessionEncryptionManager()
+
+register_connector_builder_tools(app, encryption_manager)
 
 
 def main() -> None:

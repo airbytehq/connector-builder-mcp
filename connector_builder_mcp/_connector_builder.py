@@ -5,7 +5,7 @@ manifest validation, stream testing, and configuration management.
 """
 
 import logging
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import requests
 from airbyte_cdk import ConfiguredAirbyteStream
@@ -26,6 +26,9 @@ from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from connector_builder_mcp._util import validate_manifest_structure
+
+if TYPE_CHECKING:
+    from connector_builder_mcp._encryption import SessionEncryptionManager
 
 logger = logging.getLogger(__name__)
 
@@ -444,13 +447,119 @@ def _get_topic_specific_docs(topic: str) -> str:
         return f"# {topic} Documentation\n\nUnable to fetch detailed documentation from GitHub. Please refer to the full reference: {docs_url}\n\nError: {str(e)}"
 
 
-def register_connector_builder_tools(app: FastMCP) -> None:
+def execute_stream_test_read_with_encrypted_config(
+    manifest: Annotated[
+        dict[str, Any],
+        Field(description="The connector manifest"),
+    ],
+    encrypted_config: Annotated[
+        dict[str, Any],
+        Field(
+            description="Encrypted connector configuration with ciphertext, kid, and algorithm fields"
+        ),
+    ],
+    stream_name: Annotated[
+        str,
+        Field(description="Name of the stream to test"),
+    ],
+    max_records: Annotated[
+        int,
+        Field(description="Maximum number of records to read", ge=1, le=1000),
+    ] = 10,
+    encryption_manager: "SessionEncryptionManager | None" = None,
+) -> StreamTestResult:
+    """Execute reading from a connector stream with encrypted configuration.
+
+    Args:
+        manifest: The connector manifest
+        encrypted_config: Encrypted connector configuration
+        stream_name: Name of the stream to test
+        max_records: Maximum number of records to read
+        encryption_manager: Session encryption manager for decryption
+
+    Returns:
+        Test result with success status and details
+    """
+    if encryption_manager is None:
+        return StreamTestResult(
+            success=False,
+            message="Encryption not enabled for this session",
+            errors=[
+                "Encryption feature is not enabled. Set CONNECTOR_BUILDER_MCP_ENABLE_ENCRYPTION=true"
+            ],
+        )
+
+    try:
+        from connector_builder_mcp._encryption import EncryptedSecret
+
+        encrypted_secret = EncryptedSecret(**encrypted_config)
+        config_json = encryption_manager.decrypt_secret(encrypted_secret)
+
+        import json
+
+        config = json.loads(config_json)
+
+        return execute_stream_test_read(
+            manifest=manifest, config=config, stream_name=stream_name, max_records=max_records
+        )
+
+    except ValueError as e:
+        logger.error(f"Error decrypting config: {e}")
+        return StreamTestResult(
+            success=False, message=f"Decryption error: {str(e)}", errors=[str(e)]
+        )
+    except Exception as e:
+        logger.error(f"Error in encrypted stream test: {e}")
+        return StreamTestResult(
+            success=False,
+            message=f"Stream test error: {str(e)}",
+            errors=[str(e)],
+        )
+
+
+def register_connector_builder_tools(
+    app: FastMCP, encryption_manager: "SessionEncryptionManager | None" = None
+) -> None:
     """Register connector builder tools with the FastMCP app.
 
     Args:
         app: FastMCP application instance
+        encryption_manager: Optional session encryption manager for secure secrets
     """
     app.tool(validate_manifest)
     app.tool(execute_stream_test_read)
     app.tool(get_resolved_manifest)
     app.tool(get_connector_builder_docs)
+
+    if encryption_manager is not None:
+        from functools import partial
+
+        encrypted_tool = partial(
+            execute_stream_test_read_with_encrypted_config, encryption_manager=encryption_manager
+        )
+        encrypted_tool.__name__ = "execute_stream_test_read_with_encrypted_config"  # type: ignore[attr-defined]
+        encrypted_tool.__doc__ = execute_stream_test_read_with_encrypted_config.__doc__
+        app.tool(encrypted_tool)
+
+        @app.resource("session://encryption/public-key")
+        def get_session_public_key() -> str:
+            """Get the session's public key for encrypting secrets.
+
+            Returns:
+                JSON string with public key information including kid, algorithm, and encoding
+            """
+            import json
+
+            public_key_info = encryption_manager.public_key_info
+            return json.dumps(public_key_info.model_dump(), indent=2)
+
+        @app.resource("session://encryption/instructions")
+        def get_encryption_instructions_resource() -> str:
+            """Get instructions for encrypting secrets.
+
+            Returns:
+                Markdown-formatted instructions for users
+            """
+            from connector_builder_mcp._encryption import get_encryption_instructions
+
+            return get_encryption_instructions()
