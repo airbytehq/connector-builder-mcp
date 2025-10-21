@@ -28,6 +28,123 @@ from connector_builder_mcp._util import parse_manifest_input
 logger = logging.getLogger(__name__)
 
 
+# Encryption instructions message templates
+_ENCRYPTION_NOT_ENABLED_MESSAGE = """# Session Encryption Not Enabled
+
+Session-scoped encryption is currently disabled. To enable it:
+
+1. Restart the MCP server with the environment variable:
+   ```
+   ENABLE_SESSION_ENCRYPTION=true
+   ```
+
+2. Once enabled, you can use encrypted secrets to avoid exposing plaintext to the LLM.
+
+**Security Note**: Encryption is feature-flagged and off by default to ensure backward compatibility.
+"""
+
+_ENCRYPTION_NOT_INITIALIZED_MESSAGE = """# Session Encryption Error
+
+Session encryption is enabled but the keypair has not been initialized.
+Please restart the MCP server or contact support.
+"""
+
+_ENCRYPTION_NOT_AVAILABLE_MESSAGE = """# Session Encryption Not Available
+
+The encryption module is not available in this version of the MCP server.
+Please check the server installation or contact support.
+"""
+
+_ENCRYPTION_INSTRUCTIONS_TEMPLATE = """# Session-Scoped Encryption Instructions
+
+Session encryption is **enabled** on this MCP server. You can use it to provide secrets without exposing plaintext.
+
+## Step 1: Get the Public Key
+
+The public key for this session is available as an MCP resource:
+- **Resource URI**: `mcp+session://encryption/pubkey`
+- **Key ID (kid)**: `{kid}`
+- **Algorithm**: `{alg}`
+- **Public Key**: `{public_key}`
+
+## Step 2: Encrypt Your Secret
+
+### Option A: Third-Party Encryption Sites (Recommended for MVP)
+
+Use a trusted client-side encryption tool:
+
+1. **libsodium.js demo** (client-side only):
+   - Visit: https://github.com/jedisct1/libsodium.js (look for sealed box examples)
+   - Or use any libsodium sealed-box compatible tool
+
+2. Copy the public key above
+3. Paste your secret and encrypt it using the libsodium sealed-box algorithm
+4. Copy the resulting base64-encoded ciphertext
+
+### Option B: CLI One-Liner (Power Users)
+
+If you have Python and PyNaCl installed, you can use this one-liner:
+
+```bash
+python3 -c "
+import base64
+import nacl.public
+import sys
+
+public_key_b64 = '{public_key}'
+public_key = nacl.public.PublicKey(base64.b64decode(public_key_b64))
+sealed_box = nacl.public.SealedBox(public_key)
+
+plaintext = input('Enter secret: ')
+ciphertext = sealed_box.encrypt(plaintext.encode('utf-8'))
+print('Ciphertext:', base64.b64encode(ciphertext).decode('ascii'))
+print('Kid:', '{kid}')
+"
+```
+
+Or install the connector-builder-mcp package and use:
+```bash
+uvx airbyte-connector-builder-mcp encrypt-secret
+```
+
+## Step 3: Use the Encrypted Secret
+
+Pass the encrypted secret to MCP tools using the `encrypted_secrets` parameter:
+
+```json
+{{{{
+  "config_path": {{{{
+    "ciphertext": "YOUR_BASE64_CIPHERTEXT",
+    "kid": "{kid}"
+  }}}}
+}}}}
+```
+
+For example, to hydrate a config with an encrypted API key:
+```json
+{{{{
+  "api_key": {{{{
+    "ciphertext": "...",
+    "kid": "{kid}"
+  }}}}
+}}}}
+```
+
+## Security Notes
+
+- **No plaintext at rest**: Secrets are decrypted only when needed and immediately discarded
+- **Session-scoped**: The keypair is destroyed when the MCP server stops
+- **Size limit**: Maximum ciphertext size is {max_size_bytes} bytes
+- **No logging**: Secrets are never logged or persisted
+
+## Troubleshooting
+
+- **Kid mismatch**: Ensure you're using the current session's public key
+- **Invalid ciphertext**: Verify the ciphertext is valid base64 and properly encrypted
+- **Size exceeded**: Keep secrets under the size limit ({max_size_bytes} bytes)
+"""
+
+
 def _privatebin_password_exists() -> bool:
     """Check if PRIVATEBIN_PASSWORD environment variable exists.
 
@@ -648,123 +765,21 @@ def get_encryption_instructions() -> str:
         )
 
         if not is_encryption_enabled():
-            return """# Session Encryption Not Enabled
-
-Session-scoped encryption is currently disabled. To enable it:
-
-1. Restart the MCP server with the environment variable:
-   ```
-   ENABLE_SESSION_ENCRYPTION=true
-   ```
-
-2. Once enabled, you can use encrypted secrets to avoid exposing plaintext to the LLM.
-
-**Security Note**: Encryption is feature-flagged and off by default to ensure backward compatibility.
-"""
+            return _ENCRYPTION_NOT_ENABLED_MESSAGE
 
         public_key_info = get_public_key_info()
         if public_key_info is None:
-            return """# Session Encryption Error
+            return _ENCRYPTION_NOT_INITIALIZED_MESSAGE
 
-Session encryption is enabled but the keypair has not been initialized.
-Please restart the MCP server or contact support.
-"""
-
-        return f"""# Session-Scoped Encryption Instructions
-
-Session encryption is **enabled** on this MCP server. You can use it to provide secrets without exposing plaintext.
-
-## Step 1: Get the Public Key
-
-The public key for this session is available as an MCP resource:
-- **Resource URI**: `mcp+session://encryption/pubkey`
-- **Key ID (kid)**: `{public_key_info.kid}`
-- **Algorithm**: `{public_key_info.alg}`
-- **Public Key**: `{public_key_info.public_key}`
-
-## Step 2: Encrypt Your Secret
-
-### Option A: Third-Party Encryption Sites (Recommended for MVP)
-
-Use a trusted client-side encryption tool:
-
-1. **libsodium.js demo** (client-side only):
-   - Visit: https://github.com/jedisct1/libsodium.js (look for sealed box examples)
-   - Or use any libsodium sealed-box compatible tool
-
-2. Copy the public key above
-3. Paste your secret and encrypt it using the libsodium sealed-box algorithm
-4. Copy the resulting base64-encoded ciphertext
-
-### Option B: CLI One-Liner (Power Users)
-
-If you have Python and PyNaCl installed, you can use this one-liner:
-
-```bash
-python3 -c "
-import base64
-import nacl.public
-import sys
-
-public_key_b64 = '{public_key_info.public_key}'
-public_key = nacl.public.PublicKey(base64.b64decode(public_key_b64))
-sealed_box = nacl.public.SealedBox(public_key)
-
-plaintext = input('Enter secret: ')
-ciphertext = sealed_box.encrypt(plaintext.encode('utf-8'))
-print('Ciphertext:', base64.b64encode(ciphertext).decode('ascii'))
-print('Kid:', '{public_key_info.kid}')
-"
-```
-
-Or install the connector-builder-mcp package and use:
-```bash
-uvx airbyte-connector-builder-mcp encrypt-secret
-```
-
-## Step 3: Use the Encrypted Secret
-
-Pass the encrypted secret to MCP tools using the `encrypted_secrets` parameter:
-
-```json
-{{
-  "config_path": {{
-    "ciphertext": "YOUR_BASE64_CIPHERTEXT",
-    "kid": "{public_key_info.kid}"
-  }}
-}}
-```
-
-For example, to hydrate a config with an encrypted API key:
-```json
-{{
-  "api_key": {{
-    "ciphertext": "...",
-    "kid": "{public_key_info.kid}"
-  }}
-}}
-```
-
-## Security Notes
-
-- **No plaintext at rest**: Secrets are decrypted only when needed and immediately discarded
-- **Session-scoped**: The keypair is destroyed when the MCP server stops
-- **Size limit**: Maximum ciphertext size is {public_key_info.max_size_bytes} bytes
-- **No logging**: Secrets are never logged or persisted
-
-## Troubleshooting
-
-- **Kid mismatch**: Ensure you're using the current session's public key
-- **Invalid ciphertext**: Verify the ciphertext is valid base64 and properly encrypted
-- **Size exceeded**: Keep secrets under the size limit ({public_key_info.max_size_bytes} bytes)
-"""
+        return _ENCRYPTION_INSTRUCTIONS_TEMPLATE.format(
+            kid=public_key_info.kid,
+            alg=public_key_info.alg,
+            public_key=public_key_info.public_key,
+            max_size_bytes=public_key_info.max_size_bytes,
+        )
 
     except ImportError:
-        return """# Session Encryption Not Available
-
-The encryption module is not available in this version of the MCP server.
-Please check the server installation or contact support.
-"""
+        return _ENCRYPTION_NOT_AVAILABLE_MESSAGE
 
 
 def register_secrets_tools(app: FastMCP) -> None:
