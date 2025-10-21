@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "python-dotenv>=1.1.1",
-    "pydantic-ai>=0.0.14,<1.0",
     "pydantic-ai-slim[openai,duckduckgo]>=0.0.14,<1.0",
     "pydantic>=2.11.9,<3.0",
     "pyyaml>=6.0.1",
