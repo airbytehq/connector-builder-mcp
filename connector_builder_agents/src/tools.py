@@ -1,15 +1,17 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Tools and utilities for running MCP-based agents for connector building."""
 
+import json
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, Awaitable, Callable
 
 import emoji
 from pydantic import BaseModel
 from pydantic.fields import Field
-from pydantic_ai.mcp import MCPServerStdio
+from pydantic_ai.mcp import CallToolFunc, MCPServer, MCPServerStdio, ToolResult
+from pydantic_ai.tools import RunContext
 
 from .constants import HEADLESS_BROWSER
 
@@ -55,22 +57,101 @@ def create_session_state(workspace_dir: Path) -> SessionState:
     return SessionState(workspace_dir=workspace_dir)
 
 
-MCP_CONNECTOR_BUILDER_FOR_DEVELOPER = lambda: MCPServerStdio(  # noqa: E731
-    "uv",
-    [
-        "run",
-        "airbyte-connector-builder-mcp",
-    ],
-    env={},
-)
-MCP_CONNECTOR_BUILDER_FOR_MANAGER = lambda: MCPServerStdio(  # noqa: E731
-    "uv",
-    [
-        "run",
-        "airbyte-connector-builder-mcp",
-    ],
-    env={},
-)
+def create_mcp_tool_logger(
+    agent_name: str, session_state: SessionState
+) -> Callable[[RunContext[Any], CallToolFunc, str, dict[str, Any]], Awaitable[ToolResult]]:
+    """Create a tool call logger for an MCP server.
+
+    Args:
+        agent_name: Name of the agent using this MCP server (for logging)
+        session_state: Session state for logging
+
+    Returns:
+        A process_tool_call callback that logs MCP tool calls
+    """
+
+    async def log_mcp_tool_call(
+        ctx: RunContext[Any],
+        call_tool: CallToolFunc,
+        tool_name: str,
+        tool_args: dict[str, Any],
+    ) -> ToolResult:
+        """Log and execute an MCP tool call."""
+        # Format args for logging (truncate if too long)
+        args_str = json.dumps(tool_args, indent=2)
+        if len(args_str) > 200:
+            args_str = args_str[:200] + "..."
+
+        update_progress_log(
+            f"🔧 [{agent_name}] MCP Tool call: {tool_name}", session_state
+        )
+
+        result = await call_tool(tool_name, tool_args, None)
+
+        return result
+
+    return log_mcp_tool_call
+
+
+class FilteredMCPServerStdio(MCPServerStdio):
+    def __init__(self, *args, excluded_tools: list[str] | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.excluded_tools = excluded_tools or []
+
+    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, Any]:
+        all_tools = await super().get_tools(ctx)
+
+        return {
+            name: tool
+            for name, tool in all_tools.items()
+            if not any(excluded in name for excluded in self.excluded_tools)
+        }
+
+
+def create_mcp_connector_builder_for_developer(
+    session_state: SessionState,
+) -> MCPServerStdio:
+    """Create MCP connector builder server for developer agent."""
+    return FilteredMCPServerStdio(
+        "uv",
+        [
+            "run",
+            "airbyte-connector-builder-mcp",
+        ],
+        env={},
+        tool_prefix="developer",
+        timeout=180,
+        process_tool_call=create_mcp_tool_logger("Developer", session_state),
+        excluded_tools=["get_connector_manifest", "populate_dotenv_missing_secrets_stubs"],
+    )
+
+
+def create_mcp_connector_builder_for_manager(
+    session_state: SessionState,
+) -> MCPServerStdio:
+    """Create MCP connector builder server for manager agent."""
+    return FilteredMCPServerStdio(
+        "uv",
+        [
+            "run",
+            "airbyte-connector-builder-mcp",
+        ],
+        env={},
+        tool_prefix="manager",
+        timeout=60,
+        process_tool_call=create_mcp_tool_logger("Manager", session_state),
+        excluded_tools=[
+            "validate_manifest",
+            "execute_stream_test_read",
+            "execute_dynamic_manifest_resolution_test",
+            "get_manifest_yaml_json_schema",
+            "get_connector_builder_docs",
+            "get_connector_manifest",
+            "find_connectors_by_class_name",
+            "create_connector_manifest_scaffold",
+            "populate_dotenv_missing_secrets_stubs",
+        ],
+    )
 
 MCP_PLAYWRIGHT_WEB_BROWSER = lambda: MCPServerStdio(  # noqa: E731
     "npx",
@@ -79,6 +160,7 @@ MCP_PLAYWRIGHT_WEB_BROWSER = lambda: MCPServerStdio(  # noqa: E731
         *(["--headless"] if HEADLESS_BROWSER else []),
     ],
     env={},
+    timeout=60,
 )
 
 
@@ -91,20 +173,22 @@ def create_mcp_filesystem_server(session_state: SessionState) -> MCPServerStdio:
             str(session_state.workspace_dir.absolute()),
         ],
         env={},
+        tool_prefix="filesystem",
+        timeout=60,
     )
 
 
 def create_session_mcp_servers(
     session_state: SessionState,
-) -> tuple[list[MCPServerStdio], list[MCPServerStdio], list[MCPServerStdio]]:
+) -> tuple[list[MCPServer], list[MCPServer], list[MCPServer]]:
     """Create all MCP servers for a session, reusing instances to avoid duplicates.
 
     Returns:
         Tuple of (all_servers, manager_servers, developer_servers)
     """
-    # Create shared server instances
-    connector_builder_dev = MCP_CONNECTOR_BUILDER_FOR_DEVELOPER()
-    connector_builder_manager = MCP_CONNECTOR_BUILDER_FOR_MANAGER()
+    # Create shared server instances with logging
+    connector_builder_dev = create_mcp_connector_builder_for_developer(session_state)
+    connector_builder_manager = create_mcp_connector_builder_for_manager(session_state)
     filesystem_server = create_mcp_filesystem_server(session_state)
 
     # Create server lists reusing the same instances
@@ -186,15 +270,21 @@ def create_mark_job_success_tool(session_state: SessionState):
 def create_mark_job_failed_tool(session_state: SessionState):
     """Create a mark_job_failed tool bound to a specific session state."""
 
-    def mark_job_failed() -> None:
+    def mark_job_failed(reason: str | None = None) -> None:
         """Mark the current phase as failed.
 
         This should only be called in the event that it is no longer possible to make progress.
         Before calling this tool, you should attempt to save the latest output of the
         connector readiness report to the workspace directory for review.
+
+        Args:
+            reason: Optional explanation of why the job failed.
         """
         session_state.is_failed = True
-        update_progress_log("❌ Failed connector builder task.", session_state)
+        msg = "❌ Failed connector builder task."
+        if reason:
+            msg += f" Reason: {reason}"
+        update_progress_log(msg, session_state)
 
     return mark_job_failed
 

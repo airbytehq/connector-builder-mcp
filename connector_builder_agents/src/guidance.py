@@ -46,7 +46,7 @@ next phase or next appropriate action based on their progress.
   case, call the `mark_job_success` tool. (Only call if you are sure the build is fully complete
   and fully tested.)
 - If you become fully blocked and cannot proceed, call the
-  `mark_job_failed` tool, providing a summary of the issues encountered. (Last resort only.)
+  `mark_job_failed` tool and provide a summary of the issues encountered. (Last resort only.)
 """
 
 

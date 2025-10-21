@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from pydantic_ai import Agent
+from pydantic_ai.settings import ModelSettings
 
 from ._util import get_secrets_dotenv
 from .agents import (
@@ -15,6 +16,7 @@ from .agents import (
 from .constants import (
     DEFAULT_DEVELOPER_MODEL,
     DEFAULT_MANAGER_MODEL,
+    ROOT_PROMPT_FILE_PATH,
 )
 from .tools import (
     SessionState,
@@ -54,7 +56,7 @@ async def run_connector_build(
 
     if api_name:
         instructions = (
-            f"Fully build and test a connector for '{api_name}'. \n" + (instructions or "")
+            f"Fully build and test an Airbyte source connector for '{api_name}'. \n" + (instructions or "")
         ).strip()
     assert instructions, "By now, instructions should be non-null."
     if existing_connector_name and existing_config_name:
@@ -95,7 +97,7 @@ async def run_connector_build(
         print(f"API: {api_name or 'N/A'}")
         print(f"USER PROMPT: {instructions}", flush=True)
         print("=" * 30, flush=True)
-        prompt_file = Path("./prompts") / "root-prompt.md"
+        prompt_file = ROOT_PROMPT_FILE_PATH
         prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
         prompt += instructions
         await run_interactive_build(
@@ -115,7 +117,7 @@ async def run_interactive_build(
     workspace_dir = get_workspace_dir(session_id)
     session_state = create_session_state(workspace_dir)
 
-    all_mcp_servers, _, _ = create_session_mcp_servers(session_state)
+    _, _, developer_servers = create_session_mcp_servers(session_state)
     agent = Agent(
         model,
         name="MCP Connector Builder",
@@ -123,10 +125,8 @@ async def run_interactive_build(
         system_prompt=(
             "You are a helpful assistant with access to MCP tools for building Airbyte connectors."
         ),
+        toolsets=developer_servers,
     )
-
-    for mcp_server in all_mcp_servers:
-        agent.toolsets.append(mcp_server)
 
     input_prompt: str = prompt
     while True:
@@ -170,7 +170,7 @@ async def run_manager_developer_build(
     workspace_dir = get_workspace_dir(session_id)
     session_state = create_session_state(workspace_dir)
 
-    all_servers, manager_servers, developer_servers = create_session_mcp_servers(session_state)
+    _, manager_servers, developer_servers = create_session_mcp_servers(session_state)
 
     developer_agent = create_developer_agent(
         model=developer_model,

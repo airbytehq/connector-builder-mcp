@@ -14,8 +14,8 @@ dependencies = [
     "arize-phoenix-client>=1.19.1",
     "arize-phoenix-otel>=0.13.1",
     "arize-phoenix-evals>=2.1.0",
-    "openinference-instrumentation-openai>=0.1.33",
     "emoji>=2.15.0,<3.0",
+    "openinference-instrumentation-pydantic-ai>=0.1.9",
 ]
 
 [dependency-groups]
