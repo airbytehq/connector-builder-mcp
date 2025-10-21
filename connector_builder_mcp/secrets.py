@@ -83,22 +83,38 @@ Use a trusted client-side encryption tool:
 
 ### Option B: CLI One-Liner (Power Users)
 
-If you have Python and PyNaCl installed, you can use this one-liner:
+If you have Python and PyNaCl installed, you can encrypt and create a salt-sealed file:
 
 ```bash
 python3 -c "
 import base64
+import json
 import nacl.public
-import sys
 
+# Get public key from the session
 public_key_b64 = '{public_key}'
 public_key = nacl.public.PublicKey(base64.b64decode(public_key_b64))
 sealed_box = nacl.public.SealedBox(public_key)
 
-plaintext = input('Enter secret: ')
-ciphertext = sealed_box.encrypt(plaintext.encode('utf-8'))
-print('Ciphertext:', base64.b64encode(ciphertext).decode('ascii'))
-print('Kid:', '{kid}')
+# Create dotenv-format content (use dot notation for nested paths)
+dotenv_content = '''api_key=your-api-key-here
+credentials.password=your-password-here
+oauth.client_secret=your-oauth-secret'''
+
+# Encrypt the content
+ciphertext = sealed_box.encrypt(dotenv_content.encode('utf-8'))
+
+# Save to file
+encrypted_data = {{
+    'kid': '{kid}',
+    'ciphertext': base64.b64encode(ciphertext).decode('ascii')
+}}
+
+with open('secrets.sealed', 'w') as f:
+    json.dump(encrypted_data, f)
+
+print('Created secrets.sealed file')
+print('Use with: salt-sealed:/absolute/path/to/secrets.sealed')
 "
 ```
 
@@ -109,26 +125,21 @@ uvx airbyte-connector-builder-mcp encrypt-secret
 
 ## Step 3: Use the Encrypted Secret
 
-Pass the encrypted secret to MCP tools using the `encrypted_secrets` parameter:
+Use the salt-sealed URI with your dotenv file URIs:
 
-```json
-{{{{
-  "config_path": {{{{
-    "ciphertext": "YOUR_BASE64_CIPHERTEXT",
-    "kid": "{kid}"
-  }}}}
-}}}}
+```python
+# Single salt-sealed file
+dotenv_file_uris = "salt-sealed:/path/to/secrets.sealed"
+
+# Or combine with regular dotenv files
+dotenv_file_uris = [
+    "/path/to/config.env",
+    "salt-sealed:/path/to/secrets.sealed"
+]
 ```
 
-For example, to hydrate a config with an encrypted API key:
-```json
-{{{{
-  "api_key": {{{{
-    "ciphertext": "...",
-    "kid": "{kid}"
-  }}}}
-}}}}
-```
+The encrypted file should contain dotenv-format content after decryption.
+Use dot notation for nested config paths (e.g., `credentials.password`).
 
 ## Security Notes
 
@@ -136,12 +147,14 @@ For example, to hydrate a config with an encrypted API key:
 - **Session-scoped**: The keypair is destroyed when the MCP server stops
 - **Size limit**: Maximum ciphertext size is {max_size_bytes} bytes
 - **No logging**: Secrets are never logged or persisted
+- **Absolute paths required**: Salt-sealed URIs must use absolute file paths
 
 ## Troubleshooting
 
 - **Kid mismatch**: Ensure you're using the current session's public key
 - **Invalid ciphertext**: Verify the ciphertext is valid base64 and properly encrypted
 - **Size exceeded**: Keep secrets under the size limit ({max_size_bytes} bytes)
+- **Encryption not enabled**: Set ENABLE_SESSION_ENCRYPTION=true and restart the server
 """
 
 
@@ -180,6 +193,59 @@ def _get_privatebin_password() -> str | None:
         PRIVATEBIN_PASSWORD value or None if not set
     """
     return os.getenv("PRIVATEBIN_PASSWORD")
+
+
+def _is_salt_sealed_url(url: str) -> bool:
+    """Check if a URL is a salt-sealed encrypted secrets URL.
+
+    Args:
+        url: URL to check
+
+    Returns:
+        True if URL starts with salt-sealed:, False otherwise
+    """
+    if not isinstance(url, str):
+        return False
+    return url.startswith("salt-sealed:")
+
+
+def _fetch_salt_sealed_content(url: str) -> str:
+    """Fetch and decrypt content from salt-sealed URL.
+
+    Args:
+        url: Salt-sealed URL (e.g., salt-sealed:/path/to/encrypted.env)
+
+    Returns:
+        Decrypted content as string (in dotenv format), empty string on error
+    """
+    try:
+        from connector_builder_mcp.encryption import decrypt_secret, is_encryption_enabled
+
+        if not is_encryption_enabled():
+            logger.error("Salt-sealed URLs require encryption to be enabled")
+            return ""
+
+        # Remove salt-sealed: prefix to get the file path
+        file_path = url[len("salt-sealed:"):]
+
+        # Read the encrypted file
+        path_obj = Path(file_path)
+        if not path_obj.exists():
+            logger.error(f"Salt-sealed file not found: {file_path}")
+            return ""
+
+        # Read and parse the encrypted content
+        import json
+        with open(path_obj) as f:
+            encrypted_data = json.load(f)
+
+        # Decrypt the content
+        plaintext = decrypt_secret(encrypted_data)
+        return plaintext
+
+    except Exception as e:
+        logger.error(f"Error fetching salt-sealed content from {url}: {e}")
+        return ""
 
 
 class SecretInfo(BaseModel):
@@ -233,7 +299,16 @@ def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str
         return errors
 
     for uri in uris:
-        if uri.startswith(("http:", "https:")):
+        if uri.startswith("salt-sealed:"):
+            # Validate salt-sealed URIs
+            file_path = uri[len("salt-sealed:"):]
+            if not file_path:
+                errors.append("Salt-sealed URI must include a file path: salt-sealed:/path/to/file")
+            else:
+                path_obj = Path(file_path)
+                if not path_obj.is_absolute():
+                    errors.append(f"Salt-sealed file path must be absolute, got relative path: {file_path}")
+        elif uri.startswith(("http:", "https:")):
             if _is_privatebin_url(uri):
                 if not _privatebin_password_exists():
                     errors.append(
@@ -299,10 +374,10 @@ def _fetch_privatebin_content(url: str) -> str:
 
 
 def _load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, str]:
-    """Load secrets from the specified dotenv files and privatebin URLs.
+    """Load secrets from the specified dotenv files, privatebin URLs, and salt-sealed URIs.
 
     Args:
-        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
+        dotenv_file_uris: List of paths/URLs to .env files, privatebin URLs, or salt-sealed URIs,
                               or comma-separated string, or single string
 
     Returns:
@@ -322,7 +397,26 @@ def _load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, 
     all_secrets = {}
 
     for uri in uris:
-        if _is_privatebin_url(uri):
+        if _is_salt_sealed_url(uri):
+            content = _fetch_salt_sealed_content(uri)
+            if content:
+                secrets = dotenv_values(stream=StringIO(content))
+                if secrets:
+                    count = 0
+                    for key_path, value in {
+                        k: v
+                        for k, v in secrets.items()
+                        if (
+                            v is not None
+                            and v != ""  # noqa: PLC1901 # skipping empty strings, but not 0
+                            and not k.startswith("#")
+                            and not v.startswith("#")
+                        )
+                    }.items():
+                        count += 1
+                        _set_nested_value(all_secrets, key_path, value)
+                    logger.info(f"Loaded {count} secrets from salt-sealed URI")
+        elif _is_privatebin_url(uri):
             content = _fetch_privatebin_content(uri)
             if content:
                 secrets = dotenv_values(stream=StringIO(content))
@@ -384,66 +478,34 @@ def _merge_nested_dicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
 def hydrate_config(
     config: dict[str, Any],
     dotenv_file_uris: str | list[str] | None = None,
-    encrypted_secrets: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
-    """Hydrate configuration with secrets from dotenv files, privatebin URLs, or encrypted secrets.
+    """Hydrate configuration with secrets from dotenv files, privatebin URLs, or salt-sealed URIs.
 
     Dotenv keys are mapped directly to config paths using dot notation:
     - credentials.password=foo   -> {"credentials": {"password": "foo"}}
     - api_key=value              -> {"api_key": "value"}
     - oauth.client_secret=value  -> {"oauth": {"client_secret": "value"}}
 
+    Salt-sealed URIs provide encrypted secrets:
+    - salt-sealed:/path/to/encrypted.env -> Decrypts and loads dotenv format content
+
     Args:
         config: Configuration dictionary to hydrate with secrets
-        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
+        dotenv_file_uris: List of paths/URLs to .env files, privatebin URLs, or salt-sealed URIs,
                               or comma-separated string, or single string
-        encrypted_secrets: Dictionary of config paths to encrypted secret objects
-                          with 'ciphertext' and 'kid' keys, e.g.:
-                          {"api_key": {"ciphertext": "...", "kid": "..."}}
 
     Returns:
-        Configuration with secrets injected from .env files, privatebin URLs, and encrypted secrets
+        Configuration with secrets injected from .env files, privatebin URLs, and salt-sealed URIs
     """
     config = config or {}
     if not isinstance(config, dict):
         raise TypeError(f"Expected config to be a dictionary, got {type(config)}")
 
-    # Load from dotenv files/URLs first
+    # Load from dotenv files/URLs (including salt-sealed URIs)
     if dotenv_file_uris:
         secrets = _load_secrets(dotenv_file_uris)
         if secrets:
             config = _merge_nested_dicts(config, secrets)
-
-    # Then decrypt and merge encrypted secrets if provided
-    if encrypted_secrets:
-        try:
-            # Import here to avoid circular dependency
-            from connector_builder_mcp.encryption import decrypt_secret, is_encryption_enabled
-
-            if not is_encryption_enabled():
-                raise ValueError(
-                    "Encrypted secrets provided but session encryption is not enabled. "
-                    "Set ENABLE_SESSION_ENCRYPTION=true to use encrypted secrets."
-                )
-
-            decrypted_secrets: dict[str, Any] = {}
-            for config_path, encrypted_data in encrypted_secrets.items():
-                try:
-                    plaintext = decrypt_secret(encrypted_data)
-                    _set_nested_value(decrypted_secrets, config_path, plaintext)
-                except Exception as e:
-                    logger.error(f"Failed to decrypt secret for {config_path}: {e}")
-                    raise ValueError(
-                        f"Failed to decrypt secret for {config_path}: {e}"
-                    ) from e
-
-            config = _merge_nested_dicts(config, decrypted_secrets)
-
-        except ImportError as e:
-            logger.error(f"Encryption module not available: {e}")
-            raise ValueError(
-                "Encryption module not available. Ensure encryption.py is present."
-            ) from e
 
     return config
 

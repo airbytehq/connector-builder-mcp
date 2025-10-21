@@ -1,5 +1,6 @@
 """Tests for secrets management functionality."""
 
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -121,8 +122,8 @@ def test_hydrate_config_with_secrets(dummy_dotenv_file):
 
 
 @patch.dict(os.environ, {"ENABLE_SESSION_ENCRYPTION": "true"}, clear=True)
-def test_hydrate_config_with_encrypted_secrets():
-    """Test hydration with encrypted secrets."""
+def test_hydrate_config_with_salt_sealed_secrets():
+    """Test hydration with salt-sealed encrypted secrets."""
     from importlib import reload
 
     from connector_builder_mcp import encryption
@@ -130,40 +131,43 @@ def test_hydrate_config_with_encrypted_secrets():
     reload(encryption)
     encryption.initialize_session_keypair()
 
-    # Create encrypted secrets
+    # Create encrypted secrets in dotenv format
     api_key_plaintext = "secret-api-key-12345"
     password_plaintext = "secret-password-67890"
 
-    encrypted_api_key = encryption.encrypt_for_testing(api_key_plaintext)
-    encrypted_password = encryption.encrypt_for_testing(password_plaintext)
+    # Create dotenv content
+    dotenv_content = f"api_key={api_key_plaintext}\ncredentials.password={password_plaintext}"
 
-    config = {"host": "localhost", "credentials": {"username": "user"}}
+    # Encrypt the entire dotenv content
+    encrypted_dotenv = encryption.encrypt_for_testing(dotenv_content)
 
-    encrypted_secrets = {
-        "api_key": {
-            "ciphertext": encrypted_api_key.ciphertext,
-            "kid": encrypted_api_key.kid,
-        },
-        "credentials.password": {
-            "ciphertext": encrypted_password.ciphertext,
-            "kid": encrypted_password.kid,
-        },
-    }
+    # Write encrypted data to a temporary file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.sealed', delete=False) as f:
+        json.dump({
+            "ciphertext": encrypted_dotenv.ciphertext,
+            "kid": encrypted_dotenv.kid,
+        }, f)
+        sealed_file = f.name
 
-    result = hydrate_config(config, encrypted_secrets=encrypted_secrets)
+    try:
+        config = {"host": "localhost", "credentials": {"username": "user"}}
 
-    expected = {
-        "host": "localhost",
-        "api_key": api_key_plaintext,
-        "credentials": {"username": "user", "password": password_plaintext},
-    }
-    assert result == expected
+        # Use salt-sealed URI
+        result = hydrate_config(config, dotenv_file_uris=f"salt-sealed:{sealed_file}")
 
-    encryption.destroy_session_keypair()
+        expected = {
+            "host": "localhost",
+            "api_key": api_key_plaintext,
+            "credentials": {"username": "user", "password": password_plaintext},
+        }
+        assert result == expected
+    finally:
+        Path(sealed_file).unlink()
+        encryption.destroy_session_keypair()
 
 
-def test_hydrate_config_with_encrypted_secrets_disabled():
-    """Test hydration with encrypted secrets when encryption is disabled."""
+def test_hydrate_config_with_salt_sealed_secrets_disabled():
+    """Test hydration with salt-sealed secrets when encryption is disabled."""
     with patch.dict(os.environ, {}, clear=True):
         from importlib import reload
 
@@ -171,18 +175,26 @@ def test_hydrate_config_with_encrypted_secrets_disabled():
 
         reload(encryption)
 
-        config = {"host": "localhost"}
-        encrypted_secrets = {
-            "api_key": {"ciphertext": "test", "kid": "test-kid"}
-        }
+        # Create a fake sealed file (won't actually be decrypted)
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sealed', delete=False) as f:
+            json.dump({"ciphertext": "test", "kid": "test-kid"}, f)
+            sealed_file = f.name
 
-        with pytest.raises(ValueError, match="session encryption is not enabled"):
-            hydrate_config(config, encrypted_secrets=encrypted_secrets)
+        try:
+            config = {"host": "localhost"}
+
+            # Should fail gracefully when encryption is disabled
+            result = hydrate_config(config, dotenv_file_uris=f"salt-sealed:{sealed_file}")
+
+            # Result should just have the original config since decryption failed
+            assert result == config
+        finally:
+            Path(sealed_file).unlink()
 
 
 @patch.dict(os.environ, {"ENABLE_SESSION_ENCRYPTION": "true"}, clear=True)
-def test_hydrate_config_with_both_dotenv_and_encrypted():
-    """Test hydration with both dotenv files and encrypted secrets."""
+def test_hydrate_config_with_both_dotenv_and_salt_sealed():
+    """Test hydration with both dotenv files and salt-sealed encrypted secrets."""
     from importlib import reload
 
     from connector_builder_mcp import encryption
@@ -199,36 +211,39 @@ def test_hydrate_config_with_both_dotenv_and_encrypted():
 
     # Create encrypted secret
     api_key_plaintext = "encrypted-api-key"
-    encrypted_api_key = encryption.encrypt_for_testing(api_key_plaintext)
+    dotenv_content = f"api_key={api_key_plaintext}"
+    encrypted_dotenv = encryption.encrypt_for_testing(dotenv_content)
 
-    config = {"existing_key": "existing_value"}
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.sealed', delete=False) as f:
+        json.dump({
+            "ciphertext": encrypted_dotenv.ciphertext,
+            "kid": encrypted_dotenv.kid,
+        }, f)
+        sealed_file = f.name
 
-    encrypted_secrets = {
-        "api_key": {
-            "ciphertext": encrypted_api_key.ciphertext,
-            "kid": encrypted_api_key.kid,
+    try:
+        config = {"existing_key": "existing_value"}
+
+        result = hydrate_config(
+            config, dotenv_file_uris=[dotenv_file, f"salt-sealed:{sealed_file}"]
+        )
+
+        expected = {
+            "existing_key": "existing_value",
+            "host": "example.com",
+            "port": "8080",
+            "api_key": api_key_plaintext,
         }
-    }
-
-    result = hydrate_config(
-        config, dotenv_file_uris=dotenv_file, encrypted_secrets=encrypted_secrets
-    )
-
-    expected = {
-        "existing_key": "existing_value",
-        "host": "example.com",
-        "port": "8080",
-        "api_key": api_key_plaintext,
-    }
-    assert result == expected
-
-    Path(dotenv_file).unlink()
-    encryption.destroy_session_keypair()
+        assert result == expected
+    finally:
+        Path(dotenv_file).unlink()
+        Path(sealed_file).unlink()
+        encryption.destroy_session_keypair()
 
 
 @patch.dict(os.environ, {"ENABLE_SESSION_ENCRYPTION": "true"}, clear=True)
-def test_hydrate_config_encrypted_secret_decryption_failure():
-    """Test hydration fails gracefully when encrypted secret decryption fails."""
+def test_hydrate_config_salt_sealed_decryption_failure():
+    """Test hydration fails gracefully when salt-sealed secret decryption fails."""
     from importlib import reload
 
     from connector_builder_mcp import encryption
@@ -238,15 +253,20 @@ def test_hydrate_config_encrypted_secret_decryption_failure():
 
     config = {"host": "localhost"}
 
-    # Invalid encrypted secret
-    encrypted_secrets = {
-        "api_key": {"ciphertext": "invalid-base64!!!", "kid": "wrong-kid"}
-    }
+    # Create invalid encrypted file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.sealed', delete=False) as f:
+        json.dump({"ciphertext": "invalid-base64!!!", "kid": "wrong-kid"}, f)
+        sealed_file = f.name
 
-    with pytest.raises(ValueError, match="Failed to decrypt secret"):
-        hydrate_config(config, encrypted_secrets=encrypted_secrets)
+    try:
+        # Should fail gracefully - the invalid content will be logged and skipped
+        result = hydrate_config(config, dotenv_file_uris=f"salt-sealed:{sealed_file}")
 
-    encryption.destroy_session_keypair()
+        # Result should just have the original config since decryption failed
+        assert result == config
+    finally:
+        Path(sealed_file).unlink()
+        encryption.destroy_session_keypair()
 
 
 def test_get_encryption_instructions_disabled():

@@ -85,39 +85,67 @@ You can use any client-side encryption tool that supports libsodium sealed-box:
    const ciphertextBase64 = sodium.to_base64(ciphertext);
    ```
 
-### Option B: CLI One-Liner for Power Users
+### Option B: CLI for Power Users
 
-If you have the connector-builder-mcp package installed:
+If you have Python and PyNaCl installed, you can create a salt-sealed file:
 
 ```bash
-# Install if needed
-pip install airbyte-connector-builder-mcp
+python3 << 'EOF'
+import base64
+import json
+import nacl.public
 
-# Use the helper (future enhancement - see Implementation section)
+# Get public key from the session (copy from get_encryption_instructions())
+public_key_b64 = "YOUR_PUBLIC_KEY_HERE"
+kid = "YOUR_KID_HERE"
+
+public_key = nacl.public.PublicKey(base64.b64decode(public_key_b64))
+sealed_box = nacl.public.SealedBox(public_key)
+
+# Create dotenv-format content (use dot notation for nested paths)
+dotenv_content = """api_key=your-api-key-here
+credentials.password=your-password-here
+oauth.client_secret=your-oauth-secret"""
+
+# Encrypt the content
+ciphertext = sealed_box.encrypt(dotenv_content.encode('utf-8'))
+
+# Save to file
+encrypted_data = {
+    'kid': kid,
+    'ciphertext': base64.b64encode(ciphertext).decode('ascii')
+}
+
+with open('secrets.sealed', 'w') as f:
+    json.dump(encrypted_data, f)
+
+print('Created secrets.sealed file')
+print('Use with: salt-sealed:/absolute/path/to/secrets.sealed')
+EOF
 ```
 
 ## Using Encrypted Secrets
 
-Once you have the ciphertext, you can use it with the secrets hydration functionality:
+Once you have created a salt-sealed file, use it with the salt-sealed URI prefix:
 
 ```python
-# Example: Using hydrate_config with encrypted secrets
-encrypted_secrets = {
-    "api_key": {
-        "ciphertext": "YOUR_BASE64_CIPHERTEXT_HERE",
-        "kid": "SESSION_KID_HERE"
-    },
-    "credentials.password": {
-        "ciphertext": "ANOTHER_BASE64_CIPHERTEXT",
-        "kid": "SESSION_KID_HERE"
-    }
-}
+# Example: Using hydrate_config with salt-sealed secrets
+config = hydrate_config(
+    base_config,
+    dotenv_file_uris="salt-sealed:/absolute/path/to/secrets.sealed"
+)
 
-# This will decrypt the secrets and merge them into the config
-config = hydrate_config(base_config, encrypted_secrets=encrypted_secrets)
+# Or combine with regular dotenv files
+config = hydrate_config(
+    base_config,
+    dotenv_file_uris=[
+        "/path/to/config.env",
+        "salt-sealed:/absolute/path/to/secrets.sealed"
+    ]
+)
 ```
 
-The `encrypted_secrets` parameter accepts a dictionary mapping config paths to encrypted secret objects with `ciphertext` and `kid` fields.
+The salt-sealed file should contain JSON with `kid` and `ciphertext` fields. After decryption, the content should be in dotenv format. Use dot notation for nested config paths (e.g., `credentials.password`).
 
 ## Security Considerations
 
@@ -128,6 +156,7 @@ The `encrypted_secrets` parameter accepts a dictionary mapping config paths to e
 - ✅ **Session-scoped**: Each session gets a new keypair
 - ✅ **Buffer zeroization**: Plaintext buffers are cleared after use (to the extent Python allows)
 - ✅ **Size limits**: Ciphertext is limited to 64 KB to prevent abuse
+- ✅ **Absolute paths**: Salt-sealed URIs require absolute file paths for security
 
 ### What You Should Do
 
@@ -135,6 +164,7 @@ The `encrypted_secrets` parameter accepts a dictionary mapping config paths to e
 - 🔒 **Rotate secrets**: Use unique secrets per session or project
 - 🔒 **Verify kid**: Always check that the `kid` matches the current session
 - 🔒 **Don't share ciphertext**: Each ciphertext is tied to a specific session keypair
+- 🔒 **Use absolute paths**: Salt-sealed files must use absolute paths
 
 ### Limitations
 
@@ -159,6 +189,9 @@ The ciphertext might be invalid or encrypted with the wrong public key. Make sur
 ### "Ciphertext too large"
 Your secret is too large. The maximum size is 64 KB. Consider splitting it or using a reference/URL instead.
 
+### "Salt-sealed file not found"
+Ensure the file path is absolute and the file exists at that location.
+
 ## Examples
 
 ### Complete Workflow
@@ -174,31 +207,46 @@ Your secret is too large. The maximum size is 64 KB. Consider splitting it or us
    get_encryption_instructions()
    ```
 
-3. **Encrypt your secret**:
+3. **Create an encrypted secrets file**:
    ```bash
-   python3 -c "
+   python3 << 'EOF'
    import base64
+   import json
    import nacl.public
    
+   # Use public key from step 2
    public_key = nacl.public.PublicKey(base64.b64decode('sHpLmWIPfzyp8hizW9dCGpHWg4vpr71OiCvkuFsrN3o='))
+   kid = 'sHpLmWIPfzw'
+   
    sealed_box = nacl.public.SealedBox(public_key)
-   plaintext = 'my-api-key-12345'
-   ciphertext = sealed_box.encrypt(plaintext.encode('utf-8'))
-   print(base64.b64encode(ciphertext).decode('ascii'))
-   "
+   
+   # Create dotenv content with your secrets
+   dotenv_content = """api_key=my-api-key-12345
+   credentials.password=my-password-67890"""
+   
+   ciphertext = sealed_box.encrypt(dotenv_content.encode('utf-8'))
+   
+   with open('/absolute/path/to/secrets.sealed', 'w') as f:
+       json.dump({
+           'kid': kid,
+           'ciphertext': base64.b64encode(ciphertext).decode('ascii')
+       }, f)
+   
+   print('Created /absolute/path/to/secrets.sealed')
+   EOF
    ```
 
-4. **Use the encrypted secret**:
+4. **Use the salt-sealed secrets**:
    ```python
-   encrypted_secrets = {
-       "api_key": {
-           "ciphertext": "XtsqwzTEURX1kbwb6htoRjUdTVpaSBXjIyZ/NMAg83pkDpEiNqsYkgdNyNxmx3ntK+d1Nrrt95uHq6I=",
-           "kid": "sHpLmWIPfzw"
-       }
-   }
-   
-   config = hydrate_config({"host": "api.example.com"}, encrypted_secrets=encrypted_secrets)
-   # Result: {"host": "api.example.com", "api_key": "my-api-key-12345"}
+   config = hydrate_config(
+       {"host": "api.example.com"},
+       dotenv_file_uris="salt-sealed:/absolute/path/to/secrets.sealed"
+   )
+   # Result: {
+   #     "host": "api.example.com",
+   #     "api_key": "my-api-key-12345",
+   #     "credentials": {"password": "my-password-67890"}
+   # }
    ```
 
 ## Implementation Details
