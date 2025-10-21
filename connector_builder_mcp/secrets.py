@@ -4,6 +4,8 @@
 This module provides stateless tools for managing secrets in .env files and privatebin URLs without
 exposing actual secret values to the LLM. All functions require explicit dotenv
 file paths or privatebin URLs to be passed by the caller.
+
+It also supports session-scoped encryption for remote secrets when enabled.
 """
 
 import logging
@@ -265,8 +267,9 @@ def _merge_nested_dicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
 def hydrate_config(
     config: dict[str, Any],
     dotenv_file_uris: str | list[str] | None = None,
+    encrypted_secrets: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
-    """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
+    """Hydrate configuration with secrets from dotenv files, privatebin URLs, or encrypted secrets.
 
     Dotenv keys are mapped directly to config paths using dot notation:
     - credentials.password=foo   -> {"credentials": {"password": "foo"}}
@@ -277,22 +280,55 @@ def hydrate_config(
         config: Configuration dictionary to hydrate with secrets
         dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
                               or comma-separated string, or single string
+        encrypted_secrets: Dictionary of config paths to encrypted secret objects
+                          with 'ciphertext' and 'kid' keys, e.g.:
+                          {"api_key": {"ciphertext": "...", "kid": "..."}}
 
     Returns:
-        Configuration with secrets injected from .env files and privatebin URLs
+        Configuration with secrets injected from .env files, privatebin URLs, and encrypted secrets
     """
     config = config or {}
     if not isinstance(config, dict):
         raise TypeError(f"Expected config to be a dictionary, got {type(config)}")
 
-    if not dotenv_file_uris:
-        return config
+    # Load from dotenv files/URLs first
+    if dotenv_file_uris:
+        secrets = _load_secrets(dotenv_file_uris)
+        if secrets:
+            config = _merge_nested_dicts(config, secrets)
 
-    secrets = _load_secrets(dotenv_file_uris)
-    if not secrets:
-        return config
+    # Then decrypt and merge encrypted secrets if provided
+    if encrypted_secrets:
+        try:
+            # Import here to avoid circular dependency
+            from connector_builder_mcp.encryption import decrypt_secret, is_encryption_enabled
 
-    return _merge_nested_dicts(config, secrets)
+            if not is_encryption_enabled():
+                raise ValueError(
+                    "Encrypted secrets provided but session encryption is not enabled. "
+                    "Set ENABLE_SESSION_ENCRYPTION=true to use encrypted secrets."
+                )
+
+            decrypted_secrets: dict[str, Any] = {}
+            for config_path, encrypted_data in encrypted_secrets.items():
+                try:
+                    plaintext = decrypt_secret(encrypted_data)
+                    _set_nested_value(decrypted_secrets, config_path, plaintext)
+                except Exception as e:
+                    logger.error(f"Failed to decrypt secret for {config_path}: {e}")
+                    raise ValueError(
+                        f"Failed to decrypt secret for {config_path}: {e}"
+                    ) from e
+
+            config = _merge_nested_dicts(config, decrypted_secrets)
+
+        except ImportError as e:
+            logger.error(f"Encryption module not available: {e}")
+            raise ValueError(
+                "Encryption module not available. Ensure encryption.py is present."
+            ) from e
+
+    return config
 
 
 def list_dotenv_secrets(
@@ -599,6 +635,138 @@ def _config_path_to_dotenv_key(config_path: str) -> str:
     return config_path
 
 
+def get_encryption_instructions() -> str:
+    """Get instructions for using session-scoped encryption with the MCP server.
+
+    Returns:
+        Instructions for encrypting secrets client-side and using them with the MCP server
+    """
+    try:
+        from connector_builder_mcp.encryption import (
+            get_public_key_info,
+            is_encryption_enabled,
+        )
+
+        if not is_encryption_enabled():
+            return """# Session Encryption Not Enabled
+
+Session-scoped encryption is currently disabled. To enable it:
+
+1. Restart the MCP server with the environment variable:
+   ```
+   ENABLE_SESSION_ENCRYPTION=true
+   ```
+
+2. Once enabled, you can use encrypted secrets to avoid exposing plaintext to the LLM.
+
+**Security Note**: Encryption is feature-flagged and off by default to ensure backward compatibility.
+"""
+
+        public_key_info = get_public_key_info()
+        if public_key_info is None:
+            return """# Session Encryption Error
+
+Session encryption is enabled but the keypair has not been initialized.
+Please restart the MCP server or contact support.
+"""
+
+        return f"""# Session-Scoped Encryption Instructions
+
+Session encryption is **enabled** on this MCP server. You can use it to provide secrets without exposing plaintext.
+
+## Step 1: Get the Public Key
+
+The public key for this session is available as an MCP resource:
+- **Resource URI**: `mcp+session://encryption/pubkey`
+- **Key ID (kid)**: `{public_key_info.kid}`
+- **Algorithm**: `{public_key_info.alg}`
+- **Public Key**: `{public_key_info.public_key}`
+
+## Step 2: Encrypt Your Secret
+
+### Option A: Third-Party Encryption Sites (Recommended for MVP)
+
+Use a trusted client-side encryption tool:
+
+1. **libsodium.js demo** (client-side only):
+   - Visit: https://github.com/jedisct1/libsodium.js (look for sealed box examples)
+   - Or use any libsodium sealed-box compatible tool
+
+2. Copy the public key above
+3. Paste your secret and encrypt it using the libsodium sealed-box algorithm
+4. Copy the resulting base64-encoded ciphertext
+
+### Option B: CLI One-Liner (Power Users)
+
+If you have Python and PyNaCl installed, you can use this one-liner:
+
+```bash
+python3 -c "
+import base64
+import nacl.public
+import sys
+
+public_key_b64 = '{public_key_info.public_key}'
+public_key = nacl.public.PublicKey(base64.b64decode(public_key_b64))
+sealed_box = nacl.public.SealedBox(public_key)
+
+plaintext = input('Enter secret: ')
+ciphertext = sealed_box.encrypt(plaintext.encode('utf-8'))
+print('Ciphertext:', base64.b64encode(ciphertext).decode('ascii'))
+print('Kid:', '{public_key_info.kid}')
+"
+```
+
+Or install the connector-builder-mcp package and use:
+```bash
+uvx airbyte-connector-builder-mcp encrypt-secret
+```
+
+## Step 3: Use the Encrypted Secret
+
+Pass the encrypted secret to MCP tools using the `encrypted_secrets` parameter:
+
+```json
+{{
+  "config_path": {{
+    "ciphertext": "YOUR_BASE64_CIPHERTEXT",
+    "kid": "{public_key_info.kid}"
+  }}
+}}
+```
+
+For example, to hydrate a config with an encrypted API key:
+```json
+{{
+  "api_key": {{
+    "ciphertext": "...",
+    "kid": "{public_key_info.kid}"
+  }}
+}}
+```
+
+## Security Notes
+
+- **No plaintext at rest**: Secrets are decrypted only when needed and immediately discarded
+- **Session-scoped**: The keypair is destroyed when the MCP server stops
+- **Size limit**: Maximum ciphertext size is {public_key_info.max_size_bytes} bytes
+- **No logging**: Secrets are never logged or persisted
+
+## Troubleshooting
+
+- **Kid mismatch**: Ensure you're using the current session's public key
+- **Invalid ciphertext**: Verify the ciphertext is valid base64 and properly encrypted
+- **Size exceeded**: Keep secrets under the size limit ({public_key_info.max_size_bytes} bytes)
+"""
+
+    except ImportError:
+        return """# Session Encryption Not Available
+
+The encryption module is not available in this version of the MCP server.
+Please check the server installation or contact support.
+"""
+
+
 def register_secrets_tools(app: FastMCP) -> None:
     """Register secrets management tools with the FastMCP app.
 
@@ -607,3 +775,4 @@ def register_secrets_tools(app: FastMCP) -> None:
     """
     app.tool(list_dotenv_secrets)
     app.tool(populate_dotenv_missing_secrets_stubs)
+    app.tool(get_encryption_instructions)

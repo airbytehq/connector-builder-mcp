@@ -11,6 +11,7 @@ import yaml
 from connector_builder_mcp.secrets import (
     SecretsFileInfo,
     _load_secrets,
+    get_encryption_instructions,
     hydrate_config,
     list_dotenv_secrets,
     populate_dotenv_missing_secrets_stubs,
@@ -117,6 +118,170 @@ def test_hydrate_config_with_secrets(dummy_dotenv_file):
         "oauth": {"client_secret": "example_client_secret"},
     }
     assert result == expected
+
+
+@patch.dict(os.environ, {"ENABLE_SESSION_ENCRYPTION": "true"}, clear=True)
+def test_hydrate_config_with_encrypted_secrets():
+    """Test hydration with encrypted secrets."""
+    from importlib import reload
+
+    from connector_builder_mcp import encryption
+
+    reload(encryption)
+    encryption.initialize_session_keypair()
+
+    # Create encrypted secrets
+    api_key_plaintext = "secret-api-key-12345"
+    password_plaintext = "secret-password-67890"
+
+    encrypted_api_key = encryption.encrypt_for_testing(api_key_plaintext)
+    encrypted_password = encryption.encrypt_for_testing(password_plaintext)
+
+    config = {"host": "localhost", "credentials": {"username": "user"}}
+
+    encrypted_secrets = {
+        "api_key": {
+            "ciphertext": encrypted_api_key.ciphertext,
+            "kid": encrypted_api_key.kid,
+        },
+        "credentials.password": {
+            "ciphertext": encrypted_password.ciphertext,
+            "kid": encrypted_password.kid,
+        },
+    }
+
+    result = hydrate_config(config, encrypted_secrets=encrypted_secrets)
+
+    expected = {
+        "host": "localhost",
+        "api_key": api_key_plaintext,
+        "credentials": {"username": "user", "password": password_plaintext},
+    }
+    assert result == expected
+
+    encryption.destroy_session_keypair()
+
+
+def test_hydrate_config_with_encrypted_secrets_disabled():
+    """Test hydration with encrypted secrets when encryption is disabled."""
+    with patch.dict(os.environ, {}, clear=True):
+        from importlib import reload
+
+        from connector_builder_mcp import encryption
+
+        reload(encryption)
+
+        config = {"host": "localhost"}
+        encrypted_secrets = {
+            "api_key": {"ciphertext": "test", "kid": "test-kid"}
+        }
+
+        with pytest.raises(ValueError, match="session encryption is not enabled"):
+            hydrate_config(config, encrypted_secrets=encrypted_secrets)
+
+
+@patch.dict(os.environ, {"ENABLE_SESSION_ENCRYPTION": "true"}, clear=True)
+def test_hydrate_config_with_both_dotenv_and_encrypted():
+    """Test hydration with both dotenv files and encrypted secrets."""
+    from importlib import reload
+
+    from connector_builder_mcp import encryption
+
+    reload(encryption)
+    encryption.initialize_session_keypair()
+
+    # Create a dotenv file
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("host=example.com\n")
+        f.write("port=8080\n")
+        f.flush()
+        dotenv_file = f.name
+
+    # Create encrypted secret
+    api_key_plaintext = "encrypted-api-key"
+    encrypted_api_key = encryption.encrypt_for_testing(api_key_plaintext)
+
+    config = {"existing_key": "existing_value"}
+
+    encrypted_secrets = {
+        "api_key": {
+            "ciphertext": encrypted_api_key.ciphertext,
+            "kid": encrypted_api_key.kid,
+        }
+    }
+
+    result = hydrate_config(
+        config, dotenv_file_uris=dotenv_file, encrypted_secrets=encrypted_secrets
+    )
+
+    expected = {
+        "existing_key": "existing_value",
+        "host": "example.com",
+        "port": "8080",
+        "api_key": api_key_plaintext,
+    }
+    assert result == expected
+
+    Path(dotenv_file).unlink()
+    encryption.destroy_session_keypair()
+
+
+@patch.dict(os.environ, {"ENABLE_SESSION_ENCRYPTION": "true"}, clear=True)
+def test_hydrate_config_encrypted_secret_decryption_failure():
+    """Test hydration fails gracefully when encrypted secret decryption fails."""
+    from importlib import reload
+
+    from connector_builder_mcp import encryption
+
+    reload(encryption)
+    encryption.initialize_session_keypair()
+
+    config = {"host": "localhost"}
+
+    # Invalid encrypted secret
+    encrypted_secrets = {
+        "api_key": {"ciphertext": "invalid-base64!!!", "kid": "wrong-kid"}
+    }
+
+    with pytest.raises(ValueError, match="Failed to decrypt secret"):
+        hydrate_config(config, encrypted_secrets=encrypted_secrets)
+
+    encryption.destroy_session_keypair()
+
+
+def test_get_encryption_instructions_disabled():
+    """Test getting encryption instructions when encryption is disabled."""
+    # Note: We can't reliably test this with module reload because the ENABLE_SESSION_ENCRYPTION
+    # flag is set at import time. Instead, we test the behavior through the actual functions.
+    with patch("connector_builder_mcp.encryption.is_encryption_enabled", return_value=False):
+        instructions = get_encryption_instructions()
+        assert "not enabled" in instructions.lower()
+        assert "ENABLE_SESSION_ENCRYPTION" in instructions
+
+
+@patch.dict(os.environ, {"ENABLE_SESSION_ENCRYPTION": "true"}, clear=True)
+def test_get_encryption_instructions_enabled():
+    """Test getting encryption instructions when encryption is enabled."""
+    from importlib import reload
+
+    from connector_builder_mcp import encryption
+
+    reload(encryption)
+    encryption.initialize_session_keypair()
+
+    instructions = get_encryption_instructions()
+    assert "enabled" in instructions.lower()
+    assert "public key" in instructions.lower()
+    assert "ciphertext" in instructions.lower()
+    assert "kid" in instructions.lower()
+
+    # Check that the actual public key info is included
+    public_key_info = encryption.get_public_key_info()
+    assert public_key_info is not None
+    assert public_key_info.kid in instructions
+    assert public_key_info.public_key in instructions
+
+    encryption.destroy_session_keypair()
 
 
 def test_hydrate_config_ignores_comment_values(dummy_dotenv_file):
