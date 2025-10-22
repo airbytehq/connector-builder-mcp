@@ -2,10 +2,11 @@
 """Tools and utilities for running MCP-based agents for connector building."""
 
 import json
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Awaitable, Callable
+from typing import Annotated, Any
 
 import emoji
 from pydantic import BaseModel
@@ -21,7 +22,7 @@ class SessionState(BaseModel):
 
     workspace_dir: Path
     execution_log_file: Path
-    message_history: list = []
+    message_history: list = Field(default_factory=list)
     is_success: bool = False
     is_failed: bool = False
     start_time: datetime
@@ -83,7 +84,7 @@ def create_mcp_tool_logger(
             args_str = args_str[:200] + "..."
 
         update_progress_log(
-            f"🔧 [{agent_name}] MCP Tool call: {tool_name}", session_state
+            f"🔧 [{agent_name}] MCP Tool call: {tool_name}, args: {args_str}", session_state
         )
 
         result = await call_tool(tool_name, tool_args, None)
@@ -152,6 +153,7 @@ def create_mcp_connector_builder_for_manager(
             "populate_dotenv_missing_secrets_stubs",
         ],
     )
+
 
 MCP_PLAYWRIGHT_WEB_BROWSER = lambda: MCPServerStdio(  # noqa: E731
     "npx",

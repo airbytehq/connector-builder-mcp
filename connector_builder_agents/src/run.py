@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 
 from pydantic_ai import Agent
-from pydantic_ai.settings import ModelSettings
 
 from ._util import get_secrets_dotenv
 from .agents import (
@@ -56,7 +55,8 @@ async def run_connector_build(
 
     if api_name:
         instructions = (
-            f"Fully build and test an Airbyte source connector for '{api_name}'. \n" + (instructions or "")
+            f"Fully build and test an Airbyte source connector for '{api_name}'. \n"
+            + (instructions or "")
         ).strip()
     assert instructions, "By now, instructions should be non-null."
     if existing_connector_name and existing_config_name:
