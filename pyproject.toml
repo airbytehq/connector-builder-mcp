@@ -74,8 +74,8 @@ markers = [
 
 [tool.deptry]
 extend_exclude = [
-    ".*connector_builder_agents/src/evals/.*",
+    ".*connector_builder_agents/.*",
 ]
 
 [tool.deptry.per_rule_ignores]
-DEP003 = ["pydantic_ai", "emoji"] # These are used in the connector builder agents project.
+DEP001 = ["pydantic_ai", "emoji"] # These are used in the connector builder agents project.
