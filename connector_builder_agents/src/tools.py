@@ -1,23 +1,19 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Tools and utilities for running MCP-based agents for connector building."""
 
+import json
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import emoji
-from agents.mcp import (
-    MCPServer,
-    MCPServerStdio,
-    MCPServerStdioParams,
-)
-from agents.mcp.util import create_static_tool_filter
-from agents.tool import function_tool
 from pydantic import BaseModel
 from pydantic.fields import Field
+from pydantic_ai.mcp import CallToolFunc, MCPServer, MCPServerStdio, ToolResult
+from pydantic_ai.tools import RunContext
 
-# from agents import OpenAIConversationsSession
 from .constants import HEADLESS_BROWSER
 
 
@@ -26,6 +22,7 @@ class SessionState(BaseModel):
 
     workspace_dir: Path
     execution_log_file: Path
+    message_history: list = Field(default_factory=list)
     is_success: bool = False
     is_failed: bool = False
     start_time: datetime
@@ -33,8 +30,8 @@ class SessionState(BaseModel):
     def __init__(self, workspace_dir: Path, **kwargs):
         execution_log_file = workspace_dir / "automated-execution-log.md"
         start_time = datetime.now()
+        message_history = kwargs.get("message_history", [])
 
-        # Create the execution log file
         execution_log_file.write_text(
             f"# Automated Connector Build Log\n\n"
             "This file should not be edited directly. It is automatically updated by calls to the "
@@ -46,6 +43,7 @@ class SessionState(BaseModel):
         super().__init__(
             workspace_dir=workspace_dir,
             execution_log_file=execution_log_file,
+            message_history=message_history,
             start_time=start_time,
             **kwargs,
         )
@@ -60,84 +58,125 @@ def create_session_state(workspace_dir: Path) -> SessionState:
     return SessionState(workspace_dir=workspace_dir)
 
 
-MCP_CONNECTOR_BUILDER_FOR_DEVELOPER = lambda: MCPServerStdio(  # noqa: E731
-    # This should run from the local dev environment:
-    name="airbyte-connector-builder-mcp-for-developer",
-    params=MCPServerStdioParams(
-        command="uv",
-        args=[
+def create_mcp_tool_logger(
+    agent_name: str, session_state: SessionState
+) -> Callable[[RunContext[Any], CallToolFunc, str, dict[str, Any]], Awaitable[ToolResult]]:
+    """Create a tool call logger for an MCP server.
+
+    Args:
+        agent_name: Name of the agent using this MCP server (for logging)
+        session_state: Session state for logging
+
+    Returns:
+        A process_tool_call callback that logs MCP tool calls
+    """
+
+    async def log_mcp_tool_call(
+        ctx: RunContext[Any],
+        call_tool: CallToolFunc,
+        tool_name: str,
+        tool_args: dict[str, Any],
+    ) -> ToolResult:
+        """Log and execute an MCP tool call."""
+        # Format args for logging (truncate if too long)
+        args_str = json.dumps(tool_args, indent=2)
+        if len(args_str) > 200:
+            args_str = args_str[:200] + "..."
+
+        update_progress_log(
+            f"🔧 [{agent_name}] MCP Tool call: {tool_name}, args: {args_str}", session_state
+        )
+
+        result = await call_tool(tool_name, tool_args, None)
+
+        return result
+
+    return log_mcp_tool_call
+
+
+class FilteredMCPServerStdio(MCPServerStdio):
+    def __init__(self, *args, excluded_tools: list[str] | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.excluded_tools = excluded_tools or []
+
+    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, Any]:
+        all_tools = await super().get_tools(ctx)
+
+        return {
+            name: tool
+            for name, tool in all_tools.items()
+            if not any(excluded in name for excluded in self.excluded_tools)
+        }
+
+
+def create_mcp_connector_builder_for_developer(
+    session_state: SessionState,
+) -> MCPServerStdio:
+    """Create MCP connector builder server for developer agent."""
+    return FilteredMCPServerStdio(
+        "uv",
+        [
             "run",
             "airbyte-connector-builder-mcp",
         ],
         env={},
-    ),
-    cache_tools_list=True,
-    tool_filter=create_static_tool_filter(
-        blocked_tool_names=[
-            # Don't allow the agent to "cheat" by pulling an existing manifest directly (if exists).
-            # TODO: Make this conditional based on the type of test we are doing:
+        tool_prefix="developer",
+        timeout=180,
+        process_tool_call=create_mcp_tool_logger("Developer", session_state),
+        excluded_tools=["get_connector_manifest", "populate_dotenv_missing_secrets_stubs"],
+    )
+
+
+def create_mcp_connector_builder_for_manager(
+    session_state: SessionState,
+) -> MCPServerStdio:
+    """Create MCP connector builder server for manager agent."""
+    return FilteredMCPServerStdio(
+        "uv",
+        [
+            "run",
+            "airbyte-connector-builder-mcp",
+        ],
+        env={},
+        tool_prefix="manager",
+        timeout=60,
+        process_tool_call=create_mcp_tool_logger("Manager", session_state),
+        excluded_tools=[
+            "validate_manifest",
+            "execute_stream_test_read",
+            "execute_dynamic_manifest_resolution_test",
+            "get_manifest_yaml_json_schema",
+            "get_connector_builder_docs",
             "get_connector_manifest",
-            # When we aren't interactive, the agent needs to use the secrets that they have already:
+            "find_connectors_by_class_name",
+            "create_connector_manifest_scaffold",
             "populate_dotenv_missing_secrets_stubs",
         ],
-    ),
-    # TODO: Figure out how to make this timeout non-fatal to the LLM Agent:
-    client_session_timeout_seconds=60 * 3,  # Longer timeout for long-running connector reads
-)
-MCP_CONNECTOR_BUILDER_FOR_MANAGER = lambda: MCPServerStdio(  # noqa: E731
-    # This should run from the local dev environment:
-    name="airbyte-connector-builder-mcp-for-manager",
-    params=MCPServerStdioParams(
-        command="uv",
-        args=[
-            "run",
-            "airbyte-connector-builder-mcp",
-        ],
-        env={},
-    ),
-    cache_tools_list=True,
-    tool_filter=create_static_tool_filter(
-        allowed_tool_names=[
-            "get_connector_builder_checklist",
-            "run_connector_readiness_test_report",
-            "list_dotenv_secrets",
-        ],
-    ),
-    # TODO: Figure out how to make this timeout non-fatal to the LLM Agent:
-    client_session_timeout_seconds=60 * 3,  # Longer timeout for long-running connector reads
-)
+    )
+
 
 MCP_PLAYWRIGHT_WEB_BROWSER = lambda: MCPServerStdio(  # noqa: E731
-    name="playwright-web-browser",
-    params=MCPServerStdioParams(
-        command="npx",
-        args=[
-            "@playwright/mcp@latest",
-            *(["--headless"] if HEADLESS_BROWSER else []),
-        ],
-        env={},
-    ),
-    cache_tools_list=True,
-    # Default 5s timeout is too short.
-    # - https://github.com/modelcontextprotocol/python-sdk/issues/407
-    client_session_timeout_seconds=20,
+    "npx",
+    [
+        "@playwright/mcp@latest",
+        *(["--headless"] if HEADLESS_BROWSER else []),
+    ],
+    env={},
+    timeout=60,
 )
 
 
 def create_mcp_filesystem_server(session_state: SessionState) -> MCPServerStdio:
     """Create MCP filesystem server for the given session state."""
     return MCPServerStdio(
-        name="agent-workspace-filesystem",
-        params=MCPServerStdioParams(
-            command="npx",
-            args=[
-                "mcp-server-filesystem",
-                str(session_state.workspace_dir.absolute()),
-            ],
-            env={},
-        ),
-        cache_tools_list=True,
-        client_session_timeout_seconds=60,
+        "npx",
+        [
+            "mcp-server-filesystem",
+            str(session_state.workspace_dir.absolute()),
+        ],
+        env={},
+        tool_prefix="filesystem",
+        timeout=60,
     )
 
 
@@ -149,9 +188,9 @@ def create_session_mcp_servers(
     Returns:
         Tuple of (all_servers, manager_servers, developer_servers)
     """
-    # Create shared server instances
-    connector_builder_dev = MCP_CONNECTOR_BUILDER_FOR_DEVELOPER()
-    connector_builder_manager = MCP_CONNECTOR_BUILDER_FOR_MANAGER()
+    # Create shared server instances with logging
+    connector_builder_dev = create_mcp_connector_builder_for_developer(session_state)
+    connector_builder_manager = create_mcp_connector_builder_for_manager(session_state)
     filesystem_server = create_mcp_filesystem_server(session_state)
 
     # Create server lists reusing the same instances
@@ -218,7 +257,6 @@ def update_progress_log(
 def create_mark_job_success_tool(session_state: SessionState):
     """Create a mark_job_success tool bound to a specific session state."""
 
-    @function_tool
     def mark_job_success() -> None:
         """Mark the current phase as complete.
 
@@ -234,16 +272,21 @@ def create_mark_job_success_tool(session_state: SessionState):
 def create_mark_job_failed_tool(session_state: SessionState):
     """Create a mark_job_failed tool bound to a specific session state."""
 
-    @function_tool
-    def mark_job_failed() -> None:
+    def mark_job_failed(reason: str | None = None) -> None:
         """Mark the current phase as failed.
 
         This should only be called in the event that it is no longer possible to make progress.
         Before calling this tool, you should attempt to save the latest output of the
         connector readiness report to the workspace directory for review.
+
+        Args:
+            reason: Optional explanation of why the job failed.
         """
         session_state.is_failed = True
-        update_progress_log("❌ Failed connector builder task.", session_state)
+        msg = "❌ Failed connector builder task."
+        if reason:
+            msg += f" Reason: {reason}"
+        update_progress_log(msg, session_state)
 
     return mark_job_failed
 
@@ -269,14 +312,12 @@ def log_problem_encountered(
 def create_log_tool_failure_tool(session_state: SessionState):
     """Create a log_tool_failure tool bound to a specific session state."""
 
-    @function_tool()
     def log_tool_failure(
         tool_name: Annotated[
             str,
             Field(description="Name of the tool that failed."),
         ],
         input_args: Annotated[str, Field(description="Input arguments for the tool.")],
-        # *,
         summary_failure_description: Annotated[
             str, Field(description="Summary description of the failure.")
         ],
@@ -305,51 +346,46 @@ def create_log_tool_failure_tool(session_state: SessionState):
 def create_log_problem_encountered_by_manager_tool(session_state: SessionState):
     """Create a log_problem_encountered tool for manager agent bound to a specific session state."""
 
-    @function_tool(name_override="log_problem_encountered")
-    def log_problem_encountered_by_manager(description: str) -> None:
+    def log_problem_encountered_inner(description: str) -> None:
         """Log a problem encountered message from the manager agent."""
         log_problem_encountered(description, AgentEnum.MANAGER_AGENT_NAME, session_state)
 
-    return log_problem_encountered_by_manager
+    return log_problem_encountered_inner
 
 
 def create_log_problem_encountered_by_developer_tool(session_state: SessionState):
     """Create a log_problem_encountered tool for developer agent bound to a specific session state."""
 
-    @function_tool(name_override="log_problem_encountered")
-    def log_problem_encountered_by_developer(description: str) -> None:
+    def log_problem_encountered_inner(description: str) -> None:
         """Log a problem encountered message from the developer agent."""
         log_problem_encountered(description, AgentEnum.DEVELOPER_AGENT_NAME, session_state)
 
-    return log_problem_encountered_by_developer
+    return log_problem_encountered_inner
 
 
 def create_log_progress_milestone_from_manager_tool(session_state: SessionState):
     """Create a log_progress_milestone tool for manager agent bound to a specific session state."""
 
-    @function_tool(name_override="log_progress_milestone")
-    def log_progress_milestone_from_manager(message: str) -> None:
+    def log_progress_milestone_inner(message: str) -> None:
         """Log a milestone message from the manager agent."""
         log_progress_milestone(message, AgentEnum.MANAGER_AGENT_NAME, session_state)
 
-    return log_progress_milestone_from_manager
+    return log_progress_milestone_inner
 
 
 def create_log_progress_milestone_from_developer_tool(session_state: SessionState):
     """Create a log_progress_milestone tool for developer agent bound to a specific session state."""
 
-    @function_tool(name_override="log_progress_milestone")
-    def log_progress_milestone_from_developer(message: str) -> None:
+    def log_progress_milestone_inner(message: str) -> None:
         """Log a milestone message from the developer agent."""
         log_progress_milestone(message, AgentEnum.DEVELOPER_AGENT_NAME, session_state)
 
-    return log_progress_milestone_from_developer
+    return log_progress_milestone_inner
 
 
 def create_get_progress_log_text_tool(session_state: SessionState):
     """Create a get_progress_log_text tool bound to a specific session state."""
 
-    @function_tool
     def get_progress_log_text() -> str:
         """Get the current progress log text."""
         return session_state.execution_log_file.absolute().read_text(encoding="utf-8")
@@ -360,7 +396,6 @@ def create_get_progress_log_text_tool(session_state: SessionState):
 def create_get_latest_readiness_report_tool(session_state: SessionState):
     """Create a get_latest_readiness_report tool bound to a specific session state."""
 
-    @function_tool
     def get_latest_readiness_report() -> str:
         """Get the path to the latest connector readiness report, if it exists."""
         report_path = session_state.workspace_dir / "connector-readiness-report.md"

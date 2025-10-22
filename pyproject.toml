@@ -36,9 +36,6 @@ dev = [
     "types-jsonschema>=4.0.0",
     "types-pyyaml>=6.0.0",
     "types-requests>=2.25.0",
-    # Blocked by `numpy<2` condition in the CDK:
-    # "openai-agents-mcp>=0.0.8",
-    # "openai-agents>=0.0.9",
 ]
 
 [project.scripts]
@@ -76,8 +73,9 @@ markers = [
 ]
 
 [tool.deptry]
-exclude = [
-    "connector_builder_agents/",
-    ".venv/",
-    "tests/",
+extend_exclude = [
+    ".*connector_builder_agents/.*",
 ]
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["pydantic_ai", "emoji"] # These are used in the connector builder agents project.
