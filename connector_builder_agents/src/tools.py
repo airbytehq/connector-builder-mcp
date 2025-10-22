@@ -83,7 +83,9 @@ def create_mcp_tool_logger(
         if len(args_str) > 200:
             args_str = args_str[:200] + "..."
 
-        update_progress_log(f"🔧 [{agent_name}] MCP Tool call: {tool_name}", session_state)
+        update_progress_log(
+            f"🔧 [{agent_name}] MCP Tool call: {tool_name}, args: {args_str}", session_state
+        )
 
         result = await call_tool(tool_name, tool_args, None)
 
