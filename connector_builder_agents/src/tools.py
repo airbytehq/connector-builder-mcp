@@ -22,7 +22,7 @@ class SessionState(BaseModel):
 
     workspace_dir: Path
     execution_log_file: Path
-    message_history: list = []
+    message_history: list = Field(default_factory=list)
     is_success: bool = False
     is_failed: bool = False
     start_time: datetime
