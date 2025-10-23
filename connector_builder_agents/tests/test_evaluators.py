@@ -4,11 +4,14 @@
 import json
 from typing import Mapping
 from unittest.mock import patch
-
 import pandas as pd
 import pytest
+import yaml
 
+from connector_builder_agents.src.evals.task import ConnectorBuilderEvalTaskOutput
 from src.evals.evaluators import (
+    manifest_validation_eval,
+    primary_key_eval,
     readiness_eval,
     streams_eval,
 )
@@ -139,6 +142,60 @@ spec:
 
 
 @pytest.fixture
+def invalid_manifest_yaml():
+    """Return an invalid manifest YAML."""
+    return """
+version: "4.3.0"
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - users
+streams:
+  - type: DeclarativeStream
+    name: users
+    primary_key:
+        - id
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: "https://api.example.com"
+        path: "/users"
+        http_method: GET
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: []
+  - type: DeclarativeStream
+    name: posts
+    primary_key:
+        - id
+    retriever:
+      type: SimpleRetriever
+    requester:
+    type: HttpRequester
+    url_base: "https://api.example.com"
+    path: "/posts"
+    http_method: GET
+    record_selector:
+    type: RecordSelector
+    extractor:
+        type: DpathExtractor
+        field_path: []
+spec:
+  type: Spec
+  documentation_url: https://example.com/docs
+  connection_specification:
+    $schema: http://json-schema.org/draft-07/schema#
+    type: object
+    additionalProperties: true
+    properties: {}
+"""
+
+
+@pytest.fixture
 def valid_readiness_report_passed():
     """Return a readiness report string with passing indicators."""
     return """
@@ -195,7 +252,7 @@ Critical errors preventing data extraction. Connector is not ready.
 """
 
 
-def create_output_dict(readiness_report=None, manifest=None):
+def create_connector_builder_eval_task_output_dict(readiness_report=None, manifest=None) -> dict:
     """Helper to create properly structured output dict."""
     return {
         "workspace_dir": "/tmp/test",
@@ -211,7 +268,7 @@ def create_output_dict(readiness_report=None, manifest=None):
 
 def create_expected_dict(expected_streams: list[Mapping]):
     """Helper to create properly structured expected dict.
-    
+
     Args:
         expected_streams: Mapping of expected streams
     """
@@ -219,35 +276,60 @@ def create_expected_dict(expected_streams: list[Mapping]):
     return {"expected": json.dumps(expected_obj)}
 
 
+def test_manifest_validation_eval_success(valid_manifest_yaml_simple):
+    """Test manifest_validation_eval returns 1 when manifest is valid."""
+    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_simple)
+    result = manifest_validation_eval(output)
+    assert result == 1
+
+
+def test_manifest_validation_eval_failure(valid_manifest_yaml_partial):
+    """Test manifest_validation_eval returns 0 when manifest is invalid."""
+    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_partial)
+    result = manifest_validation_eval(output)
+    assert result == 0
+
+
+def test_manifest_validation_eval_failure():
+    """Test manifest_validation_eval returns 0 when no manifest is provided."""
+    output = create_connector_builder_eval_task_output_dict(manifest=None)
+    result = manifest_validation_eval(output)
+    assert result == 0
+
+
 def test_readiness_eval_passing_report(valid_readiness_report_passed):
     """Test readiness_eval returns 1 when report indicates PASSED."""
-    output = create_output_dict(readiness_report=valid_readiness_report_passed)
+    output = create_connector_builder_eval_task_output_dict(
+        readiness_report=valid_readiness_report_passed
+    )
 
-    # Mock llm_classify to return PASSED
-    mock_df = pd.DataFrame([{"label": "PASSED", "explanation": "All checks passed"}])
+    mock_df = pd.DataFrame([{"label": "PASSED", "explanation": "All tests passed successfully"}])
 
-    with patch("src.evals.evaluators.llm_classify", return_value=mock_df):
+    with patch("src.evals.evaluators.llm_classify") as mock_llm_classify:
+        mock_llm_classify.return_value = mock_df
         result = readiness_eval(output)
-
-    assert result == 1
+        assert result == 1
 
 
 def test_readiness_eval_failing_report(valid_readiness_report_failed):
     """Test readiness_eval returns 0 when report indicates FAILED."""
-    output = create_output_dict(readiness_report=valid_readiness_report_failed)
+    output = create_connector_builder_eval_task_output_dict(
+        readiness_report=valid_readiness_report_failed
+    )
 
-    # Mock llm_classify to return FAILED
-    mock_df = pd.DataFrame([{"label": "FAILED", "explanation": "Critical errors found"}])
+    mock_df = pd.DataFrame(
+        [{"label": "FAILED", "explanation": "Tests failed due to critical errors"}]
+    )
 
-    with patch("src.evals.evaluators.llm_classify", return_value=mock_df):
+    with patch("src.evals.evaluators.llm_classify") as mock_llm_classify:
+        mock_llm_classify.return_value = mock_df
         result = readiness_eval(output)
-
-    assert result == 0
+        assert result == 0
 
 
 def test_streams_eval_perfect_match(valid_manifest_yaml_simple):
     """Test streams_eval returns 1.0 when all expected streams are present."""
-    output = create_output_dict(manifest=valid_manifest_yaml_simple)
+    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_simple)
     expected_streams = [
         {"name": "users", "primary_key": ["id"]},
         {"name": "posts", "primary_key": ["id"]},
@@ -261,7 +343,7 @@ def test_streams_eval_perfect_match(valid_manifest_yaml_simple):
 
 def test_streams_eval_partial_match(valid_manifest_yaml_partial):
     """Test streams_eval returns 0.5 when 2 out of 4 expected streams are present."""
-    output = create_output_dict(manifest=valid_manifest_yaml_partial)
+    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_partial)
     expected_streams = [
         {"name": "users", "primary_key": ["id"]},
         {"name": "posts", "primary_key": ["id"]},
@@ -276,7 +358,7 @@ def test_streams_eval_partial_match(valid_manifest_yaml_partial):
 
 def test_streams_eval_no_match(valid_manifest_yaml_simple):
     """Test streams_eval returns 0.0 when none of the expected streams are present."""
-    output = create_output_dict(manifest=valid_manifest_yaml_simple)
+    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_simple)
     # Manifest has users, posts, comments; we expect completely different streams
     expected_streams = [
         {"name": "products", "primary_key": ["id"]},
@@ -290,9 +372,7 @@ def test_streams_eval_no_match(valid_manifest_yaml_simple):
 
 def test_streams_eval_extra_streams_in_output(valid_manifest_yaml_simple):
     """Test streams_eval returns 1.0 when all expected streams are present even with extras."""
-    # Manifest has users, posts, comments (3 streams)
-    # We only expect users and posts (2 streams)
-    output = create_output_dict(manifest=valid_manifest_yaml_simple)
+    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_simple)
     expected_streams = [
         {"name": "users", "primary_key": ["id"]},
     ]
@@ -300,3 +380,56 @@ def test_streams_eval_extra_streams_in_output(valid_manifest_yaml_simple):
     result = streams_eval(expected, output)
 
     assert result == 1.0
+
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "expected_pk, manifest_pk",
+    [
+        (["id"], ["id"]),  # both as list
+        ([["id"]], [["id"]]),  # both as nested list
+        (["id", "user_id"], ["id", "user_id"]),  # composite primary key as flat list
+        ([["id", "user_id"]], [["id", "user_id"]]),  # composite primary key as nested list
+    ],
+)
+def test_primary_key_eval_various_formats(valid_manifest_yaml_simple, expected_pk, manifest_pk):
+    """Test primary_key_eval returns 1.0 for various primary key formats."""
+    manifest_dict = yaml.safe_load(valid_manifest_yaml_simple)
+    for stream in manifest_dict["streams"]:
+        if stream["name"] == "users":
+            stream["primary_key"] = manifest_pk
+
+    # rebuild YAML string
+    manifest_modified = yaml.dump(manifest_dict)
+    output = create_connector_builder_eval_task_output_dict(manifest=manifest_modified)
+    expected_streams = [
+        {"name": "users", "primary_key": expected_pk},
+    ]
+    expected = create_expected_dict(expected_streams)
+    result = primary_key_eval(expected, output)
+    assert result == 1.0
+
+
+def test_primary_key_eval_no_match(valid_manifest_yaml_simple):
+    """Test primary_key_eval returns 0.0 when no expected streams are present."""
+    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_simple)
+    expected_streams = [
+        {"name": "products", "primary_key": ["id"]},
+    ]
+    expected = create_expected_dict(expected_streams)
+    result = primary_key_eval(expected, output)
+    assert result == 0.0
+
+
+def test_primary_key_partial_match(valid_manifest_yaml_simple):
+    """Test primary_key_eval returns 0.5 when 1 out of 2 expected streams are present."""
+    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_simple)
+    expected_streams = [
+        {"name": "users", "primary_key": ["id"]},
+        {"name": "posts", "primary_key": ["uuid"]},
+    ]
+    expected = create_expected_dict(expected_streams)
+    result = primary_key_eval(expected, output)
+    assert result == 0.5

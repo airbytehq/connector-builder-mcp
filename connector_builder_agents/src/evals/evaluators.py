@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 from opentelemetry.trace import get_current_span
 from phoenix.evals import OpenAIModel, llm_classify
 
+from airbyte_cdk.sources.declarative.models import DeclarativeSource
+from connector_builder_agents.src.evals.task import ConnectorBuilderEvalTaskOutput
+
 
 load_dotenv()
 
@@ -36,14 +39,45 @@ Based on the connector readiness report below, classify whether the test PASSED 
 """
 
 
-def readiness_eval(output: dict) -> int:
+def manifest_validation_eval(output: dict | None) -> int:
+    """Evaluate if the manifest is valid by parsing it as a DeclarativeSource. Return 1 if PASSED, 0 if FAILED."""
+
+    if output is None:
+        logger.warning("No output provided - build task likely failed")
+        return 0
+
+    connector_builder_eval_task_output = ConnectorBuilderEvalTaskOutput(**output)
+
+    manifest = connector_builder_eval_task_output.artifacts.get("manifest", None)
+    if manifest is None:
+        logger.warning("No manifest found")
+        return 0
+
+    try:
+        manifest_dict = yaml.safe_load(manifest)
+    except yaml.YAMLError as e:
+        logger.warning(f"Failed to parse manifest YAML: {e}")
+        return 0
+
+    try:
+        DeclarativeSource.parse_obj(manifest_dict)
+    except Exception as e:
+        logger.warning(f"Failed to parse DeclarativeSource from manifest: {e}")
+        return 0
+
+    return 1
+
+
+def readiness_eval(output: dict | None) -> int:
     """Create Phoenix LLM classifier for readiness evaluation. Return 1 if PASSED, 0 if FAILED."""
 
     if output is None:
-        logger.warning("Output is None, cannot evaluate readiness")
-        return 0
+        logger.warning("No output provided - build task likely failed")
+        return 0.0
 
-    readiness_report = output.get("artifacts", {}).get("readiness_report", None)
+    connector_builder_eval_task_output = ConnectorBuilderEvalTaskOutput(**output)
+
+    readiness_report = connector_builder_eval_task_output.artifacts.get("readiness_report", None)
     if readiness_report is None:
         logger.warning("No readiness report found")
         return 0
@@ -66,26 +100,38 @@ def readiness_eval(output: dict) -> int:
     return score
 
 
-def streams_eval(expected: dict, output: dict) -> float:
+def streams_eval(expected: dict, output: dict | None) -> float:
     """Evaluate if all expected streams were built. Return the percentage of expected streams that are present in available streams."""
 
     if output is None:
-        logger.warning("Output is None, cannot evaluate streams")
+        logger.warning("No output provided - build task likely failed")
         return 0.0
 
-    manifest_str = output.get("artifacts", {}).get("manifest", None)
-    if manifest_str is None:
-        logger.warning("No manifest found")
+    connector_builder_eval_task_output = ConnectorBuilderEvalTaskOutput(**output)
+
+    manifest_str = connector_builder_eval_task_output.artifacts.get("manifest", None)
+    if not manifest_str:
+        logger.warning("No manifest found or manifest is empty")
         return 0
 
-    manifest = yaml.safe_load(manifest_str)
-    available_streams = manifest.get("streams", [])
-    available_stream_names = [stream.get("name", "") for stream in available_streams]
+    manifest_dict = yaml.safe_load(manifest_str)
+
+    try:
+        declarative_source = DeclarativeSource.parse_obj(manifest_dict)
+        if hasattr(declarative_source, "__root__"):
+            declarative_source = declarative_source.__root__
+    except Exception as e:
+        logger.error(f"Failed to parse DeclarativeSource from manifest: {e}")
+        return 0.0
+
+    available_stream_names = []
+    for stream in declarative_source.streams:
+        available_stream_names.append(stream.name)
     logger.info(f"Available stream names: {available_stream_names}")
 
     expected_obj = json.loads(expected.get("expected", "{}"))
-    expected_stream_names = expected_obj.get("expected_streams", [])
-    logger.info(f"Expected stream names: {expected_stream_names}")
+    expected_streams = expected_obj.get("expected_streams", [])
+    expected_stream_names = [stream["name"] for stream in expected_streams]
 
     # Set attributes on span for visibility
     span = get_current_span()
@@ -102,3 +148,60 @@ def streams_eval(expected: dict, output: dict) -> float:
     percent_matched = len(matched_streams) / len(expected_stream_names)
     logger.info(f"Percent matched: {percent_matched}")
     return float(percent_matched)
+
+
+def primary_key_eval(expected: dict, output: dict | None) -> float:
+    """Return fraction of matched expected streams whose primary key matches."""
+
+    if not output:
+        logger.warning("No output provided - build task likely failed")
+        return 0.0
+
+    manifest_str = ConnectorBuilderEvalTaskOutput(**output).artifacts.get("manifest")
+    if not manifest_str:
+        logger.warning("No manifest found or manifest is empty")
+        return 0.0
+
+    try:
+        manifest = yaml.safe_load(manifest_str)
+        declarative_source = DeclarativeSource.parse_obj(manifest)
+        declarative_source = getattr(declarative_source, "__root__", declarative_source)
+    except Exception as e:
+        logger.error(f"Failed to parse DeclarativeSource from manifest: {e}")
+        return 0.0
+
+    expected_streams = json.loads(expected.get("expected", "{}")).get("expected_streams", [])
+    if not expected_streams:
+        logger.warning("No expected streams found")
+        return 0.0
+
+    expected_by_name = {stream["name"]: stream.get("primary_key") for stream in expected_streams}
+    available = {s.name: s for s in declarative_source.streams}
+    matched_names = set(expected_by_name) & set(available)
+
+    if not matched_names:
+        logger.info("No matching streams found")
+        return 0.0
+
+    def normalize_pk(pk):
+        # Flatten __root__ and coerce to list if needed
+        value = getattr(pk, "__root__", pk)
+        if isinstance(value, list):
+            return value
+        if hasattr(value, "__iter__") and not isinstance(value, str):
+            return list(value)
+        return [value] if value is not None else []
+
+    correct = 0
+    for name in matched_names:
+        actual_pk = normalize_pk(getattr(available[name], "primary_key", None))
+        expected_pk = expected_by_name[name] or []
+        if actual_pk == expected_pk:
+            correct += 1
+
+    percent = correct / len(matched_names)
+    logger.info(f"Correct primary keys: {correct} / {len(matched_names)} = {percent}")
+    return percent
+
+
+EVALUATORS = [manifest_validation_eval, readiness_eval, streams_eval]

@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
+from airbyte_cdk.sources.declarative.models import DeclarativeSource
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel, Field
 
@@ -35,6 +36,7 @@ from connector_builder_mcp._util import (
     as_bool,
     as_dict,
     filter_config_secrets,
+    is_valid_declarative_source_manifest,
     parse_manifest_input,
     validate_manifest_structure,
 )
@@ -205,6 +207,8 @@ def _format_validation_error(
 
     detailed_error += "".join(additional_info)
 
+    logger.warning(f"⚠️ Length of detailed_error: {len(detailed_error)}")
+
     return detailed_error
 
 
@@ -231,10 +235,10 @@ def validate_manifest(
     try:
         manifest_dict, _ = parse_manifest_input(manifest)
 
-        if not validate_manifest_structure(manifest_dict):
-            errors.append(
-                "Manifest missing required fields: version, type, check, and either streams or dynamic_streams"
-            )
+        is_valid, error_message = validate_manifest_structure(manifest_dict)
+        # is_valid, error_message = is_valid_declarative_source_manifest(manifest_dict)
+        if not is_valid:
+            errors.append(error_message)
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         try:

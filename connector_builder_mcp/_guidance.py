@@ -11,7 +11,7 @@ hydration. Can be a single string, comma-separated string, or list of strings.
 Privatebin secrets may be created at privatebin.net, and must:
 - Contain text formatted as a dotenv file.
 - Use a password sent via the `PRIVATEBIN_PASSWORD` env var.
-- Not include password text in the URL.
+- Do not include password text in the URL.
 """
 
 TOPIC_MAPPING: dict[str, tuple[str, str]] = {
@@ -165,7 +165,7 @@ Follow steps for one stream at a time. Lessons learned from one stream are gener
       - If counts are suspect, you can sometimes get helpful info from raw responses data, inspecting the headers and returned content body for clues.
 - [ ] 📝 Record the total records count for each stream, as you go. This is information the user will want to audit when the connector is complete.
 
-**Important**: When streaming to end of stream to get record counts, please disable records and raw responses to avoid overloading the LLM context window.
+**Important**: When streaming to end of stream to get record counts, disable records and raw responses to avoid overloading the LLM context window.
 
 
 - [ ] Only add additional streams after first stream is fully validated.
@@ -180,11 +180,13 @@ Follow steps for one stream at a time. Lessons learned from one stream are gener
 - [ ] Use validate manifest tool to confirm JSON schema is correct.
 - [ ] Documentation is complete.
 
-
+Rules:
 - Custom Python components are not supported (for security reasons).
 - All MCP tools support receiving .env file path - please pass it without parsing secrets yourself.
 - Call connector builder docs tool for specific component topics as needed.
 - YAML anchors are not supported, although other means are available, such as ref pointers.
+- The connector spec should be included in the manifest, not as a separate file.
+- If manifest validation fails, review the errors and relevant documentation and then attempt to resolve the errors.
 
 
 For detailed guidance on specific components, use the connector builder docs tool. If called with no inputs, it will provide you an index of all available topics.

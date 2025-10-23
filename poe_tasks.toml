@@ -17,6 +17,7 @@ lock = { shell = "uv lock && uv lock --project=connector_builder_agents", help =
 mypy = { cmd = "uv run mypy connector_builder_mcp", help = "Type check code with mypy" }
 test = { cmd = "uv run pytest tests/ -v", help = "Run tests with verbose output" }
 test-fast = { cmd = "uv run pytest --exitfirst tests", help = "Run tests, stop on first failure" }
+test-agents = { cmd = "uv run --project=connector_builder_agents python -m  pytest connector_builder_agents/tests -v", help = "Run agents tests with verbose output" }
 
 # Aliases
 check-types = ["mypy"]
