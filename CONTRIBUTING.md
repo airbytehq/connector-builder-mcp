@@ -238,6 +238,90 @@ def register_tools(app: FastMCP) -> None:
     app.tool()(my_new_tool)
 ```
 
+## Adding New Documentation Topics
+
+The connector builder MCP provides documentation through the `get_connector_builder_docs()` tool, which serves content from the Airbyte documentation repository. To add new topics:
+
+### 1. Identify the Documentation Source
+
+Topics are mapped in `connector_builder_mcp/_guidance.py` in the `TOPIC_MAPPING` dictionary. Each topic has:
+- A key (the topic name that users request)
+- A tuple containing:
+  - The path to the documentation file (relative to the Airbyte repo root, or a full URL)
+  - A brief description of the topic
+
+### 2. Add the Topic to TOPIC_MAPPING
+
+Edit `connector_builder_mcp/_guidance.py` and add your new topic to the `TOPIC_MAPPING` dictionary:
+
+```python
+TOPIC_MAPPING: dict[str, tuple[str, str]] = {
+    # ... existing topics ...
+    "your-new-topic": (
+        "docs/platform/connector-development/path/to/your-doc.md",
+        "Brief description of what this topic covers",
+    ),
+}
+```
+
+For documentation that exists in a branch or external URL, you can use a full URL:
+
+```python
+    "your-new-topic": (
+        "https://raw.githubusercontent.com/airbytehq/airbyte/refs/heads/branch-name/docs/path/to/doc.md",
+        "Brief description of what this topic covers",
+    ),
+```
+
+### 3. Test Your New Topic
+
+Use the `test-tool` command to verify your topic works correctly:
+
+```bash
+# Test that the topic appears in the overview
+poe test-tool get_connector_builder_docs '{}'
+
+# Test that the topic content loads correctly
+poe test-tool get_connector_builder_docs '{"topic": "your-new-topic"}'
+```
+
+### 4. Update Documentation
+
+If you're adding a significant new topic area, consider updating:
+- This CONTRIBUTING.md file if it affects contributor workflows
+- The README.md if it's a major feature users should know about
+- Any relevant inline documentation or docstrings
+
+### Topic Organization Guidelines
+
+When adding topics, follow these conventions:
+
+- **Naming**: Use lowercase with hyphens (e.g., `error-handling`, not `ErrorHandling`)
+- **Descriptions**: Keep descriptions concise (under 60 characters when possible)
+- **Paths**: Prefer stable paths in the main branch over branch-specific URLs when the documentation is merged
+- **Grouping**: Related topics should have consistent prefixes (e.g., `yaml-*` for YAML-specific topics)
+
+### Example: Adding a New Topic
+
+Here's a complete example of adding a new topic for "schema detection":
+
+```python
+# In connector_builder_mcp/_guidance.py
+TOPIC_MAPPING: dict[str, tuple[str, str]] = {
+    # ... existing topics ...
+    "schema-detection": (
+        "docs/platform/connector-development/config-based/understanding-the-yaml-file/schema-detection.md",
+        "Automatic schema detection and inference",
+    ),
+}
+```
+
+Then test it:
+
+```bash
+poe test-tool get_connector_builder_docs '{"topic": "schema-detection"}'
+```
+
 ## Debugging
 
 One or more of these may be helpful in debugging:

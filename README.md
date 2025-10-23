@@ -146,3 +146,19 @@ For VS Code users with the MCP extension, use the included configuration in `.vs
 
 - **[Contributing Guide](./CONTRIBUTING.md)** - Development setup, workflows, and contribution guidelines
 - **[Testing Guide](./TESTING.md)** - Comprehensive testing instructions and best practices
+
+## Reporting Issues
+
+If you encounter bugs, have feature requests, or need help:
+
+1. **Check Existing Issues**: Search the [GitHub Issues](https://github.com/airbytehq/connector-builder-mcp/issues) to see if your issue has already been reported
+2. **Create a New Issue**: If your issue is new, [open an issue](https://github.com/airbytehq/connector-builder-mcp/issues/new) with:
+   - A clear, descriptive title
+   - Detailed description of the problem or feature request
+   - Steps to reproduce (for bugs)
+   - Expected vs actual behavior
+   - Your environment details (OS, Python version, MCP client)
+   - Relevant logs or error messages
+3. **Community Support**: For questions and discussions, you can also reach out through the [Airbyte Community Slack](https://airbyte.com/community)
+
+When reporting issues related to specific connectors or the Connector Builder UI itself, please file those in the main [Airbyte repository](https://github.com/airbytehq/airbyte/issues) instead.
