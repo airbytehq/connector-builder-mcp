@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Tools and utilities for running MCP-based agents for connector building."""
 
+import json
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from enum import Enum
@@ -77,10 +78,6 @@ def create_mcp_tool_logger(
         tool_args: dict[str, Any],
     ) -> ToolResult:
         """Log and execute an MCP tool call."""
-        # Format args for logging (truncate if too long)
-        # args_str = json.dumps(tool_args, indent=2)
-        # if len(args_str) > 200:
-        #     args_str = args_str[:200] + "..."
 
         update_progress_log(f"🔧 [{agent_name}] MCP Tool call: {tool_name}", session_state)
 
@@ -121,7 +118,7 @@ def create_mcp_connector_builder_for_developer(
         timeout=180,
         process_tool_call=create_mcp_tool_logger("Developer", session_state),
         excluded_tools=["get_connector_manifest", "populate_dotenv_missing_secrets_stubs"],
-        max_retries=3
+        max_retries=5,
     )
 
 
@@ -150,7 +147,7 @@ def create_mcp_connector_builder_for_manager(
             "create_connector_manifest_scaffold",
             "populate_dotenv_missing_secrets_stubs",
         ],
-        max_retries=3
+        max_retries=5,
     )
 
 
@@ -176,7 +173,7 @@ def create_mcp_filesystem_server(session_state: SessionState) -> MCPServerStdio:
         env={},
         tool_prefix="filesystem",
         timeout=60,
-        max_retries=3
+        max_retries=5,
     )
 
 
