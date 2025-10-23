@@ -69,30 +69,7 @@ streams:
           type: DpathExtractor
           field_path: []  # TODO: Update after examining API response structure
       paginator:
-        type: NoPagination
-      # TODO: Uncomment and configure pagination when known
-      # paginator:
-      #   type: DefaultPaginator
-      #   page_token_option:
-      #     type: RequestOption
-      #     inject_into: request_parameter
-      #     field_name: page
-      #   pagination_strategy:
-      #     type: PageIncrement
-      #     start_from_page: 1
-    # TODO: Uncomment and configure incremental sync when known
-    # incremental_sync:
-    #   type: DatetimeBasedCursor
-    #   cursor_field: updated_at  # TODO: Replace with actual timestamp field
-    #   datetime_format: "%Y-%m-%dT%H:%M:%S%z"
-    #   start_datetime:
-    #     type: MinMaxDatetime
-    #     datetime: "{{ config['start_date'] }}"
-    #     datetime_format: "%Y-%m-%d"
-    #   end_datetime:
-    #     type: MinMaxDatetime
-    #     datetime: "{{ now_utc() }}"
-    #     datetime_format: "%Y-%m-%dT%H:%M:%S%z"
+        type: NoPagination # TODO: Update with actual pagination type when known
 
 spec:
   type: Spec

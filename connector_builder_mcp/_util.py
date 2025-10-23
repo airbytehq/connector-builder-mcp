@@ -8,6 +8,8 @@ from typing import Any, cast, overload
 
 import yaml
 
+from airbyte_cdk.sources.declarative.models import DeclarativeSource
+
 
 def initialize_logging() -> None:
     """Initialize logging configuration for the MCP server."""
@@ -109,7 +111,10 @@ def parse_manifest_input(
         if path.exists() and path.is_file():
             resolved_path = path.expanduser().resolve()
             contents = path.read_text(encoding="utf-8")
-            result = yaml.safe_load(contents)
+            try:
+                result = yaml.safe_load(contents)
+            except yaml.YAMLError as e:
+                raise ValueError(f"Invalid YAML string: {e}") from e
             if not isinstance(result, dict):
                 raise ValueError(
                     f"YAML file content must be a dictionary/object, got {type(result)}\n"
@@ -134,7 +139,7 @@ def parse_manifest_input(
         return result, resolved_path
 
 
-def validate_manifest_structure(manifest: dict[str, Any]) -> bool:
+def validate_manifest_structure(manifest: dict[str, Any]) -> tuple[bool, str | None]:
     """Basic validation of manifest structure.
 
     Args:
@@ -147,7 +152,32 @@ def validate_manifest_structure(manifest: dict[str, Any]) -> bool:
     has_required = all(field in manifest for field in required_fields)
     has_streams = "streams" in manifest or "dynamic_streams" in manifest
 
-    return has_required and has_streams
+    if not has_streams or not has_required:
+        return (
+            False,
+            "Manifest missing required fields: version, type, check, and either streams or dynamic_streams. Review the generated manifest and the `declarative_component_schema` to ensure all required fields are present and the stucture of the manifest is correct.",
+        )
+    return True, None
+
+
+def is_valid_declarative_source_manifest(manifest: dict[str, Any]) -> tuple[bool, str | None]:
+    """
+    Check if the given manifest dict can be parsed as a DeclarativeSource.
+
+    Args:
+        manifest: The manifest dictionary to validate.
+
+    Returns:
+        True if the manifest can be parsed as DeclarativeSource, False otherwise.
+    """
+    try:
+        DeclarativeSource.parse_obj(manifest)
+        return True, None
+    except Exception as e:
+        return (
+            False,
+            f"Manifest is not a valid DeclarativeSource. Review the generated manifest and the `declarative_component_schema` to ensure the manifest is correct. Common issues include: redundant fields, missing required fields, invalid or incorrect indentation. Error: {e}",
+        )
 
 
 def as_bool(
