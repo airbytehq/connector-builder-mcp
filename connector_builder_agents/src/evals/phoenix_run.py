@@ -49,7 +49,6 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
     # - PHOENIX_API_KEY sets the API key.
     register(
         auto_instrument=True,
-        project_name="test_evaluators",
     )
 
     logger.info("Getting Phoenix dataset")
