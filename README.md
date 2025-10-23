@@ -197,10 +197,10 @@ If you encounter bugs, have feature requests, or need help:
 
 When reporting issues related to specific connectors or the Connector Builder UI itself, please file those in the main [Airbyte repository](https://github.com/airbytehq/airbyte/issues) instead.
 
-## Troublshooting
+## Troubleshooting
 
 ### Claude Code Troubleshooting
 
 In Claude Code, you can run `/mcp` to investigate your MCP Server configuration. This will also print the paths being used for the MCP JSON config.
 
-If for any reason, `/mcp` does not find your servers, run `/doctor` to ensure the file is able to be parsed. If a parsing error is occuring, it will be noted in the `/doctor` output but not in the `/mcp` output.
+If for any reason, `/mcp` does not find your servers, run `/doctor` to ensure the file can be parsed. If a parsing error is occurring, it will be noted in the `/doctor` output but not in the `/mcp` output.
