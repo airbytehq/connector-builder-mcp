@@ -39,7 +39,7 @@ For streamlined onboarding, the below config contains both a PyAirbyte MCP and C
 ```json
 {
   "mcpServers": {
-    "connector-builder-mcp--stable": {
+    "airbyte-connector-builder-mcp": {
       "command": "uvx",
       "args": [
         "airbyte-connector-builder-mcp"
