@@ -4,6 +4,8 @@
 This module provides stateless tools for managing secrets in .env files and privatebin URLs without
 exposing actual secret values to the LLM. All functions require explicit dotenv
 file paths or privatebin URLs to be passed by the caller.
+
+It also supports session-scoped encryption for remote secrets when enabled.
 """
 
 import logging
@@ -24,6 +26,136 @@ from connector_builder_mcp._util import parse_manifest_input
 
 
 logger = logging.getLogger(__name__)
+
+
+# Encryption instructions message templates
+_ENCRYPTION_NOT_ENABLED_MESSAGE = """# Session Encryption Not Enabled
+
+Session-scoped encryption is currently disabled. To enable it:
+
+1. Restart the MCP server with the environment variable:
+   ```
+   ENABLE_SESSION_ENCRYPTION=true
+   ```
+
+2. Once enabled, you can use encrypted secrets to avoid exposing plaintext to the LLM.
+
+**Security Note**: Encryption is feature-flagged and off by default to ensure backward compatibility.
+"""
+
+_ENCRYPTION_NOT_INITIALIZED_MESSAGE = """# Session Encryption Error
+
+Session encryption is enabled but the keypair has not been initialized.
+Please restart the MCP server or contact support.
+"""
+
+_ENCRYPTION_NOT_AVAILABLE_MESSAGE = """# Session Encryption Not Available
+
+The encryption module is not available in this version of the MCP server.
+Please check the server installation or contact support.
+"""
+
+_ENCRYPTION_INSTRUCTIONS_TEMPLATE = """# Session-Scoped Encryption Instructions
+
+Session encryption is **enabled** on this MCP server. You can use it to provide secrets without exposing plaintext.
+
+## Step 1: Get the Public Key
+
+The public key for this session is available as an MCP resource:
+- **Resource URI**: `mcp+session://encryption/pubkey`
+- **Key ID (kid)**: `{kid}`
+- **Algorithm**: `{alg}`
+- **Public Key**: `{public_key}`
+
+## Step 2: Encrypt Your Secret
+
+### Option A: Third-Party Encryption Sites (Recommended for MVP)
+
+Use a trusted client-side encryption tool:
+
+1. **libsodium.js demo** (client-side only):
+   - Visit: https://github.com/jedisct1/libsodium.js (look for sealed box examples)
+   - Or use any libsodium sealed-box compatible tool
+
+2. Copy the public key above
+3. Paste your secret and encrypt it using the libsodium sealed-box algorithm
+4. Copy the resulting base64-encoded ciphertext
+
+### Option B: CLI One-Liner (Power Users)
+
+If you have Python and PyNaCl installed, you can encrypt and create a salt-sealed file:
+
+```bash
+python3 -c "
+import base64
+import json
+import nacl.public
+
+# Get public key from the session
+public_key_b64 = '{public_key}'
+public_key = nacl.public.PublicKey(base64.b64decode(public_key_b64))
+sealed_box = nacl.public.SealedBox(public_key)
+
+# Create dotenv-format content (use dot notation for nested paths)
+dotenv_content = '''api_key=your-api-key-here
+credentials.password=your-password-here
+oauth.client_secret=your-oauth-secret'''
+
+# Encrypt the content
+ciphertext = sealed_box.encrypt(dotenv_content.encode('utf-8'))
+
+# Save to file
+encrypted_data = {{
+    'kid': '{kid}',
+    'ciphertext': base64.b64encode(ciphertext).decode('ascii')
+}}
+
+with open('secrets.sealed', 'w') as f:
+    json.dump(encrypted_data, f)
+
+print('Created secrets.sealed file')
+print('Use with: salt-sealed:/absolute/path/to/secrets.sealed')
+"
+```
+
+Or install the connector-builder-mcp package and use:
+```bash
+uvx airbyte-connector-builder-mcp encrypt-secret
+```
+
+## Step 3: Use the Encrypted Secret
+
+Use the salt-sealed URI with your dotenv file URIs:
+
+```python
+# Single salt-sealed file
+dotenv_file_uris = "salt-sealed:/path/to/secrets.sealed"
+
+# Or combine with regular dotenv files
+dotenv_file_uris = [
+    "/path/to/config.env",
+    "salt-sealed:/path/to/secrets.sealed"
+]
+```
+
+The encrypted file should contain dotenv-format content after decryption.
+Use dot notation for nested config paths (e.g., `credentials.password`).
+
+## Security Notes
+
+- **No plaintext at rest**: Secrets are decrypted only when needed and immediately discarded
+- **Session-scoped**: The keypair is destroyed when the MCP server stops
+- **Size limit**: Maximum ciphertext size is {max_size_bytes} bytes
+- **No logging**: Secrets are never logged or persisted
+- **Absolute paths required**: Salt-sealed URIs must use absolute file paths
+
+## Troubleshooting
+
+- **Kid mismatch**: Ensure you're using the current session's public key
+- **Invalid ciphertext**: Verify the ciphertext is valid base64 and properly encrypted
+- **Size exceeded**: Keep secrets under the size limit ({max_size_bytes} bytes)
+- **Encryption not enabled**: Set ENABLE_SESSION_ENCRYPTION=true and restart the server
+"""
 
 
 def _privatebin_password_exists() -> bool:
@@ -61,6 +193,59 @@ def _get_privatebin_password() -> str | None:
         PRIVATEBIN_PASSWORD value or None if not set
     """
     return os.getenv("PRIVATEBIN_PASSWORD")
+
+
+def _is_salt_sealed_url(url: str) -> bool:
+    """Check if a URL is a salt-sealed encrypted secrets URL.
+
+    Args:
+        url: URL to check
+
+    Returns:
+        True if URL starts with salt-sealed:, False otherwise
+    """
+    if not isinstance(url, str):
+        return False
+    return url.startswith("salt-sealed:")
+
+
+def _fetch_salt_sealed_content(url: str) -> str:
+    """Fetch and decrypt content from salt-sealed URL.
+
+    Args:
+        url: Salt-sealed URL (e.g., salt-sealed:/path/to/encrypted.env)
+
+    Returns:
+        Decrypted content as string (in dotenv format), empty string on error
+    """
+    try:
+        from connector_builder_mcp.encryption import decrypt_secret, is_encryption_enabled
+
+        if not is_encryption_enabled():
+            logger.error("Salt-sealed URLs require encryption to be enabled")
+            return ""
+
+        # Remove salt-sealed: prefix to get the file path
+        file_path = url[len("salt-sealed:"):]
+
+        # Read the encrypted file
+        path_obj = Path(file_path)
+        if not path_obj.exists():
+            logger.error(f"Salt-sealed file not found: {file_path}")
+            return ""
+
+        # Read and parse the encrypted content
+        import json
+        with open(path_obj) as f:
+            encrypted_data = json.load(f)
+
+        # Decrypt the content
+        plaintext = decrypt_secret(encrypted_data)
+        return plaintext
+
+    except Exception as e:
+        logger.error(f"Error fetching salt-sealed content from {url}: {e}")
+        return ""
 
 
 class SecretInfo(BaseModel):
@@ -114,7 +299,16 @@ def _validate_secrets_uris(dotenv_file_uris: str | list[str] | None) -> list[str
         return errors
 
     for uri in uris:
-        if uri.startswith(("http:", "https:")):
+        if uri.startswith("salt-sealed:"):
+            # Validate salt-sealed URIs
+            file_path = uri[len("salt-sealed:"):]
+            if not file_path:
+                errors.append("Salt-sealed URI must include a file path: salt-sealed:/path/to/file")
+            else:
+                path_obj = Path(file_path)
+                if not path_obj.is_absolute():
+                    errors.append(f"Salt-sealed file path must be absolute, got relative path: {file_path}")
+        elif uri.startswith(("http:", "https:")):
             if _is_privatebin_url(uri):
                 if not _privatebin_password_exists():
                     errors.append(
@@ -180,10 +374,10 @@ def _fetch_privatebin_content(url: str) -> str:
 
 
 def _load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, str]:
-    """Load secrets from the specified dotenv files and privatebin URLs.
+    """Load secrets from the specified dotenv files, privatebin URLs, and salt-sealed URIs.
 
     Args:
-        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
+        dotenv_file_uris: List of paths/URLs to .env files, privatebin URLs, or salt-sealed URIs,
                               or comma-separated string, or single string
 
     Returns:
@@ -203,7 +397,26 @@ def _load_secrets(dotenv_file_uris: str | list[str] | None = None) -> dict[str, 
     all_secrets = {}
 
     for uri in uris:
-        if _is_privatebin_url(uri):
+        if _is_salt_sealed_url(uri):
+            content = _fetch_salt_sealed_content(uri)
+            if content:
+                secrets = dotenv_values(stream=StringIO(content))
+                if secrets:
+                    count = 0
+                    for key_path, value in {
+                        k: v
+                        for k, v in secrets.items()
+                        if (
+                            v is not None
+                            and v != ""  # noqa: PLC1901 # skipping empty strings, but not 0
+                            and not k.startswith("#")
+                            and not v.startswith("#")
+                        )
+                    }.items():
+                        count += 1
+                        _set_nested_value(all_secrets, key_path, value)
+                    logger.info(f"Loaded {count} secrets from salt-sealed URI")
+        elif _is_privatebin_url(uri):
             content = _fetch_privatebin_content(uri)
             if content:
                 secrets = dotenv_values(stream=StringIO(content))
@@ -266,33 +479,35 @@ def hydrate_config(
     config: dict[str, Any],
     dotenv_file_uris: str | list[str] | None = None,
 ) -> dict[str, Any]:
-    """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
+    """Hydrate configuration with secrets from dotenv files, privatebin URLs, or salt-sealed URIs.
 
     Dotenv keys are mapped directly to config paths using dot notation:
     - credentials.password=foo   -> {"credentials": {"password": "foo"}}
     - api_key=value              -> {"api_key": "value"}
     - oauth.client_secret=value  -> {"oauth": {"client_secret": "value"}}
 
+    Salt-sealed URIs provide encrypted secrets:
+    - salt-sealed:/path/to/encrypted.env -> Decrypts and loads dotenv format content
+
     Args:
         config: Configuration dictionary to hydrate with secrets
-        dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
+        dotenv_file_uris: List of paths/URLs to .env files, privatebin URLs, or salt-sealed URIs,
                               or comma-separated string, or single string
 
     Returns:
-        Configuration with secrets injected from .env files and privatebin URLs
+        Configuration with secrets injected from .env files, privatebin URLs, and salt-sealed URIs
     """
     config = config or {}
     if not isinstance(config, dict):
         raise TypeError(f"Expected config to be a dictionary, got {type(config)}")
 
-    if not dotenv_file_uris:
-        return config
+    # Load from dotenv files/URLs (including salt-sealed URIs)
+    if dotenv_file_uris:
+        secrets = _load_secrets(dotenv_file_uris)
+        if secrets:
+            config = _merge_nested_dicts(config, secrets)
 
-    secrets = _load_secrets(dotenv_file_uris)
-    if not secrets:
-        return config
-
-    return _merge_nested_dicts(config, secrets)
+    return config
 
 
 def list_dotenv_secrets(
@@ -599,6 +814,36 @@ def _config_path_to_dotenv_key(config_path: str) -> str:
     return config_path
 
 
+def get_encryption_instructions() -> str:
+    """Get instructions for using session-scoped encryption with the MCP server.
+
+    Returns:
+        Instructions for encrypting secrets client-side and using them with the MCP server
+    """
+    try:
+        from connector_builder_mcp.encryption import (
+            get_public_key_info,
+            is_encryption_enabled,
+        )
+
+        if not is_encryption_enabled():
+            return _ENCRYPTION_NOT_ENABLED_MESSAGE
+
+        public_key_info = get_public_key_info()
+        if public_key_info is None:
+            return _ENCRYPTION_NOT_INITIALIZED_MESSAGE
+
+        return _ENCRYPTION_INSTRUCTIONS_TEMPLATE.format(
+            kid=public_key_info.kid,
+            alg=public_key_info.alg,
+            public_key=public_key_info.public_key,
+            max_size_bytes=public_key_info.max_size_bytes,
+        )
+
+    except ImportError:
+        return _ENCRYPTION_NOT_AVAILABLE_MESSAGE
+
+
 def register_secrets_tools(app: FastMCP) -> None:
     """Register secrets management tools with the FastMCP app.
 
@@ -607,3 +852,4 @@ def register_secrets_tools(app: FastMCP) -> None:
     """
     app.tool(list_dotenv_secrets)
     app.tool(populate_dotenv_missing_secrets_stubs)
+    app.tool(get_encryption_instructions)

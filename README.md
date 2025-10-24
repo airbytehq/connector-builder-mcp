@@ -12,6 +12,7 @@ A Model Context Protocol (MCP) server for Airbyte connector building operations,
 - **Stream Testing**: Test connector stream reading capabilities  
 - **Configuration Management**: Validate connector configurations
 - **Test Execution**: Run connector tests with proper limits and constraints
+- **Session-Scoped Encryption**: Optionally encrypt secrets client-side for enhanced security (see [docs/encryption.md](./docs/encryption.md))
 
 ## MCP Client Configuration
 
