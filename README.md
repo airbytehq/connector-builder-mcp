@@ -60,13 +60,20 @@ The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.htm
       ],
       "env": {
         "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env",
-        "AIRBYTE_CLOUD_MCP_READ_ONLY": "0",
-        "AIRBYTE_CLOUD_MCP_SAFE_MODE": "0"
+        "AIRBYTE_CLOUD_MCP_SAFE_MODE": "1",
+        "AIRBYTE_CLOUD_MCP_READ_ONLY": "0"
       }
     }
   }
 }
 ```
+
+Note:
+- Make sure to replace `/Users/youruser/.mcp/airbyte_mcp.env` with the actual path to your `airbyte_mcp.env` file.
+  - See below for details on the contents of this file.
+- The `AIRBYTE_CLOUD_MCP_READ_ONLY` and `AIRBYTE_CLOUD_MCP_SAFE_MODE` environment variables can be adjusted based on your desired level of safety and access control:
+  - Setting `AIRBYTE_CLOUD_MCP_READ_ONLY` to `1` restricts the MCP to read-only operations while still allowing sync actions.
+  - Setting `AIRBYTE_CLOUD_MCP_SAFE_MODE` to `0` allows potentially harmful updates or deletions (creations still okay).
 
 Your `airbyte_mcp.env` file should contain your Airbyte Cloud credentials:
 
@@ -81,10 +88,6 @@ AIRBYTE_CLOUD_CLIENT_SECRET=your_api_secret
 
 # Optional: Google Creds to Use for GCP GSM (Google Secret Manager):
 GCP_GSM_CREDENTIALS_JSON={...inline-json...}
-
-# Optional: Safety and Access Control Settings
-# AIRBYTE_CLOUD_MCP_READ_ONLY=0  # Toggle to 1 to restrict to read-only operations while still allowing sync actions
-# AIRBYTE_CLOUD_MCP_SAFE_MODE=0  # Toggle to 1 to disallow potentially harmful updates or deletions (creations still okay)
 ```
 
 For more detailed setup instructions, please see the [PyAirbyte MCP docs](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
