@@ -54,7 +54,9 @@ For streamlined onboarding, the below config contains both a PyAirbyte MCP and C
         "airbyte-mcp"
       ],
       "env": {
-        "AIRBYTE_MCP_ENV_FILE": "/Users/{YOUR-USER}/.mcp/airbyte_mcp.env"
+        "AIRBYTE_MCP_ENV_FILE": "/Users/{YOUR-USER}/.mcp/airbyte_mcp.env",
+        "AIRBYTE_CLOUD_MCP_READ_ONLY": "0",
+        "AIRBYTE_CLOUD_MCP_SAFE_MODE": "0"
       }
     }
   }
@@ -94,8 +96,8 @@ The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.htm
       ],
       "env": {
         "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env",
-        "AIRBYTE_CLOUD_MCP_SAFE_MODE": "1",
-        "AIRBYTE_CLOUD_MCP_READ_ONLY": "0"
+        "AIRBYTE_CLOUD_MCP_READ_ONLY": "0",
+        "AIRBYTE_CLOUD_MCP_SAFE_MODE": "0"
       }
     }
   }
