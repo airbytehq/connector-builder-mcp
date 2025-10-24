@@ -105,7 +105,7 @@ The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.htm
 ```
 
 Note:
-- Make sure to replace `/Users/youruser/.mcp/airbyte_mcp.env` with the actual path to your `airbyte_mcp.env` file.
+- Make sure to replace `/Users/{YOUR-USER-ID}/.mcp/airbyte_mcp.env` with the actual path to your `airbyte_mcp.env` file.
   - See below for details on the contents of this file.
 - The `AIRBYTE_CLOUD_MCP_READ_ONLY` and `AIRBYTE_CLOUD_MCP_SAFE_MODE` environment variables can be adjusted based on your desired level of safety and access control:
   - Toggling `AIRBYTE_CLOUD_MCP_SAFE_MODE` to `0` allows potentially harmful updates or deletions.
