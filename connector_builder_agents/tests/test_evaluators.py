@@ -2,13 +2,12 @@
 """Unit tests for evaluator functions."""
 
 import json
-from typing import Mapping
+from collections.abc import Mapping
 from unittest.mock import patch
+
 import pandas as pd
 import pytest
 import yaml
-
-from connector_builder_agents.src.evals.task import ConnectorBuilderEvalTaskOutput
 from src.evals.evaluators import (
     manifest_validation_eval,
     primary_key_eval,
@@ -290,13 +289,6 @@ def test_manifest_validation_eval_failure(valid_manifest_yaml_partial):
     assert result == 0
 
 
-def test_manifest_validation_eval_failure():
-    """Test manifest_validation_eval returns 0 when no manifest is provided."""
-    output = create_connector_builder_eval_task_output_dict(manifest=None)
-    result = manifest_validation_eval(output)
-    assert result == 0
-
-
 def test_readiness_eval_passing_report(valid_readiness_report_passed):
     """Test readiness_eval returns 1 when report indicates PASSED."""
     output = create_connector_builder_eval_task_output_dict(
@@ -380,9 +372,6 @@ def test_streams_eval_extra_streams_in_output(valid_manifest_yaml_simple):
     result = streams_eval(expected, output)
 
     assert result == 1.0
-
-
-import pytest
 
 
 @pytest.mark.parametrize(
