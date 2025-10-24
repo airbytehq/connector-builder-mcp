@@ -54,7 +54,9 @@ For streamlined onboarding, the below config contains both a PyAirbyte MCP and C
         "airbyte-mcp"
       ],
       "env": {
-        "AIRBYTE_MCP_ENV_FILE": "/Users/{YOUR-USER}/.mcp/airbyte_mcp.env"
+        "AIRBYTE_MCP_ENV_FILE": "/Users/{YOUR-USER-ID}/.mcp/airbyte_mcp.env",
+        "AIRBYTE_CLOUD_MCP_SAFE_MODE": "1",
+        "AIRBYTE_CLOUD_MCP_READ_ONLY": "0"
       }
     }
   }
@@ -93,12 +95,21 @@ The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.htm
         "airbyte-mcp"
       ],
       "env": {
-        "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env"
+        "AIRBYTE_MCP_ENV_FILE": "/Users/{YOUR-USER-ID}/.mcp/airbyte_mcp.env",
+        "AIRBYTE_CLOUD_MCP_SAFE_MODE": "1",
+        "AIRBYTE_CLOUD_MCP_READ_ONLY": "0"
       }
     }
   }
 }
 ```
+
+Note:
+- Make sure to replace `/Users/{YOUR-USER-ID}/.mcp/airbyte_mcp.env` with the actual path to your `airbyte_mcp.env` file.
+  - See below for details on the contents of this file.
+- The `AIRBYTE_CLOUD_MCP_READ_ONLY` and `AIRBYTE_CLOUD_MCP_SAFE_MODE` environment variables can be adjusted based on your desired level of safety and access control:
+  - Toggling `AIRBYTE_CLOUD_MCP_SAFE_MODE` to `0` allows potentially harmful updates or deletions.
+  - Toggling `AIRBYTE_CLOUD_MCP_READ_ONLY` to `1` restricts the MCP to read-only operations while still allowing sync actions.
 
 Your `airbyte_mcp.env` file should contain your Airbyte Cloud credentials:
 
