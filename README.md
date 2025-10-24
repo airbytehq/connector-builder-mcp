@@ -59,7 +59,9 @@ The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.htm
         "airbyte-mcp"
       ],
       "env": {
-        "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env"
+        "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env",
+        "AIRBYTE_CLOUD_MCP_READ_ONLY": "0",
+        "AIRBYTE_CLOUD_MCP_SAFE_MODE": "0"
       }
     }
   }
@@ -79,6 +81,10 @@ AIRBYTE_CLOUD_CLIENT_SECRET=your_api_secret
 
 # Optional: Google Creds to Use for GCP GSM (Google Secret Manager):
 GCP_GSM_CREDENTIALS_JSON={...inline-json...}
+
+# Optional: Safety and Access Control Settings
+# AIRBYTE_CLOUD_MCP_READ_ONLY=0  # Toggle to 1 to restrict to read-only operations while still allowing sync actions
+# AIRBYTE_CLOUD_MCP_SAFE_MODE=0  # Toggle to 1 to disallow potentially harmful updates or deletions (creations still okay)
 ```
 
 For more detailed setup instructions, please see the [PyAirbyte MCP docs](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
