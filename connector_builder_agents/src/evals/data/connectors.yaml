@@ -4,28 +4,43 @@ connectors:
       prompt_name: "JSONPlaceholder"
     expected:
       expected_streams:
-        - "posts"
-        - "comments"
-        - "albums"
-        - "photos"
-        - "todos"
-        - "users"
+        - name: "posts"
+          primary_key: ["id"]
+        - name: "comments"
+          primary_key: ["id"]
+        - name: "albums"
+          primary_key: ["id"]
+        - name: "photos"
+          primary_key: ["id"]
+        - name: "todos"
+          primary_key: ["id"]
+        - name: "users"
+          primary_key: ["id"]
   - input:
       name: "source-starwars"
       prompt_name: "StarWars API (https://swapi.info/)"
     expected:
       expected_streams:
-        - "people"
-        - "films"
-        - "planets"
-        - "species"
-        - "starships"
-        - "vehicles"
+        - name: people
+          primary_key: ["url"]
+        - name: films
+          primary_key: ["url"]
+        - name: planets
+          primary_key: ["url"]
+        - name: species
+          primary_key: ["url"]
+        - name: starships
+          primary_key: ["url"]
+        - name: vehicles
+          primary_key: ["url"]
   - input:
       name: "source-rickandmorty"
       prompt_name: "Rick and Morty API"
     expected:
       expected_streams:
-        - "characters"
-        - "episodes"
-        - "locations"
+        - name: "characters"
+          primary_key: ["id"]
+        - name: "episodes"
+          primary_key: ["id"]
+        - name: "locations"
+          primary_key: ["id"]

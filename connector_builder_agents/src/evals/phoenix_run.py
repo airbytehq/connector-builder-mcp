@@ -13,6 +13,7 @@ Requirements:
     - OpenAI API key (OPENAI_API_KEY in a local '.env')
     - Phoenix API key (PHOENIX_API_KEY in a local '.env')
     - Phoenix collector endpoint (PHOENIX_COLLECTOR_ENDPOINT in a local '.env')
+    - Phoenix project name (PHOENIX_PROJECT_NAME in a local '.env')
 """
 
 import logging
@@ -24,7 +25,7 @@ from phoenix.client import AsyncClient
 from phoenix.otel import register
 
 from .dataset import get_or_create_phoenix_dataset
-from .evaluators import READINESS_EVAL_MODEL, readiness_eval, streams_eval
+from .evaluators import EVALUATORS, READINESS_EVAL_MODEL
 from .summary import generate_markdown_summary
 from .task import EVAL_DEVELOPER_MODEL, EVAL_MANAGER_MODEL, run_connector_build_task
 
@@ -40,6 +41,12 @@ logger = logging.getLogger(__name__)
 
 async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
     logger.info("Registering Phoenix tracer")
+
+    # The `register` function below will automatically instrument all available OpenInference libraries.
+    # It implicitly uses environment variables for configuration:
+    # - PHOENIX_PROJECT_NAME sets the project name,
+    # - PHOENIX_COLLECTOR_ENDPOINT sets the collector endpoint, and
+    # - PHOENIX_API_KEY sets the API key.
     register(
         auto_instrument=True,
     )
@@ -51,9 +58,8 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
 
     experiment_id = str(uuid.uuid4())[:5]
     experiment_name = f"builder-evals-{experiment_id}"
-    evaluators = [readiness_eval, streams_eval]
 
-    logger.info(f"Using evaluators: {[eval.__name__ for eval in evaluators]}")
+    logger.info(f"Using evaluators: {[eval.__name__ for eval in EVALUATORS]}")
 
     try:
         client = AsyncClient()
@@ -61,7 +67,7 @@ async def main(connectors: list[str] | None = None, *, dataset_prefix: str):
         experiment = await client.experiments.run_experiment(
             dataset=dataset,
             task=run_connector_build_task,
-            evaluators=evaluators,
+            evaluators=EVALUATORS,
             experiment_name=experiment_name,
             experiment_metadata={
                 "developer_model": EVAL_DEVELOPER_MODEL,
