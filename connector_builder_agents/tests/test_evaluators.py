@@ -282,9 +282,16 @@ def test_manifest_validation_eval_success(valid_manifest_yaml_simple):
     assert result == 1
 
 
-def test_manifest_validation_eval_failure(valid_manifest_yaml_partial):
+def test_manifest_validation_eval_failure_invalid_manifest(invalid_manifest_yaml):
     """Test manifest_validation_eval returns 0 when manifest is invalid."""
-    output = create_connector_builder_eval_task_output_dict(manifest=valid_manifest_yaml_partial)
+    output = create_connector_builder_eval_task_output_dict(manifest=invalid_manifest_yaml)
+    result = manifest_validation_eval(output)
+    assert result == 0
+
+
+def test_manifest_validation_eval_failure_no_manifest():
+    """Test manifest_validation_eval returns 0 when no manifest is provided."""
+    output = create_connector_builder_eval_task_output_dict(manifest=None)
     result = manifest_validation_eval(output)
     assert result == 0
 

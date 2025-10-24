@@ -155,7 +155,7 @@ def validate_manifest_structure(manifest: dict[str, Any]) -> tuple[bool, str | N
     if not has_streams or not has_required:
         return (
             False,
-            "Manifest missing required fields: version, type, check, and either streams or dynamic_streams. Review the generated manifest and the `declarative_component_schema` to ensure all required fields are present and the stucture of the manifest is correct.",
+            "Manifest missing required fields: version, type, check, and either streams or dynamic_streams. Review the generated manifest and the `declarative_component_schema` to ensure all required fields are present and the structure of the manifest is correct.",
         )
     return True, None
 

@@ -4,9 +4,9 @@ import json
 import logging
 import time
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
-from pandas.io.common import Path
 from pydantic import BaseModel
 
 from ..constants import DEFAULT_DEVELOPER_MODEL, DEFAULT_MANAGER_MODEL

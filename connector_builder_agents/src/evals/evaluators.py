@@ -114,7 +114,11 @@ def streams_eval(expected: dict, output: dict | None) -> float:
         logger.warning("No manifest found or manifest is empty")
         return 0
 
-    manifest_dict = yaml.safe_load(manifest_str)
+    try:
+        manifest_dict = yaml.safe_load(manifest_str)
+    except yaml.YAMLError as e:
+        logger.warning(f"Failed to parse manifest YAML: {e}")
+        return 0.0
 
     try:
         declarative_source = DeclarativeSource.parse_obj(manifest_dict)
@@ -195,4 +199,4 @@ def primary_key_eval(expected: dict, output: dict | None) -> float:
     return correct / len(matched_names)
 
 
-EVALUATORS = [manifest_validation_eval, readiness_eval, streams_eval]
+EVALUATORS = [manifest_validation_eval, readiness_eval, streams_eval, primary_key_eval]
