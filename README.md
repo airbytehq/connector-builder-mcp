@@ -25,12 +25,46 @@ To use with MCP clients like Claude Desktop, add the following configuration:
     "connector-builder-mcp--stable": {
       "command": "uvx",
       "args": [
-        "airbyte-connector-builder-mcp",
+        "airbyte-connector-builder-mcp"
       ]
     }
   }
 }
 ```
+
+### Suggested MCP Server Config
+
+For streamlined onboarding, the below config contains both a PyAirbyte MCP and Connector Builder MCP implementation.
+
+```json
+{
+  "mcpServers": {
+    "airbyte-connector-builder-mcp": {
+      "command": "uvx",
+      "args": [
+        "airbyte-connector-builder-mcp"
+      ]
+    },
+    "airbyte-mcp": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--python=3.11",
+        "--from=airbyte@latest",
+        "airbyte-mcp"
+      ],
+      "env": {
+        "AIRBYTE_MCP_ENV_FILE": "/Users/{YOUR-USER}/.mcp/airbyte_mcp.env"
+      }
+    }
+  }
+}
+```
+
+Important:
+- Remember to update the `AIRBYTE_MCP_ENV_FILE` path to your actual path, and to create a new file there at that path. Note that the file can be empty to start. See below for the expected variables in this file.
+
+### Running from Source
 
 For information on running from source, see the [Contributing Guide](./CONTRIBUTING.md).
 
@@ -162,3 +196,11 @@ If you encounter bugs, have feature requests, or need help:
 3. **Community Support**: For questions and discussions, you can also reach out through the [Airbyte Community Slack](https://airbyte.com/community)
 
 When reporting issues related to specific connectors or the Connector Builder UI itself, please file those in the main [Airbyte repository](https://github.com/airbytehq/airbyte/issues) instead.
+
+## Troubleshooting
+
+### Claude Code Troubleshooting
+
+In Claude Code, you can run `/mcp` to investigate your MCP Server configuration. This will also print the paths being used for the MCP JSON config.
+
+If for any reason, `/mcp` does not find your servers, run `/doctor` to ensure the file can be parsed. If a parsing error is occurring, it will be noted in the `/doctor` output but not in the `/mcp` output.
