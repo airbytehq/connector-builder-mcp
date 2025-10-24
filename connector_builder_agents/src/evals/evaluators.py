@@ -151,7 +151,7 @@ def streams_eval(expected: dict, output: dict | None) -> float:
 
 
 def primary_key_eval(expected: dict, output: dict | None) -> float:
-    """Return fraction of matched expected streams whose primary key matches."""
+    """Evaluate if the primary keys of the matched expected streams match the expected primary keys."""
 
     if not output:
         logger.warning("No output provided - build task likely failed")
@@ -183,25 +183,16 @@ def primary_key_eval(expected: dict, output: dict | None) -> float:
         logger.info("No matching streams found")
         return 0.0
 
-    def normalize_pk(pk):
-        # Flatten __root__ and coerce to list if needed
-        value = getattr(pk, "__root__", pk)
-        if isinstance(value, list):
-            return value
-        if hasattr(value, "__iter__") and not isinstance(value, str):
-            return list(value)
-        return [value] if value is not None else []
-
     correct = 0
     for name in matched_names:
-        actual_pk = normalize_pk(getattr(available[name], "primary_key", None))
-        expected_pk = expected_by_name[name] or []
-        if actual_pk == expected_pk:
+        pk = getattr(available[name], "primary_key", None)
+        actual_pk = getattr(pk, "__root__", pk)
+        print(f"Actual primary key: {actual_pk}")
+        print(f"Expected primary key: {expected_by_name[name]}")
+        if actual_pk == expected_by_name[name]:
             correct += 1
 
-    percent = correct / len(matched_names)
-    logger.info(f"Correct primary keys: {correct} / {len(matched_names)} = {percent}")
-    return percent
+    return correct / len(matched_names)
 
 
 EVALUATORS = [manifest_validation_eval, readiness_eval, streams_eval]

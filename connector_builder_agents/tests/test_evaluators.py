@@ -386,26 +386,28 @@ import pytest
 
 
 @pytest.mark.parametrize(
-    "expected_pk, manifest_pk",
+    "primary_key",
     [
-        (["id"], ["id"]),  # both as list
-        ([["id"]], [["id"]]),  # both as nested list
-        (["id", "user_id"], ["id", "user_id"]),  # composite primary key as flat list
-        ([["id", "user_id"]], [["id", "user_id"]]),  # composite primary key as nested list
+        (None),
+        (""),
+        (["id"]),
+        ([["id"]]),
+        (["id", "user_id"]),
+        ([["id"], ["user_id"]]),
     ],
 )
-def test_primary_key_eval_various_formats(valid_manifest_yaml_simple, expected_pk, manifest_pk):
+def test_primary_key_eval_various_formats(valid_manifest_yaml_simple, primary_key):
     """Test primary_key_eval returns 1.0 for various primary key formats."""
     manifest_dict = yaml.safe_load(valid_manifest_yaml_simple)
     for stream in manifest_dict["streams"]:
         if stream["name"] == "users":
-            stream["primary_key"] = manifest_pk
+            stream["primary_key"] = primary_key
 
     # rebuild YAML string
     manifest_modified = yaml.dump(manifest_dict)
     output = create_connector_builder_eval_task_output_dict(manifest=manifest_modified)
     expected_streams = [
-        {"name": "users", "primary_key": expected_pk},
+        {"name": "users", "primary_key": primary_key},
     ]
     expected = create_expected_dict(expected_streams)
     result = primary_key_eval(expected, output)
