@@ -95,7 +95,7 @@ The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.htm
         "airbyte-mcp"
       ],
       "env": {
-        "AIRBYTE_MCP_ENV_FILE": "/Users/youruser/.mcp/airbyte_mcp.env",
+        "AIRBYTE_MCP_ENV_FILE": "/Users/{YOUR-USER-ID}/.mcp/airbyte_mcp.env",
         "AIRBYTE_CLOUD_MCP_SAFE_MODE": "1",
         "AIRBYTE_CLOUD_MCP_READ_ONLY": "0"
       }
