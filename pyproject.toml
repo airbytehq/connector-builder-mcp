@@ -73,6 +73,8 @@ markers = [
     "requires_creds: marks tests as requiring credentials (deselected by default)",
     "slow: marks tests as slow (deselected by default)",
 ]
+testpaths = ["tests"]
+norecursedirs = ["connector_builder_agents"]
 
 [tool.deptry]
 extend_exclude = [

@@ -191,8 +191,6 @@ def primary_key_eval(expected: dict, output: dict | None) -> float:
     for name in matched_names:
         pk = getattr(available[name], "primary_key", None)
         actual_pk = getattr(pk, "__root__", pk)
-        print(f"Actual primary key: {actual_pk}")
-        print(f"Expected primary key: {expected_by_name[name]}")
         if actual_pk == expected_by_name[name]:
             correct += 1
 
