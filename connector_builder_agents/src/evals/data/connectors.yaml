@@ -4,28 +4,58 @@ connectors:
       prompt_name: "JSONPlaceholder"
     expected:
       expected_streams:
-        - "posts"
-        - "comments"
-        - "albums"
-        - "photos"
-        - "todos"
-        - "users"
+        - posts:
+            primary_key: ["id"]
+            expected_records: 100
+        - comments:
+            primary_key: ["id"]
+            expected_records: ">400"
+        - albums:
+            primary_key: ["id"]
+            expected_records: 100
+        - photos:
+            primary_key: ["id"]
+            expected_records: ">1000"
+        - todos:
+            primary_key: ["id"]
+            expected_records: ">100,<300"
+        - users:
+            primary_key: ["id"]
+            expected_records: 10
   - input:
       name: "source-starwars"
       prompt_name: "StarWars API (https://swapi.info/)"
     expected:
       expected_streams:
-        - "people"
-        - "films"
-        - "planets"
-        - "species"
-        - "starships"
-        - "vehicles"
+        - people:
+            primary_key: ["url"]
+            expected_records: ">80"
+        - films:
+            primary_key: ["url"]
+            expected_records: 6
+        - planets:
+            primary_key: ["url"]
+            expected_records: ">50,<70"
+        - species:
+            primary_key: ["url"]
+            expected_records: ">30"
+        - starships:
+            primary_key: ["url"]
+            expected_records: ">30"
+        - vehicles:
+            primary_key: ["url"]
+            expected_records: ">30"
   - input:
       name: "source-rickandmorty"
       prompt_name: "Rick and Morty API"
     expected:
       expected_streams:
-        - "characters"
-        - "episodes"
-        - "locations"
+        - characters:
+            primary_key: ["id"]
+            expected_records: ">100"
+        - episodes:
+            primary_key: ["id"]
+            expected_records: ">50"
+        - locations:
+            primary_key: ["id"]
+            expected_records: ">100"
