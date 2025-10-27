@@ -68,7 +68,7 @@ def manifest_validation_eval(output: dict | None) -> int:
     return 1
 
 
-def readiness_eval(output: dict | None) -> int:
+def readiness_eval(output: dict | None) -> float:
     """Create Phoenix LLM classifier for readiness evaluation. Return 1 if PASSED, 0 if FAILED."""
 
     if output is None:
@@ -80,7 +80,7 @@ def readiness_eval(output: dict | None) -> int:
     readiness_report = connector_builder_eval_task_output.artifacts.get("readiness_report", None)
     if readiness_report is None:
         logger.warning("No readiness report found")
-        return 0
+        return 0.0
 
     rails = ["PASSED", "FAILED"]
 
@@ -95,7 +95,7 @@ def readiness_eval(output: dict | None) -> int:
     logger.info(f"Readiness evaluation result: {eval_df}")
 
     label = eval_df["label"][0]
-    score = 1 if label.upper() == "PASSED" else 0
+    score = 1.0 if label.upper() == "PASSED" else 0.0
 
     return score
 
@@ -112,7 +112,7 @@ def streams_eval(expected: dict, output: dict | None) -> float:
     manifest_str = connector_builder_eval_task_output.artifacts.get("manifest", None)
     if not manifest_str:
         logger.warning("No manifest found or manifest is empty")
-        return 0
+        return 0.0
 
     try:
         manifest_dict = yaml.safe_load(manifest_str)
@@ -146,7 +146,6 @@ def streams_eval(expected: dict, output: dict | None) -> float:
         logger.warning("No expected streams found")
         return 0.0
 
-    # Calculate the percentage of expected streams that are present in available streams
     matched_streams = set(available_stream_names) & set(expected_stream_names)
     logger.info(f"Matched streams: {matched_streams}")
     percent_matched = len(matched_streams) / len(expected_stream_names)
