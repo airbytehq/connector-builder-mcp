@@ -62,16 +62,16 @@ class TestManifestValidation:
             "streams": [{"name": "test_stream"}],
         }
 
-        assert validate_manifest_structure(manifest) is True
+        assert validate_manifest_structure(manifest)[0] is True
 
     def test_missing_required_fields(self):
         """Test validation fails for missing required fields."""
         manifest = {"version": "0.1.0", "type": "DeclarativeSource"}
 
-        assert validate_manifest_structure(manifest) is False
+        assert validate_manifest_structure(manifest)[0] is False
 
     def test_empty_manifest(self):
         """Test validation fails for empty manifest."""
         manifest = {}
 
-        assert validate_manifest_structure(manifest) is False
+        assert validate_manifest_structure(manifest)[0] is False
