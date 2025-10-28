@@ -8,7 +8,7 @@ import importlib.metadata as md
 import subprocess
 from functools import lru_cache
 
-from fastmcp import FastMCP
+from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 
 @lru_cache(maxsize=1)
@@ -50,22 +50,15 @@ def _get_version_info() -> dict[str, str | None]:
     }
 
 
-def register_resources(app: FastMCP) -> None:
-    """Register connector builder resources with the FastMCP app.
+@mcp_resource(
+    uri="connector-builder-mcp://version",
+    description="Version information for the Connector Builder MCP server",
+    mime_type="application/json",
+)
+def version_resource() -> dict[str, str | None]:
+    """Resource that returns version information for the MCP server.
 
-    Args:
-        app: FastMCP application instance
+    Returns:
+        Dictionary with version information
     """
-
-    @app.resource(
-        "connector-builder-mcp://version",
-        description="Version information for the Connector Builder MCP server",
-        mime_type="application/json",
-    )
-    def version_resource() -> dict[str, str | None]:
-        """Resource that returns version information for the MCP server.
-
-        Returns:
-            Dictionary with version information
-        """
-        return _get_version_info()
+    return _get_version_info()
