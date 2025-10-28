@@ -3,7 +3,8 @@
 You are managing Phase 3 of connector development. Your goal is to add and validate all remaining streams for the connector.
 
 ## Objectives
-- Identify all available streams from API documentation
+- **First, enumerate all available streams**: Research the API documentation thoroughly to identify and list ALL available streams/endpoints before beginning implementation
+- Share the complete list of streams with your user or in the message thread for confirmation
 - Add each stream to the manifest one by one
 - Test each stream individually
 - Run full connector readiness test
