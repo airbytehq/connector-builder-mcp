@@ -201,29 +201,34 @@ async def run_manager_developer_build(
     try:
         all_run_results = []
         iteration_count = 0
-        max_retries = 3
+        max_attempts = 5
         while not is_complete(session_state):
-            retry_count = 0
             iteration_count += 1
             update_progress_log(
                 f"\n🔄 Starting iteration {iteration_count} with agent: {manager_agent.name}",
                 session_state,
             )
-
-            try:
-                run_result = await manager_agent.run(
-                    run_prompt,
-                    message_history=session_state.message_history,
-                    deps=session_state,
-                )
-            except ModelHTTPError as e:
-                retry_count += 1
-                if retry_count > max_retries:
-                    update_progress_log(f"\n❌ Max retries reached: {max_retries}", session_state)
-                    raise e from e
-                else:
-                    update_progress_log(f"\n⚠️ Caught retryable error: {e}", session_state)
-                continue
+            for attempt_num in range(max_attempts + 1):
+                try:
+                    run_result = await manager_agent.run(
+                        run_prompt,
+                        message_history=session_state.message_history,
+                        deps=session_state,
+                    )
+                    break
+                except ModelHTTPError as e:
+                    if attempt_num + 1 == max_attempts:
+                        update_progress_log(
+                            f"\n❌ Max attempts reached: {max_attempts + 1} total attempts",
+                            session_state,
+                        )
+                        raise
+                    else:
+                        update_progress_log(
+                            f"\n⚠️ Caught retryable error (attempt {attempt_num + 1}/{max_attempts + 1}): {e}",
+                            session_state,
+                        )
+                        continue
 
             all_run_results.append(run_result)
 

@@ -14,7 +14,7 @@ You are managing the Phase 1 of connector development. The goal is to establish 
 ## Key MCP Tools for This Phase
 - `create_connector_manifest_scaffold` - Generate initial manifest structure
 - `populate_dotenv_missing_secrets_stubs` - Set up authentication secrets
-- `get_connector_builder_docs` - Get relevant documentation if needed, (e.g. `RecordSelector`, `DpathExtractor`, etc)
+- `get_connector_builder_docs` - Get relevant documentation if needed, (e.g. `RecordSelector`, `DpathExtractor`, etc.)
 - `find_connectors_by_class_name` - Find example usage of components (e.g. `DpathExtractor`)
 - `execute_stream_test_read` - Test reading from the stream
 - `validate_manifest` - Ensure manifest structure is correct

@@ -17,7 +17,7 @@ You will use your web-search MCP tool (or another method if you have one) in ord
         - `checklist.md` (mentioned above)
     - If any of the above files already exist, please delete them before you begin.
     - Be sure to create files that have the exact names specified above.
-    - Many of your tools will except either a `manifest.yaml` path or a yaml string. You should prefer to send a path and not the string, in order to speed up the process and to reduce context and token usage.
+    - Many of your tools will accept either a `manifest.yaml` path or a yaml string. You should prefer to send a path and not the string, in order to speed up the process and to reduce context and token usage.
 
 3. **Process**
     - After you have created these files, use your checklist, the checklist tool, and other provided documentation tools for an overview of the steps needed.
