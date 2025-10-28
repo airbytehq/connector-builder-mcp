@@ -38,6 +38,11 @@ from connector_builder_mcp._util import (
     parse_manifest_input,
     validate_manifest_structure,
 )
+from connector_builder_mcp.anonymize import (
+    anonymize_http_interaction,
+    anonymize_records,
+    get_salt_id,
+)
 from connector_builder_mcp.secrets import hydrate_config
 
 
@@ -339,6 +344,24 @@ def execute_stream_test_read(  # noqa: PLR0914
             description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
         ),
     ] = None,
+    anonymized: Annotated[
+        bool | str,
+        Field(
+            description="Anonymize raw API responses and record data using deterministic hashing. "
+            "Requires MOCK_ANON_SALT environment variable to be set for reproducible anonymization. "
+            "When enabled, sensitive fields (IDs, emails, etc.) are anonymized while preserving structure."
+        ),
+    ] = False,
+    final_pages_only: Annotated[
+        bool | str | None,
+        Field(
+            description="Capture ONLY the final 2 pages of results, ignoring all other pages. "
+            "Mutually exclusive with max_records parameter (max_records is ignored when this is True). "
+            "This mode paginates through all pages but only returns the last 2 pages in the output. "
+            "Includes metadata field 'reached_end' to indicate if pagination completed successfully. "
+            "Safety guard: stops after 10,000 pages to prevent unbounded traversal."
+        ),
+    ] = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
@@ -346,6 +369,8 @@ def execute_stream_test_read(  # noqa: PLR0914
     We attempt to automatically sanitize raw data to prevent exposure of secrets.
     We do not attempt to sanitize record data, as it is expected to be user-defined.
     """
+    MAX_PAGES_SCAN = 10000
+
     success: bool = True
     include_records_data = as_bool(
         include_records_data,
@@ -359,16 +384,39 @@ def execute_stream_test_read(  # noqa: PLR0914
         include_raw_responses_data,
         default=False,
     )
+    anonymized = as_bool(anonymized, default=False)
+    final_pages_only = as_bool(final_pages_only, default=False)
+
+    if anonymized:
+        try:
+            from connector_builder_mcp.anonymize import get_anonymization_salt
+
+            get_anonymization_salt()  # Will raise ValueError if MOCK_ANON_SALT not set
+        except ValueError as e:
+            return StreamTestResult(
+                success=False,
+                message=str(e),
+                errors=[str(e)],
+            )
+
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})
 
     manifest_dict, _ = parse_manifest_input(manifest)
 
     config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
-    config_with_manifest = {
-        **config,
-        "__injected_declarative_manifest": manifest_dict,
-        "__test_read_config": {
+
+    if final_pages_only:
+        logger.info("final_pages_only mode: setting high limits to capture all pages")
+        test_read_config = {
+            "max_streams": 1,
+            "max_records": MAX_PAGES_SCAN * 1000,  # Very high to not hit record limit
+            "max_pages_per_slice": MAX_PAGES_SCAN,
+            "max_slices": MAX_PAGES_SCAN,
+        }
+        include_records_data = True
+    else:
+        test_read_config = {
             "max_streams": 1,
             "max_records": max_records,
             # We actually don't want to limit pages or slices.
@@ -376,7 +424,12 @@ def execute_stream_test_read(  # noqa: PLR0914
             # to very low limits, which is not what we want.
             "max_pages_per_slice": max(1, max_records),
             "max_slices": max(1, max_records),
-        },
+        }
+
+    config_with_manifest = {
+        **config,
+        "__injected_declarative_manifest": manifest_dict,
+        "__test_read_config": test_read_config,
     }
 
     limits = get_limits(config_with_manifest)
@@ -424,12 +477,64 @@ def execute_stream_test_read(  # noqa: PLR0914
         success = False
         error_msgs.append(f"No API output returned for stream '{stream_name}'.")
 
-    records_data: list[dict[str, Any]] = []
+    all_pages: list[dict[str, Any]] = []
     for slice_obj in slices:
         if isinstance(slice_obj, dict) and "pages" in slice_obj:
             for page in slice_obj["pages"]:
-                if isinstance(page, dict) and "records" in page:
-                    records_data.extend(page.pop("records"))
+                if isinstance(page, dict):
+                    all_pages.append(page)
+
+    reached_end = True
+    if final_pages_only:
+        total_pages = len(all_pages)
+        if total_pages >= MAX_PAGES_SCAN:
+            reached_end = False
+            execution_logs.append(
+                {
+                    "level": "WARNING",
+                    "message": f"Reached max pages scan limit ({MAX_PAGES_SCAN}). May not have captured true final pages.",
+                }
+            )
+
+        if total_pages > 2:
+            logger.info(f"final_pages_only: keeping last 2 of {total_pages} pages")
+            all_pages = all_pages[-2:]
+
+        execution_logs.append(
+            {
+                "level": "INFO",
+                "message": f"final_pages_only mode: captured {len(all_pages)} final pages out of {total_pages} total pages. reached_end={reached_end}",
+            }
+        )
+
+    records_data: list[dict[str, Any]] = []
+    for page in all_pages:
+        if "records" in page:
+            records_data.extend(page.get("records", []))
+
+    if anonymized:
+        try:
+            logger.info("Anonymizing records and raw responses")
+            records_data = anonymize_records(records_data)
+
+            for slice_obj in slices:
+                if isinstance(slice_obj, dict) and "pages" in slice_obj:
+                    for page in slice_obj["pages"]:
+                        if isinstance(page, dict):
+                            if "request" in page or "response" in page:
+                                anonymized_interaction = anonymize_http_interaction(page)
+                                page.update(anonymized_interaction)
+
+            execution_logs.append(
+                {
+                    "level": "INFO",
+                    "message": f"Applied anonymization with salt_id={get_salt_id()}",
+                }
+            )
+        except Exception as e:
+            logger.error(f"Anonymization failed: {e}")
+            error_msgs.append(f"Anonymization error: {str(e)}")
+            success = False
 
     record_stats = None
     if include_record_stats and records_data:
@@ -442,10 +547,8 @@ def execute_stream_test_read(  # noqa: PLR0914
                 "message": "Read attempt returned zero records. Please review the included raw responses to ensure the zero-records result is correct.",
             }
         )
-        # Override include_raw_responses_data to ensure caller confirms correctness:
         include_raw_responses_data = True
 
-    # Toggle to include_raw_responses=True if we had an error
     include_raw_responses_data = include_raw_responses_data or not success
 
     return StreamTestResult(
