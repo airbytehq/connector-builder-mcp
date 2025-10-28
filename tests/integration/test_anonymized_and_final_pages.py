@@ -54,7 +54,7 @@ class TestAnonymizedParameter:
             if result.success and result.records:
                 assert result.records_read > 0
                 assert result.records is not None
-                
+
                 for record in result.records:
                     if "id" in record:
                         assert str(record["id"]).startswith("anon_") or isinstance(
@@ -74,9 +74,7 @@ class TestAnonymizedParameter:
 
             assert isinstance(result, StreamTestResult)
             if result.success and result.logs:
-                salt_id_logs = [
-                    log for log in result.logs if "salt_id=" in log.get("message", "")
-                ]
+                salt_id_logs = [log for log in result.logs if "salt_id=" in log.get("message", "")]
                 assert len(salt_id_logs) > 0, "Expected salt_id in logs"
 
     def test_anonymized_false_does_not_anonymize(self, rick_and_morty_manifest_yaml: str):
@@ -128,12 +126,10 @@ class TestFinalPagesOnlyParameter:
         assert isinstance(result, StreamTestResult)
         if result.success and result.logs:
             page_info_logs = [
-                log
-                for log in result.logs
-                if "final_pages_only mode:" in log.get("message", "")
+                log for log in result.logs if "final_pages_only mode:" in log.get("message", "")
             ]
             assert len(page_info_logs) > 0, "Expected final_pages_only info in logs"
-            
+
             log_message = page_info_logs[0]["message"]
             assert "captured" in log_message
             assert "total pages" in log_message
@@ -158,9 +154,7 @@ class TestFinalPagesOnlyParameter:
 class TestCombinedParameters:
     """Tests for using both anonymized and final_pages_only together."""
 
-    def test_anonymized_and_final_pages_only_together(
-        self, rick_and_morty_manifest_yaml: str
-    ):
+    def test_anonymized_and_final_pages_only_together(self, rick_and_morty_manifest_yaml: str):
         """Test that both parameters can be used together."""
         with patch.dict(os.environ, {"MOCK_ANON_SALT": "test_salt_12345"}):
             result = execute_stream_test_read(
@@ -178,11 +172,9 @@ class TestCombinedParameters:
                     log for log in result.logs if "salt_id=" in log.get("message", "")
                 ]
                 final_pages_logs = [
-                    log
-                    for log in result.logs
-                    if "final_pages_only mode:" in log.get("message", "")
+                    log for log in result.logs if "final_pages_only mode:" in log.get("message", "")
                 ]
-                
+
                 assert len(anonymization_logs) > 0, "Expected anonymization logs"
                 assert len(final_pages_logs) > 0, "Expected final_pages_only logs"
 
