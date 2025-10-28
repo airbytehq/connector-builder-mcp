@@ -13,6 +13,7 @@ dependencies = [
     "jsonschema>=4.0.0,<5.0",
     "privatebin>=0.3.0,<1.0",
     "pydantic>=2.11.9,<3.0",
+    "pynacl>=1.5.0,<2.0",
     "python-dotenv>=1.1.1,<2.0",
     "pyyaml>=6.0.0,<7.0",
     "requests>=2.25.0,<3.0",
