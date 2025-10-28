@@ -306,55 +306,6 @@ Based on research of the MCP ecosystem and specification:
 
 **Note**: The MCP specification defines standard methods for discovering both prompts and resources. However, individual client implementations may vary in their support. When building MCP servers, prioritize tools for core functionality and use prompts/resources as supplementary capabilities.
 
-#### Implementation Patterns
-
-**Prompt Pattern:**
-```python
-from fastmcp import FastMCP
-from typing import Annotated
-from pydantic import Field
-
-def register_prompts(app: FastMCP) -> None:
-    @app.prompt(
-        name="my_workflow",
-        description="Step-by-step workflow for common task"
-    )
-    def my_workflow_prompt(
-        param: Annotated[
-            str | None,
-            Field(description="Optional parameter"),
-        ] = None,
-    ) -> list[dict[str, str]]:
-        """Prompt description."""
-        content = f"# Workflow Guide\n\nSteps for {param or 'the task'}..."
-        return [{"role": "user", "content": content}]
-```
-
-**Resource Pattern:**
-```python
-from fastmcp import FastMCP
-
-def register_resources(app: FastMCP) -> None:
-    @app.resource(
-        "my-server://data",
-        description="Read-only data resource",
-        mime_type="application/json"
-    )
-    def data_resource() -> dict[str, str]:
-        """Resource description."""
-        return {"key": "value"}
-```
-
-#### File Organization
-
-When adding prompts and resources to the connector-builder-mcp server:
-- **Prompt content**: Add constants to `connector_builder_mcp/_guidance.py`
-- **Prompt functions**: Implement in `connector_builder_mcp/prompts.py`
-- **Resource functions**: Implement in `connector_builder_mcp/resources.py`
-- **Registration**: Import and call `register_prompts(app)` and `register_resources(app)` in `connector_builder_mcp/server.py`
-
-This separation keeps the codebase organized and makes it easy to find and maintain each capability type.
-
 ## Adding New Documentation Topics
 
 The connector builder MCP provides documentation through the `get_connector_builder_docs()` tool, which serves content from the Airbyte documentation repository. To add new topics:
