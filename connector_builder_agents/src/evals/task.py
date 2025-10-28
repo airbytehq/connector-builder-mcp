@@ -3,29 +3,18 @@
 import json
 import logging
 import time
-from collections.abc import Mapping
-from pathlib import Path
-from typing import Any
 
-from pydantic import BaseModel
+from connector_builder_agents.src.evals.helpers import ConnectorBuilderEvalTaskOutput
 
 from ..constants import DEFAULT_DEVELOPER_MODEL, DEFAULT_MANAGER_MODEL
 from ..run import get_workspace_dir, run_connector_build
-from .helpers import get_artifact
+from .helpers import create_connector_builder_eval_task_output, get_artifact
 
 
 logger = logging.getLogger(__name__)
 
 EVAL_DEVELOPER_MODEL = DEFAULT_DEVELOPER_MODEL
 EVAL_MANAGER_MODEL = DEFAULT_MANAGER_MODEL
-
-
-class ConnectorBuilderEvalTaskOutput(BaseModel):
-    workspace_dir: Path
-    success: bool
-    final_output: str | None
-    num_turns: int
-    artifacts: Mapping[str, Any]
 
 
 async def run_connector_build_task(dataset_row: dict) -> ConnectorBuilderEvalTaskOutput:
@@ -64,13 +53,17 @@ async def run_connector_build_task(dataset_row: dict) -> ConnectorBuilderEvalTas
 
     logger.info(f"Task completed successfully for connector '{connector_name}'")
 
-    return ConnectorBuilderEvalTaskOutput(
-        workspace_dir=workspace_dir.absolute(),
-        success=success,
-        final_output=final_result.output if final_result else None,
-        num_turns=num_turns,
-        artifacts={
-            "readiness_report": readiness_report_content,
-            "manifest": manifest_content,
-        },
+    connector_builder_eval_task_output = create_connector_builder_eval_task_output(
+        {
+            "workspace_dir": workspace_dir.absolute(),
+            "success": success,
+            "final_output": final_result.output if final_result else None,
+            "num_turns": num_turns,
+            "artifacts": {
+                "readiness_report": readiness_report_content,
+                "manifest": manifest_content,
+            },
+        }
     )
+
+    return connector_builder_eval_task_output

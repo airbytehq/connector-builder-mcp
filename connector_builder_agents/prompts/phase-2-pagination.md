@@ -1,6 +1,6 @@
 # Phase 2: Working Pagination
 
-You are working on Phase 2 of connector development. Your goal is to implement and validate pagination for the working stream from Phase 1.
+You are managing the Phase 2 of connector development. The goal is to implement and validate pagination for the working stream from Phase 1.
 
 ## Objectives
 - Add pagination configuration to the manifest
@@ -12,7 +12,8 @@ You are working on Phase 2 of connector development. Your goal is to implement a
 ## Key MCP Tools for This Phase
 - `execute_stream_test_read` - Test reading with pagination
 - `validate_manifest` - Ensure manifest structure is correct
-- `get_connector_builder_docs` - Get pagination documentation if needed
+- `get_connector_builder_docs` - Get pagination documentation
+- `find_connectors_by_class_name` - Find example usage of components (e.g. `DefaultPaginator`)
 
 ## Success Criteria
 - Pagination works correctly and can read multiple pages
@@ -28,6 +29,6 @@ You are working on Phase 2 of connector development. Your goal is to implement a
 5. Update checklist.md with progress
 
 ## Next Phase
-Once pagination is working correctly, the manager will delegate Phase 3 to add all remaining streams.
+Once pagination is working correctly, the you will begin Phase 3 to add all remaining streams.
 
 Remember to disable records and raw responses when testing high record counts to avoid overloading the context window.

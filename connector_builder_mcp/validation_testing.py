@@ -35,6 +35,7 @@ from connector_builder_mcp._util import (
     as_bool,
     as_dict,
     filter_config_secrets,
+    is_valid_declarative_source_manifest,
     parse_manifest_input,
     validate_manifest_structure,
 )
@@ -257,6 +258,15 @@ def validate_manifest(
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         try:
+            is_valid, error = is_valid_declarative_source_manifest(manifest_dict)
+            if not is_valid:
+                errors.append(error)
+                return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+        except Exception as e:
+            errors.append(f"Error validating manifest: {e}")
+            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+
+        try:
             schema = _get_declarative_component_schema()
             validate(manifest_dict, schema)
             logger.info("JSON schema validation passed")
@@ -456,11 +466,11 @@ def execute_stream_test_read(  # noqa: PLR0914
             else f"Failed to read records from stream {stream_name}"
         ),
         records_read=len(records_data),
-        records=records_data if include_records_data else None,
+        records=None,
         record_stats=record_stats,
         errors=error_msgs,
         logs=execution_logs,
-        raw_api_responses=[stream_data] if include_raw_responses_data else None,
+        raw_api_responses=None,
     )
 
 
@@ -675,7 +685,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
         "",
         "## Summary",
         "",
-        f"- **Streams Tested**: {total_streams_tested} out of {total_available_streams} total streams",
+        f"- **Streams Tested**: {total_streams_tested} tested out of {total_available_streams} total available streams",
         f"- **Successful Streams**: {total_streams_successful}/{total_streams_tested}",
         f"- **Total Records Extracted**: {total_records_count:,}",
         f"- **Total Duration**: {total_duration:.2f}s",

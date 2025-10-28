@@ -9,6 +9,9 @@ from typing import Any, cast, overload
 import yaml
 
 from airbyte_cdk.sources.declarative.models import DeclarativeSource
+from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
+    ManifestReferenceResolver,
+)
 
 
 def initialize_logging() -> None:
@@ -171,7 +174,9 @@ def is_valid_declarative_source_manifest(manifest: dict[str, Any]) -> tuple[bool
         True if the manifest can be parsed as DeclarativeSource, False otherwise.
     """
     try:
-        DeclarativeSource.parse_obj(manifest)
+        reference_resolver = ManifestReferenceResolver()
+        resolved_manifest = reference_resolver.preprocess_manifest(manifest)
+        DeclarativeSource.parse_obj(resolved_manifest)
         return True, None
     except Exception as e:
         return (

@@ -1,6 +1,6 @@
 # Phase 3: Add Remaining Streams
 
-You are working on Phase 3 of connector development. Your goal is to add and validate all remaining streams for the connector.
+You are managing Phase 3 of connector development. Your goal is to add and validate all remaining streams for the connector.
 
 ## Objectives
 - Identify all available streams from API documentation

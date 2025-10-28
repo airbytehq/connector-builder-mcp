@@ -1,10 +1,12 @@
 # Phase 1: First Successful Stream Read
 
-You are working on Phase 1 of connector development. Your goal is to establish basic connectivity and successfully read records from one stream.
+You are managing the Phase 1 of connector development. The goal is to establish basic connectivity and successfully read records from one stream.
 
 ## Objectives
 - Research the target API and understand its structure
 - Create initial manifest using the scaffold tool
+- Determine and specify the primary key field for the stream, if one exists
+- Identify and define the correct path within the API response that contains the list of records to be extracted
 - Set up proper authentication (request secrets from user if needed)
 - Configure one stream without pagination initially
 - Validate that you can read records from this stream
@@ -12,10 +14,13 @@ You are working on Phase 1 of connector development. Your goal is to establish b
 ## Key MCP Tools for This Phase
 - `create_connector_manifest_scaffold` - Generate initial manifest structure
 - `populate_dotenv_missing_secrets_stubs` - Set up authentication secrets
+- `get_connector_builder_docs` - Get relevant documentation if needed, (e.g. `RecordSelector`, `DpathExtractor`, etc)
+- `find_connectors_by_class_name` - Find example usage of components (e.g. `DpathExtractor`)
 - `execute_stream_test_read` - Test reading from the stream
 - `validate_manifest` - Ensure manifest structure is correct
 
 ## Success Criteria
+- Primary key is defined, if applicable
 - Authentication is working correctly
 - Can read at least a few records from one stream
 - No pagination configured yet (that's Phase 2)
@@ -30,6 +35,6 @@ You are working on Phase 1 of connector development. Your goal is to establish b
 6. Update checklist.md with progress
 
 ## Next Phase
-Once you can successfully read records from one stream, the manager will delegate Phase 2 to add pagination support.
+Once the developer can successfully read records from one stream, you will begin Phase 2 to add pagination support.
 
 Remember to update your checklist.md file as you complete each step.

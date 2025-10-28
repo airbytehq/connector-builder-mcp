@@ -26,6 +26,21 @@ check:
   type: CheckStream
   stream_names:
     - users
+
+definitions:
+  authenticator:
+    type: NoAuth
+  paginator:
+    type: DefaultPaginator
+    page_token_option:
+        type: RequestOption
+        inject_into: request_parameter
+        field_name: _start
+    pagination_strategy:
+        type: OffsetIncrement
+        increment: 10
+        start_value: 0
+
 streams:
   - type: DeclarativeStream
     name: users
@@ -38,11 +53,15 @@ streams:
         url_base: "https://api.example.com"
         path: "/users"
         http_method: GET
+        authenticator:
+          $ref: "#/definitions/authenticator"
       record_selector:
         type: RecordSelector
         extractor:
           type: DpathExtractor
           field_path: []
+      paginator:
+        $ref: "#/definitions/paginator"
   - type: DeclarativeStream
     name: posts
     primary_key:
@@ -54,11 +73,15 @@ streams:
         url_base: "https://api.example.com"
         path: "/posts"
         http_method: GET
+        authenticator:
+          $ref: "#/definitions/authenticator"
       record_selector:
         type: RecordSelector
         extractor:
           type: DpathExtractor
           field_path: []
+      paginator:
+        $ref: "#/definitions/paginator"
   - type: DeclarativeStream
     name: comments
     primary_key:
@@ -70,11 +93,15 @@ streams:
         url_base: "https://api.example.com"
         path: "/comments"
         http_method: GET
+        authenticator:
+          $ref: "#/definitions/authenticator"
       record_selector:
         type: RecordSelector
         extractor:
           type: DpathExtractor
           field_path: []
+      paginator:
+        $ref: "#/definitions/paginator"
 spec:
   type: Spec
   documentation_url: https://example.com/docs
@@ -256,7 +283,14 @@ def create_connector_builder_eval_task_output_dict(readiness_report=None, manife
     return {
         "workspace_dir": "/tmp/test",
         "success": True,
-        "final_output": "Build completed",
+        "final_output": {
+            "short_status": "Build completed",
+            "detailed_progress_update": "Build completed",
+            "phase_1_completed": True,
+            "phase_2_completed": True,
+            "phase_3_completed": True,
+            "is_blocked": False,
+        },
         "num_turns": 5,
         "artifacts": {
             "readiness_report": readiness_report,

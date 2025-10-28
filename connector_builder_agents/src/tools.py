@@ -170,7 +170,6 @@ def create_mcp_filesystem_server(session_state: SessionState) -> MCPServerStdio:
             str(session_state.workspace_dir.absolute()),
         ],
         env={},
-        tool_prefix="filesystem",
         timeout=60,
         max_retries=5,
     )
@@ -256,8 +255,10 @@ def create_mark_job_success_tool(session_state: SessionState):
     def mark_job_success() -> None:
         """Mark the current phase as complete.
 
-        This should be called when all objectives for the current phase are met, and only after
+        This should be called when all objectives for the current task are met, and only after
         a successful connector readiness report has been saved to the workspace directory.
+
+        All three phases must be completed successfully for the job to be considered successful.
         """
         session_state.is_success = True
         update_progress_log("✅ Completed connector builder task successfully!", session_state)
