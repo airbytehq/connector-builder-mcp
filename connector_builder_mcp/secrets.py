@@ -391,7 +391,7 @@ def _cast_secrets_to_types(secrets: dict[str, Any], spec: dict[str, Any]) -> dic
         New dictionary with values cast to appropriate types
     """
 
-    def _cast_recursive(obj: Any, path_prefix: str = "") -> Any:
+    def _cast_recursive(obj: dict[str, Any], path_prefix: str = "") -> dict[str, Any]:
         """Recursively cast values in nested structures."""
         if isinstance(obj, dict):
             result = {}
