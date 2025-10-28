@@ -260,7 +260,7 @@ def validate_manifest(
 
         try:
             is_valid, error = is_valid_declarative_source_manifest(manifest_dict)
-            if not is_valid:
+            if not is_valid and error:
                 errors.append(error)
                 return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
         except Exception as e:
