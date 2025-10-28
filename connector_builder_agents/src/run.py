@@ -201,9 +201,9 @@ async def run_manager_developer_build(
     try:
         all_run_results = []
         iteration_count = 0
-        retry_count = 0
         max_retries = 3
         while not is_complete(session_state):
+            retry_count = 0
             iteration_count += 1
             update_progress_log(
                 f"\n🔄 Starting iteration {iteration_count} with agent: {manager_agent.name}",

@@ -467,11 +467,11 @@ def execute_stream_test_read(  # noqa: PLR0914
             else f"Failed to read records from stream {stream_name}"
         ),
         records_read=len(records_data),
-        records=None,
+        records=records_data if include_records_data else None,
         record_stats=record_stats,
         errors=error_msgs,
         logs=execution_logs,
-        raw_api_responses=None,
+        raw_api_responses=[stream_data] if include_raw_responses_data else None,
     )
 
 
@@ -641,7 +641,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
                 smoke_test_result = StreamSmokeTest(
                     stream_name=stream_name,
-                    primary_key=str(primary_key),
+                    primary_key=str(primary_key) if primary_key else None,
                     success=True,
                     records_read=records_read,
                     duration_seconds=stream_duration,

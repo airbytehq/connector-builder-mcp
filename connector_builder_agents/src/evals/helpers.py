@@ -33,8 +33,13 @@ def get_artifact(workspace_dir, artifact_name: str, logger) -> str | None:
 def create_connector_builder_eval_task_output(output: dict) -> ConnectorBuilderEvalTaskOutput:
     """Create a ConnectorBuilderEvalTaskOutput from a dictionary."""
 
-    if output.get("final_output", None):
-        final_output_data = output.get("final_output", {})
+    # Work on a shallow copy to avoid mutating the input
+    data = output.copy()
+
+    # Always pop final_output to avoid duplicate kwarg errors
+    final_output_data = data.pop("final_output", None)
+
+    if final_output_data:
         if isinstance(final_output_data, ManagerTaskOutput):
             manager_iteration_output = final_output_data
         elif isinstance(final_output_data, dict):
@@ -42,8 +47,7 @@ def create_connector_builder_eval_task_output(output: dict) -> ConnectorBuilderE
         else:
             # Handle other types (e.g., string) - set to None
             manager_iteration_output = None
-        output.pop("final_output")
     else:
         manager_iteration_output = None
 
-    return ConnectorBuilderEvalTaskOutput(**output, final_output=manager_iteration_output)
+    return ConnectorBuilderEvalTaskOutput(**data, final_output=manager_iteration_output)
