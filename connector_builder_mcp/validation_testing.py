@@ -378,7 +378,6 @@ def execute_stream_test_read(  # noqa: PLR0914
     spec = manifest_dict.get("spec")
 
     config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris, spec=spec)
-    logger.info(f"Config after secret hydration: {config}")
     config_with_manifest = {
         **config,
         "__injected_declarative_manifest": manifest_dict,
