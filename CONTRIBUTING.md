@@ -238,6 +238,123 @@ def register_tools(app: FastMCP) -> None:
     app.tool()(my_new_tool)
 ```
 
+### Understanding MCP Capabilities: Tools, Prompts, and Resources
+
+The Model Context Protocol (MCP) provides three distinct capability types, each serving different purposes in the AI agent workflow. Understanding when to use each type is crucial for building effective MCP servers.
+
+#### Capability Types
+
+**Tools** are imperative, model-controlled operations that:
+- Perform actions with side effects (create, update, delete operations)
+- Execute I/O operations or heavier computations
+- Are invoked automatically by the LLM when it determines they're needed
+- Return structured results that the model can reason about
+- Examples: `validate_manifest`, `execute_stream_test_read`, `run_connector_readiness_test_report`
+
+**Prompts** are user-controlled, pre-authored instruction templates that:
+- Provide structured guidance and workflows to the model
+- Require explicit user invocation (not automatically called by the LLM)
+- Are side-effect free and don't perform operations
+- Can reference available tools and resources in their content
+- Support optional parameters for customization
+- Examples: `build_connector_from_scratch`, `add_stream_to_connector`
+
+**Resources** are application-driven, read-only data sources that:
+- Expose passive data that can be read by the model or application
+- Have unique URIs for identification (e.g., `connector-builder-mcp://version`)
+- Support MIME types for content negotiation
+- Are cacheable and idempotent (same URI always returns same data)
+- Can be direct resources or parameterized templates
+- Examples: version information, configuration data, documentation content
+
+#### When to Use Each Capability Type
+
+**Use Tools when:**
+- The operation has side effects or performs I/O
+- The LLM should decide when to invoke the capability
+- You need to execute computations or transformations
+- The operation requires authentication or credentials
+- You're building, testing, or validating something
+
+**Use Prompts when:**
+- You want to provide structured workflows or playbooks
+- The user should explicitly choose when to use it
+- You're offering guidance, templates, or best practices
+- You want to combine multiple tool calls into a cohesive workflow
+- You're providing context-specific instructions
+
+**Use Resources when:**
+- You're exposing read-only data or metadata
+- The data has a stable identifier (URI)
+- The content is cacheable and doesn't change frequently
+- You want to provide reference information
+- The data should be accessible without model invocation
+
+#### MCP Client Support for Auto-Discovery
+
+Based on research of the MCP ecosystem and specification:
+
+**Prompts Support:**
+- ✅ **Claude Desktop**: Full support for prompt discovery and invocation
+- ✅ **MCP Specification**: Prompts are a core capability with `prompts/list` and `prompts/get` methods
+- ⚠️ **Other Clients**: Support varies by implementation; check client documentation
+
+**Resources Support:**
+- ✅ **Claude Desktop**: Full support for resource discovery and reading
+- ✅ **MCP Specification**: Resources are a core capability with `resources/list`, `resources/read`, and `resources/templates/list` methods
+- ⚠️ **Other Clients**: Support varies by implementation; check client documentation
+
+**Note**: The MCP specification defines standard methods for discovering both prompts and resources. However, individual client implementations may vary in their support. When building MCP servers, prioritize tools for core functionality and use prompts/resources as supplementary capabilities.
+
+#### Implementation Patterns
+
+**Prompt Pattern:**
+```python
+from fastmcp import FastMCP
+from typing import Annotated
+from pydantic import Field
+
+def register_prompts(app: FastMCP) -> None:
+    @app.prompt(
+        name="my_workflow",
+        description="Step-by-step workflow for common task"
+    )
+    def my_workflow_prompt(
+        param: Annotated[
+            str | None,
+            Field(description="Optional parameter"),
+        ] = None,
+    ) -> list[dict[str, str]]:
+        """Prompt description."""
+        content = f"# Workflow Guide\n\nSteps for {param or 'the task'}..."
+        return [{"role": "user", "content": content}]
+```
+
+**Resource Pattern:**
+```python
+from fastmcp import FastMCP
+
+def register_resources(app: FastMCP) -> None:
+    @app.resource(
+        "my-server://data",
+        description="Read-only data resource",
+        mime_type="application/json"
+    )
+    def data_resource() -> dict[str, str]:
+        """Resource description."""
+        return {"key": "value"}
+```
+
+#### File Organization
+
+When adding prompts and resources to the connector-builder-mcp server:
+- **Prompt content**: Add constants to `connector_builder_mcp/_guidance.py`
+- **Prompt functions**: Implement in `connector_builder_mcp/prompts.py`
+- **Resource functions**: Implement in `connector_builder_mcp/resources.py`
+- **Registration**: Import and call `register_prompts(app)` and `register_resources(app)` in `connector_builder_mcp/server.py`
+
+This separation keeps the codebase organized and makes it easy to find and maintain each capability type.
+
 ## Adding New Documentation Topics
 
 The connector builder MCP provides documentation through the `get_connector_builder_docs()` tool, which serves content from the Airbyte documentation repository. To add new topics:
