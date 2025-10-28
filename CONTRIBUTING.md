@@ -305,6 +305,7 @@ Based on research of the MCP ecosystem and specification:
 - ⚠️ **Other Clients**: Support varies by implementation; check client documentation
 
 **Note**: The MCP specification defines standard methods for discovering both prompts and resources. However, individual client implementations may vary in their support. When building MCP servers, prioritize tools for core functionality and use prompts/resources as supplementary capabilities.
+
 ## Adding New Documentation Topics
 
 The connector builder MCP provides documentation through the `get_connector_builder_docs()` tool, which serves content from the Airbyte documentation repository. To add new topics:
