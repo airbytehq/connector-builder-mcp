@@ -7,13 +7,14 @@ common connector building workflows.
 
 from typing import Annotated
 
+from fastmcp import FastMCP
 from pydantic import Field
 
 from connector_builder_mcp._guidance import (
     ADD_STREAM_TO_CONNECTOR_PROMPT,
     BUILD_CONNECTOR_FROM_SCRATCH_PROMPT,
 )
-from connector_builder_mcp.mcp_capabilities import mcp_prompt
+from connector_builder_mcp.mcp_capabilities import mcp_prompt, register_deferred_prompts
 
 
 @mcp_prompt(
@@ -74,3 +75,12 @@ def add_stream_to_connector(
         manifest_path=manifest_path or "(path to manifest)",
     )
     return [{"role": "user", "content": content}]
+
+
+def register_prompts(app: FastMCP) -> None:
+    """Register connector builder prompts with the FastMCP app.
+
+    Args:
+        app: FastMCP application instance
+    """
+    register_deferred_prompts(app)
