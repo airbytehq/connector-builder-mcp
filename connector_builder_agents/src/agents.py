@@ -1,9 +1,11 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Agent implementations for the Airbyte connector builder."""
 
+from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
 
+from .constants import PHASE_1_PROMPT_FILE_PATH, PHASE_2_PROMPT_FILE_PATH, PHASE_3_PROMPT_FILE_PATH
 from .guidance import get_default_developer_prompt, get_default_manager_prompt
 from .tools import (
     SessionState,
@@ -20,6 +22,41 @@ from .tools import (
 )
 
 
+class DelegatedDeveloperTask(BaseModel):
+    """Input data for handoff from manager to developer."""
+
+    api_name: str = Field(description="The name of the API to build a connector for.")
+    assignment_title: str = Field(description="The title of the task assigned to the developer.")
+    assignment_description: str = Field(
+        description="The description of the task assigned to the developer."
+    )
+
+
+class ManagerHandoffInput(BaseModel):
+    """Input data for handoff from developer back to manager."""
+
+    short_status: str = Field(description="A short status message for the build.")
+    detailed_progress_update: str = Field(description="A detailed progress update for the build.")
+    is_full_success: bool = Field(
+        default=False, description="Whether the current task was successful."
+    )
+    is_partial_success: bool = Field(
+        default=False, description="Whether the current task was partially successful."
+    )
+    is_blocked: bool = Field(default=False, description="Whether the current task is blocked.")
+
+
+class ManagerTaskOutput(BaseModel):
+    """Output data for a manager iteration."""
+
+    short_status: str = Field(description="A short status message for the build.")
+    detailed_progress_update: str = Field(description="A detailed progress update for the build.")
+    phase_1_completed: bool = Field(default=False, description="Whether phase 1 was completed.")
+    phase_2_completed: bool = Field(default=False, description="Whether phase 2 was completed.")
+    phase_3_completed: bool = Field(default=False, description="Whether phase 3 was completed.")
+    is_blocked: bool = Field(default=False, description="Whether the build is blocked.")
+
+
 def create_developer_agent(
     model: str,
     api_name: str,
@@ -28,7 +65,7 @@ def create_developer_agent(
     mcp_servers: list,
 ) -> Agent:
     """Create the developer agent that executes specific phases."""
-    return Agent(
+    developer_agent = Agent(
         model,
         name="MCP Connector Developer",
         deps_type=SessionState,
@@ -44,7 +81,10 @@ def create_developer_agent(
             duckduckgo_search_tool(),
         ],
         toolsets=mcp_servers,
+        output_type=ManagerHandoffInput,
     )
+
+    return developer_agent
 
 
 def create_manager_agent(
@@ -75,14 +115,14 @@ def create_manager_agent(
             create_get_progress_log_text_tool(session_state),
         ],
         toolsets=mcp_servers,
+        output_type=ManagerTaskOutput,
     )
 
     @manager_agent.tool
     async def delegate_to_developer(
         ctx: RunContext[SessionState],
-        assignment_title: str,
-        assignment_description: str,
-    ) -> str:
+        delegated_developer_task: DelegatedDeveloperTask,
+    ) -> DelegatedDeveloperTask:
         """Delegate work to the developer agent.
 
         Args:
@@ -92,54 +132,49 @@ def create_manager_agent(
         """
         update_progress_log(
             f"🤝 [MANAGER → DEVELOPER] Manager delegating task to developer agent."
-            f"\n Task Name: {assignment_title}"
-            f"\n Task Description: {assignment_description}",
+            f"\n Task Name: {delegated_developer_task.assignment_title}"
+            f"\n Task Description: {delegated_developer_task.assignment_description}",
             ctx.deps,
         )
 
         result = await developer_agent.run(
-            assignment_description,
+            delegated_developer_task.assignment_description,
             message_history=ctx.deps.message_history,
             deps=ctx.deps,
         )
 
         update_progress_log(
-            f"🤝 [DEVELOPER → MANAGER] Developer completed task: {assignment_title}"
+            f"🤝 [DEVELOPER → MANAGER] Developer completed task: {delegated_developer_task.assignment_title}"
             f"\n Result: {result.output}",
             ctx.deps,
         )
 
         ctx.deps.message_history.extend(result.new_messages())
 
-        return str(result.output)
+        return result.output
 
-    @developer_agent.tool
-    async def report_back_to_manager(
+    @manager_agent.tool
+    async def start_phase_1(
         ctx: RunContext[SessionState],
-        short_status: str,
-        detailed_progress_update: str,
-        is_full_success: bool = False,
-        is_partial_success: bool = False,
-        is_blocked: bool = False,
     ) -> str:
-        """Report progress or issues back to the manager agent.
+        """Start phase 1 of the connector build. Returns the prompt for phase 1."""
+        update_progress_log("🔧 [Manager] MCP Tool call: start_phase_1", ctx.deps)
+        return PHASE_1_PROMPT_FILE_PATH.read_text(encoding="utf-8")
 
-        Args:
-            short_status: One sentence summary of what was accomplished.
-            detailed_progress_update: A detailed update on progress and next steps.
-            is_full_success: True if the phase is fully completed.
-            is_partial_success: True if partially done.
-            is_blocked: True if encountered a blocker.
-        """
-        update_progress_log(
-            f"🤝 [DEVELOPER → MANAGER] Developer handing back control to manager."
-            f"\n Summary of status: {short_status}"
-            f"\n Partial success: {is_partial_success}"
-            f"\n Full success: {is_full_success}"
-            f"\n Blocked: {is_blocked}"
-            f"\n Detailed progress update: {detailed_progress_update}",
-            ctx.deps,
-        )
-        return "Status reported to manager"
+    @manager_agent.tool
+    async def start_phase_2(
+        ctx: RunContext[SessionState],
+    ) -> str:
+        """Start phase 2 of the connector build. Returns the prompt for phase 2."""
+        update_progress_log("🔧 [Manager] MCP Tool call: start_phase_2", ctx.deps)
+        return PHASE_2_PROMPT_FILE_PATH.read_text(encoding="utf-8")
+
+    @manager_agent.tool
+    async def start_phase_3(
+        ctx: RunContext[SessionState],
+    ) -> str:
+        """Start phase 3 of the connector build. Returns the prompt for phase 3."""
+        update_progress_log("🔧 [Manager] MCP Tool call: start_phase_3", ctx.deps)
+        return PHASE_3_PROMPT_FILE_PATH.read_text(encoding="utf-8")
 
     return manager_agent

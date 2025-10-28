@@ -35,6 +35,7 @@ from connector_builder_mcp._util import (
     as_bool,
     as_dict,
     filter_config_secrets,
+    is_valid_declarative_source_manifest,
     parse_manifest_input,
     validate_manifest_structure,
 )
@@ -78,6 +79,7 @@ class StreamSmokeTest(BaseModel):
     stream_name: str
     success: bool
     records_read: int = 0
+    primary_key: str | None = None
     duration_seconds: float = 0.0
     error_message: str | None = None
     field_count_warnings: list[str] = []
@@ -254,6 +256,15 @@ def validate_manifest(
         except Exception as preprocessing_error:
             logger.error(f"CDK preprocessing failed: {preprocessing_error}")
             errors.append(f"Preprocessing error: {str(preprocessing_error)}")
+            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+
+        try:
+            is_valid, error = is_valid_declarative_source_manifest(manifest_dict)
+            if not is_valid and error:
+                errors.append(error)
+                return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+        except Exception as e:
+            errors.append(f"Error validating manifest: {e}")
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         try:
@@ -612,8 +623,25 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                         f"Records have only {result.record_stats.get('num_properties', 0)} field(s), expected at least 2"
                     )
 
+                stream_config = next(
+                    (s for s in available_streams if s.get("name") == stream_name),
+                    None,
+                )
+                if stream_config:
+                    primary_key = stream_config.get("primary_key", [])
+                    if not primary_key:
+                        field_count_warnings.append("No primary key defined in manifest")
+                    elif result.record_stats:
+                        properties = result.record_stats.get("properties", {})
+                        missing_pk_fields = [pk for pk in primary_key if pk not in properties]
+                        if missing_pk_fields:
+                            field_count_warnings.append(
+                                f"Primary key field(s) missing from records: {', '.join(missing_pk_fields)}"
+                            )
+
                 smoke_test_result = StreamSmokeTest(
                     stream_name=stream_name,
+                    primary_key=str(primary_key) if primary_key else None,
                     success=True,
                     records_read=records_read,
                     duration_seconds=stream_duration,
@@ -675,7 +703,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
         "",
         "## Summary",
         "",
-        f"- **Streams Tested**: {total_streams_tested} out of {total_available_streams} total streams",
+        f"- **Streams Tested**: {total_streams_tested} tested out of {total_available_streams} total available streams",
         f"- **Successful Streams**: {total_streams_successful}/{total_streams_tested}",
         f"- **Total Records Extracted**: {total_records_count:,}",
         f"- **Total Duration**: {total_duration:.2f}s",
@@ -706,6 +734,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                     f"### `{stream_name}` ✅",
                     "",
                     f"- **Records Extracted**: {smoke_result.records_read:,}",
+                    f"- **Primary Key**: {smoke_result.primary_key}",
                     f"- **Duration**: {smoke_result.duration_seconds:.2f}s",
                 ]
             )

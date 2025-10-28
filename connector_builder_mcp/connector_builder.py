@@ -73,7 +73,6 @@ def get_connector_builder_docs(
 
     if not topic:
         return """# Connector Builder Documentation
-
 **Important**: Before starting development, call the `get_connector_builder_checklist()` tool.
 Save its contents to a new text file if you are able. The checklist provides step-by-step guidance
 for building connectors and helps avoid common pitfalls like pagination issues and incomplete validation.
@@ -242,6 +241,7 @@ def find_connectors_by_class_name(class_names: str) -> list[str]:
     This tool searches for connectors that implement specific declarative component classes.
 
     Examples of valid class names:
+    - DefaultPaginator (for pagination)
     - DynamicDeclarativeStream (for dynamic stream discovery)
     - HttpComponentsResolver (for HTTP-based component resolution)
     - ConfigComponentsResolver (for config-based component resolution)

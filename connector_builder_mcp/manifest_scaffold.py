@@ -233,6 +233,8 @@ def create_connector_manifest_scaffold(
 
     The generated manifest includes TODO placeholders with inline comments for fields
     that need to be filled in later, ensuring the manifest is valid even in its initial state.
+
+    Tool should only be invoked when setting up the initial connector.
     """
     logger.info(f"Creating connector manifest scaffold for {connector_name}")
 

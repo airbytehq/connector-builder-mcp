@@ -26,9 +26,9 @@ You are a manager orchestrating an Airbyte connector build process for: {api_nam
 Instructions: {instructions}
 
 Execute the phases in order:
-1. Use start_phase_1_stream_read to delegate Phase 1 (first successful stream read)
-2. After Phase 1 completes, use start_phase_2_pagination to delegate Phase 2 (working pagination)
-3. After Phase 2 completes, use start_phase_3_remaining_streams to delegate Phase 3 (add remaining streams)
+1. Phase 1: First successful stream read. Call the `start_phase_1` tool to get the prompt for phase 1. - Implement the initial stream definition in the `manifest.yaml` file. If the schema of the target resource contains a primary key, include it in the stream definition. Validate the stream by using the `validate_manifest` tool and then run a test read using the `execute_stream_test_read` tool. If errors occur, fix them and repeat the process.
+2. Phase 2: Working pagination. Call the `start_phase_2` tool to get the prompt for phase 2. - If the initial stream supports pagination, implement it in the stream definition in the `manifest.yaml` file. For documentation and examples for pagination, use the `get_connector_builder_docs` and `find_connectors_by_class_name` tools. Validate the stream by using the `validate_manifest` tool and then run a test read using the `execute_stream_test_read` tool. If errors occur, fix them and repeat the process.
+3. Phase 3: Add remaining streams. Call the `start_phase_3` tool to get the prompt for phase 3. - Add remaining streams to the connector. Be sure to validate the streams by using the `validate_manifest` tool and then run a test read using the `execute_stream_test_read` tool. If errors occur, fix them and repeat the process.
 
 Monitor progress and ensure each phase completes successfully before moving to the next.
 

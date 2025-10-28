@@ -7,6 +7,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 from pydantic_ai.run import AgentRunResult
 
+from connector_builder_agents.src.agents import ManagerTaskOutput
 from connector_builder_agents.src.constants import DEFAULT_DEVELOPER_MODEL, DEFAULT_MANAGER_MODEL
 from connector_builder_agents.src.evals.task import (
     ConnectorBuilderEvalTaskOutput,
@@ -24,8 +25,17 @@ class TestConnectorBuilderTask:
             "input": json.dumps({"name": "test-connector", "prompt_name": "test-prompt"})
         }
 
+        mock_manager_output = {
+            "short_status": "Test build completed",
+            "detailed_progress_update": "Test build completed successfully",
+            "phase_1_completed": True,
+            "phase_2_completed": True,
+            "phase_3_completed": True,
+            "is_blocked": False,
+        }
+
         mock_run_result = MagicMock(spec=AgentRunResult)
-        mock_run_result.output = "Test build completed successfully"
+        mock_run_result.output = mock_manager_output
         mock_build_result = [mock_run_result]
 
         mock_workspace_dir = MagicMock(spec=Path)
@@ -57,7 +67,7 @@ class TestConnectorBuilderTask:
                 "/absolute/test/workspace/eval-test-connector-1234567890"
             )
             assert result.success is True
-            assert result.final_output == "Test build completed successfully"
+            assert result.final_output == ManagerTaskOutput(**mock_manager_output)
             assert result.num_turns == 1
             assert result.artifacts["readiness_report"] == mock_readiness_report
             assert result.artifacts["manifest"] == mock_manifest

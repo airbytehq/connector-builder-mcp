@@ -11,7 +11,15 @@ from opentelemetry.trace import get_current_span
 from phoenix.evals import OpenAIModel, llm_classify
 
 from airbyte_cdk.sources.declarative.models import DeclarativeSource
-from connector_builder_agents.src.evals.task import ConnectorBuilderEvalTaskOutput
+from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer import (
+    ManifestComponentTransformer,
+)
+from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
+    ManifestReferenceResolver,
+)
+from connector_builder_agents.src.evals.helpers import (
+    create_connector_builder_eval_task_output,
+)
 
 
 load_dotenv()
@@ -46,9 +54,7 @@ def manifest_validation_eval(output: dict | None) -> int:
         logger.warning("No output provided - build task likely failed")
         return 0
 
-    connector_builder_eval_task_output = ConnectorBuilderEvalTaskOutput(**output)
-
-    manifest = connector_builder_eval_task_output.artifacts.get("manifest", None)
+    manifest = create_connector_builder_eval_task_output(output).artifacts.get("manifest", None)
     if manifest is None:
         logger.warning("No manifest found")
         return 0
@@ -60,27 +66,33 @@ def manifest_validation_eval(output: dict | None) -> int:
         return 0
 
     try:
-        DeclarativeSource.parse_obj(manifest_dict)
-    except Exception as e:
-        logger.warning(f"Failed to parse DeclarativeSource from manifest: {e}")
+        reference_resolver = ManifestReferenceResolver()
+        resolved_manifest = reference_resolver.preprocess_manifest(manifest_dict)
+        component_transformer = ManifestComponentTransformer()
+        processed_manifest = component_transformer.propagate_types_and_parameters(
+            "", resolved_manifest, {}
+        )
+        DeclarativeSource.parse_obj(processed_manifest)
+    except Exception:
+        logger.warning("Failed to parse DeclarativeSource from manifest.")
         return 0
 
     return 1
 
 
-def readiness_eval(output: dict | None) -> float:
+def readiness_eval(output: dict | None) -> int:
     """Create Phoenix LLM classifier for readiness evaluation. Return 1 if PASSED, 0 if FAILED."""
 
     if output is None:
         logger.warning("No output provided - build task likely failed")
-        return 0.0
+        return 0
 
-    connector_builder_eval_task_output = ConnectorBuilderEvalTaskOutput(**output)
-
-    readiness_report = connector_builder_eval_task_output.artifacts.get("readiness_report", None)
+    readiness_report = create_connector_builder_eval_task_output(output).artifacts.get(
+        "readiness_report", None
+    )
     if readiness_report is None:
         logger.warning("No readiness report found")
-        return 0.0
+        return 0
 
     rails = ["PASSED", "FAILED"]
 
@@ -95,7 +107,7 @@ def readiness_eval(output: dict | None) -> float:
     logger.info(f"Readiness evaluation result: {eval_df}")
 
     label = eval_df["label"][0]
-    score = 1.0 if label.upper() == "PASSED" else 0.0
+    score = 1 if label.upper() == "PASSED" else 0
 
     return score
 
@@ -107,9 +119,7 @@ def streams_eval(expected: dict, output: dict | None) -> float:
         logger.warning("No output provided - build task likely failed")
         return 0.0
 
-    connector_builder_eval_task_output = ConnectorBuilderEvalTaskOutput(**output)
-
-    manifest_str = connector_builder_eval_task_output.artifacts.get("manifest", None)
+    manifest_str = create_connector_builder_eval_task_output(output).artifacts.get("manifest", None)
     if not manifest_str:
         logger.warning("No manifest found or manifest is empty")
         return 0.0
@@ -121,11 +131,17 @@ def streams_eval(expected: dict, output: dict | None) -> float:
         return 0.0
 
     try:
-        declarative_source = DeclarativeSource.parse_obj(manifest_dict)
+        reference_resolver = ManifestReferenceResolver()
+        resolved_manifest = reference_resolver.preprocess_manifest(manifest_dict)
+        component_transformer = ManifestComponentTransformer()
+        processed_manifest = component_transformer.propagate_types_and_parameters(
+            "", resolved_manifest, {}
+        )
+        declarative_source = DeclarativeSource.parse_obj(processed_manifest)
         if hasattr(declarative_source, "__root__"):
             declarative_source = declarative_source.__root__
-    except Exception as e:
-        logger.error(f"Failed to parse DeclarativeSource from manifest: {e}")
+    except Exception:
+        logger.error("Failed to parse DeclarativeSource from manifest.")
         return 0.0
 
     available_stream_names = []
@@ -160,17 +176,28 @@ def primary_key_eval(expected: dict, output: dict | None) -> float:
         logger.warning("No output provided - build task likely failed")
         return 0.0
 
-    manifest_str = ConnectorBuilderEvalTaskOutput(**output).artifacts.get("manifest")
+    manifest_str = create_connector_builder_eval_task_output(output).artifacts.get("manifest")
     if not manifest_str:
         logger.warning("No manifest found or manifest is empty")
         return 0.0
 
     try:
-        manifest = yaml.safe_load(manifest_str)
-        declarative_source = DeclarativeSource.parse_obj(manifest)
+        manifest_dict = yaml.safe_load(manifest_str)
+    except yaml.YAMLError as e:
+        logger.warning(f"Failed to parse manifest YAML: {e}")
+        return 0.0
+
+    try:
+        reference_resolver = ManifestReferenceResolver()
+        resolved_manifest = reference_resolver.preprocess_manifest(manifest_dict)
+        component_transformer = ManifestComponentTransformer()
+        processed_manifest = component_transformer.propagate_types_and_parameters(
+            "", resolved_manifest, {}
+        )
+        declarative_source = DeclarativeSource.parse_obj(processed_manifest)
         declarative_source = getattr(declarative_source, "__root__", declarative_source)
-    except Exception as e:
-        logger.error(f"Failed to parse DeclarativeSource from manifest: {e}")
+    except Exception:
+        logger.error("Failed to parse DeclarativeSource from manifest.")
         return 0.0
 
     expected_streams = json.loads(expected.get("expected", "{}")).get("expected_streams", [])

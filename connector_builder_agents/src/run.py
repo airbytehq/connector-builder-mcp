@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import ModelHTTPError
 
 from ._util import get_secrets_dotenv
 from .agents import (
@@ -200,18 +201,34 @@ async def run_manager_developer_build(
     try:
         all_run_results = []
         iteration_count = 0
+        max_attempts = 5
         while not is_complete(session_state):
             iteration_count += 1
             update_progress_log(
                 f"\n🔄 Starting iteration {iteration_count} with agent: {manager_agent.name}",
                 session_state,
             )
-
-            run_result = await manager_agent.run(
-                run_prompt,
-                message_history=session_state.message_history,
-                deps=session_state,
-            )
+            for attempt_num in range(max_attempts + 1):
+                try:
+                    run_result = await manager_agent.run(
+                        run_prompt,
+                        message_history=session_state.message_history,
+                        deps=session_state,
+                    )
+                    break
+                except ModelHTTPError as e:
+                    if attempt_num + 1 == max_attempts:
+                        update_progress_log(
+                            f"\n❌ Max attempts reached: {max_attempts + 1} total attempts",
+                            session_state,
+                        )
+                        raise
+                    else:
+                        update_progress_log(
+                            f"\n⚠️ Caught retryable error (attempt {attempt_num + 1}/{max_attempts + 1}): {e}",
+                            session_state,
+                        )
+                        continue
 
             all_run_results.append(run_result)
 
