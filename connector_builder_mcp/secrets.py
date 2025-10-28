@@ -11,7 +11,7 @@ import logging
 import os
 from io import StringIO
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from urllib.parse import urlparse
 
 import privatebin
@@ -391,7 +391,7 @@ def _cast_secrets_to_types(secrets: dict[str, Any], spec: dict[str, Any]) -> dic
         New dictionary with values cast to appropriate types
     """
 
-    def _cast_recursive(obj: dict[str, Any], path_prefix: str = "") -> dict[str, Any]:
+    def _cast_recursive(obj: Any, path_prefix: str = "") -> Any:
         """Recursively cast values in nested structures."""
         if isinstance(obj, dict):
             result = {}
@@ -409,7 +409,7 @@ def _cast_secrets_to_types(secrets: dict[str, Any], spec: dict[str, Any]) -> dic
             # Non-string, non-dict values pass through unchanged
             return obj
 
-    return _cast_recursive(secrets)
+    return cast(dict[str, Any], _cast_recursive(secrets))
 
 
 def hydrate_config(
