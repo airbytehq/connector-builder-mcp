@@ -10,6 +10,9 @@ import yaml
 
 from connector_builder_mcp.secrets import (
     SecretsFileInfo,
+    _cast_secrets_to_types,
+    _cast_value_to_type,
+    _get_schema_for_path,
     _load_secrets,
     hydrate_config,
     list_dotenv_secrets,
@@ -668,3 +671,541 @@ def test_populate_dotenv_missing_secrets_stubs_readonly_file_no_collision():
         finally:
             os.chmod(f.name, 0o644)
             Path(f.name).unlink()
+
+
+# ============================================================================
+# Tests for Type Casting Functionality
+# ============================================================================
+
+
+@pytest.fixture
+def sample_spec():
+    """Sample connector spec for testing type casting."""
+    return {
+        "connection_specification": {
+            "type": "object",
+            "properties": {
+                "api_key": {"type": "string"},
+                "port": {"type": "integer"},
+                "timeout": {"type": "number"},
+                "enabled": {"type": "boolean"},
+                "start_date": {"type": "string", "format": "date-time"},
+                "credentials": {
+                    "type": "object",
+                    "properties": {
+                        "password": {"type": "string"},
+                        "user_id": {"type": "integer"},
+                    },
+                },
+                "oauth": {
+                    "type": "object",
+                    "properties": {
+                        "client_secret": {"type": "string"},
+                        "refresh_token": {"type": "string"},
+                        "nested": {
+                            "type": "object",
+                            "properties": {
+                                "deep_value": {"type": "boolean"},
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    }
+
+
+# Tests for _cast_value_to_type
+
+
+@pytest.mark.parametrize(
+    "value,schema_type,schema_format,expected",
+    [
+        # Happy path - integer
+        ("123", "integer", None, 123),
+        ("0", "integer", None, 0),
+        ("-456", "integer", None, -456),
+        # Happy path - number
+        ("3.14", "number", None, 3.14),
+        ("0.0", "number", None, 0.0),
+        ("-2.5", "number", None, -2.5),
+        ("123", "number", None, 123.0),
+        # Happy path - boolean
+        ("true", "boolean", None, True),
+        ("True", "boolean", None, True),
+        ("TRUE", "boolean", None, True),
+        ("1", "boolean", None, True),
+        ("yes", "boolean", None, True),
+        ("false", "boolean", None, False),
+        ("False", "boolean", None, False),
+        ("FALSE", "boolean", None, False),
+        ("0", "boolean", None, False),
+        ("no", "boolean", None, False),
+        # Happy path - string
+        ("any_value", "string", None, "any_value"),
+        ("123", "string", None, "123"),
+        ("", "string", None, ""),
+        # Happy path - array
+        ('["a", "b", "c"]', "array", None, ["a", "b", "c"]),
+        ("[1, 2, 3]", "array", None, [1, 2, 3]),
+        ("[]", "array", None, []),
+        # Happy path - object
+        ('{"key": "value"}', "object", None, {"key": "value"}),
+        ('{"nested": {"key": 123}}', "object", None, {"nested": {"key": 123}}),
+        ("{}", "object", None, {}),
+        # Edge cases - invalid casting (fallback to string)
+        ("not_a_number", "integer", None, "not_a_number"),
+        ("abc", "number", None, "abc"),
+        ("maybe", "boolean", None, "maybe"),
+        ("not_json", "array", None, "not_json"),
+        ("also_not_json", "object", None, "also_not_json"),
+        ("{invalid json}", "object", None, "{invalid json}"),
+        ("[invalid, json]", "array", None, "[invalid, json]"),
+        # Edge cases - empty string
+        ("", "integer", None, ""),
+        ("", "number", None, ""),
+        ("", "boolean", None, ""),
+        # Edge cases - whitespace
+        ("  true  ", "boolean", None, True),
+        # Edge cases - unknown type (fallback to string)
+        ("value", "unknown_type", None, "value"),
+        ("value", None, None, "value"),
+    ],
+)
+def test_cast_value_to_type(value, schema_type, schema_format, expected):
+    """Test _cast_value_to_type with various input types and values."""
+    result = _cast_value_to_type(value, schema_type, schema_format)
+    assert result == expected
+    assert type(result) is type(expected)
+
+
+def test_cast_value_to_type_array_returns_string_if_not_list():
+    """Test that array type returns string if JSON doesn't parse to a list."""
+    result = _cast_value_to_type('{"key": "value"}', "array", None)
+    assert result == '{"key": "value"}'
+    assert isinstance(result, str)
+
+
+def test_cast_value_to_type_object_returns_string_if_not_dict():
+    """Test that object type returns string if JSON doesn't parse to a dict."""
+    result = _cast_value_to_type('["a", "b"]', "object", None)
+    assert result == '["a", "b"]'
+    assert isinstance(result, str)
+
+
+# Tests for _get_schema_for_path
+
+
+def test_get_schema_for_path_top_level_field(sample_spec):
+    """Test extracting schema for top-level field."""
+    schema_type, schema_format = _get_schema_for_path(sample_spec, "api_key")
+    assert schema_type == "string"
+    assert schema_format is None
+
+
+def test_get_schema_for_path_with_format(sample_spec):
+    """Test extracting schema with format specifier."""
+    schema_type, schema_format = _get_schema_for_path(sample_spec, "start_date")
+    assert schema_type == "string"
+    assert schema_format == "date-time"
+
+
+def test_get_schema_for_path_nested_field(sample_spec):
+    """Test extracting schema for nested field."""
+    schema_type, schema_format = _get_schema_for_path(sample_spec, "credentials.password")
+    assert schema_type == "string"
+    assert schema_format is None
+
+    schema_type, schema_format = _get_schema_for_path(sample_spec, "credentials.user_id")
+    assert schema_type == "integer"
+    assert schema_format is None
+
+
+def test_get_schema_for_path_deeply_nested_field(sample_spec):
+    """Test extracting schema for deeply nested field."""
+    schema_type, schema_format = _get_schema_for_path(sample_spec, "oauth.nested.deep_value")
+    assert schema_type == "boolean"
+    assert schema_format is None
+
+
+def test_get_schema_for_path_nonexistent_field(sample_spec):
+    """Test extracting schema for nonexistent field returns None."""
+    schema_type, schema_format = _get_schema_for_path(sample_spec, "nonexistent")
+    assert schema_type is None
+    assert schema_format is None
+
+
+def test_get_schema_for_path_nonexistent_nested_field(sample_spec):
+    """Test extracting schema for nonexistent nested field returns None."""
+    schema_type, schema_format = _get_schema_for_path(sample_spec, "credentials.nonexistent")
+    assert schema_type is None
+    assert schema_format is None
+
+
+def test_get_schema_for_path_partial_path(sample_spec):
+    """Test extracting schema stops at non-object intermediate field."""
+    # api_key is a string, so we can't traverse further
+    schema_type, schema_format = _get_schema_for_path(sample_spec, "api_key.subfield")
+    assert schema_type is None
+    assert schema_format is None
+
+
+def test_get_schema_for_path_no_spec():
+    """Test extracting schema with no spec returns None."""
+    schema_type, schema_format = _get_schema_for_path(None, "api_key")
+    assert schema_type is None
+    assert schema_format is None
+
+
+def test_get_schema_for_path_empty_spec():
+    """Test extracting schema with empty spec returns None."""
+    schema_type, schema_format = _get_schema_for_path({}, "api_key")
+    assert schema_type is None
+    assert schema_format is None
+
+
+def test_get_schema_for_path_missing_properties():
+    """Test extracting schema when properties key is missing."""
+    spec = {"connection_specification": {"type": "object"}}
+    schema_type, schema_format = _get_schema_for_path(spec, "api_key")
+    assert schema_type is None
+    assert schema_format is None
+
+
+@pytest.mark.parametrize(
+    "path,expected_type",
+    [
+        ("port", "integer"),
+        ("timeout", "number"),
+        ("enabled", "boolean"),
+        ("api_key", "string"),
+        ("credentials.user_id", "integer"),
+        ("oauth.client_secret", "string"),
+    ],
+)
+def test_get_schema_for_path_various_types(sample_spec, path, expected_type):
+    """Test extracting schema for various field types."""
+    schema_type, schema_format = _get_schema_for_path(sample_spec, path)
+    assert schema_type == expected_type
+
+
+# Tests for _cast_secrets_to_types
+
+
+def test_cast_secrets_to_types_flat_dict(sample_spec):
+    """Test casting secrets in a flat dictionary."""
+    secrets = {
+        "api_key": "my_key",
+        "port": "8080",
+        "enabled": "true",
+    }
+
+    result = _cast_secrets_to_types(secrets, sample_spec)
+
+    assert result["api_key"] == "my_key"
+    assert result["port"] == 8080
+    assert isinstance(result["port"], int)
+    assert result["enabled"] is True
+    assert isinstance(result["enabled"], bool)
+
+
+def test_cast_secrets_to_types_nested_dict(sample_spec):
+    """Test casting secrets in a nested dictionary."""
+    secrets = {
+        "api_key": "my_key",
+        "credentials": {
+            "password": "secret",
+            "user_id": "12345",
+        },
+        "oauth": {
+            "client_secret": "oauth_secret",
+        },
+    }
+
+    result = _cast_secrets_to_types(secrets, sample_spec)
+
+    assert result["api_key"] == "my_key"
+    assert result["credentials"]["password"] == "secret"
+    assert result["credentials"]["user_id"] == 12345
+    assert isinstance(result["credentials"]["user_id"], int)
+    assert result["oauth"]["client_secret"] == "oauth_secret"
+
+
+def test_cast_secrets_to_types_deeply_nested_dict(sample_spec):
+    """Test casting secrets in a deeply nested dictionary."""
+    secrets = {
+        "oauth": {
+            "nested": {
+                "deep_value": "true",
+            },
+        },
+    }
+
+    result = _cast_secrets_to_types(secrets, sample_spec)
+
+    assert result["oauth"]["nested"]["deep_value"] is True
+    assert isinstance(result["oauth"]["nested"]["deep_value"], bool)
+
+
+def test_cast_secrets_to_types_field_not_in_spec(sample_spec):
+    """Test that fields not in spec remain as strings."""
+    secrets = {
+        "api_key": "my_key",
+        "unknown_field": "123",
+    }
+
+    result = _cast_secrets_to_types(secrets, sample_spec)
+
+    assert result["api_key"] == "my_key"
+    assert result["unknown_field"] == "123"
+    assert isinstance(result["unknown_field"], str)
+
+
+def test_cast_secrets_to_types_invalid_value_fallback(sample_spec):
+    """Test that invalid values fallback to strings."""
+    secrets = {
+        "port": "not_a_number",
+        "enabled": "maybe",
+    }
+
+    result = _cast_secrets_to_types(secrets, sample_spec)
+
+    assert result["port"] == "not_a_number"
+    assert isinstance(result["port"], str)
+    assert result["enabled"] == "maybe"
+    assert isinstance(result["enabled"], str)
+
+
+def test_cast_secrets_to_types_empty_dict(sample_spec):
+    """Test casting an empty secrets dictionary."""
+    result = _cast_secrets_to_types({}, sample_spec)
+    assert result == {}
+
+
+def test_cast_secrets_to_types_non_string_values(sample_spec):
+    """Test that non-string values pass through unchanged."""
+    secrets = {
+        "api_key": "my_key",
+        "port": 8080,  # Already an int
+        "enabled": True,  # Already a bool
+    }
+
+    result = _cast_secrets_to_types(secrets, sample_spec)
+
+    assert result["api_key"] == "my_key"
+    assert result["port"] == 8080
+    assert result["enabled"] is True
+
+
+def test_cast_secrets_to_types_mixed_nested_structure(sample_spec):
+    """Test casting a complex mixed nested structure."""
+    secrets = {
+        "api_key": "my_key",
+        "port": "8080",
+        "credentials": {
+            "password": "secret",
+            "user_id": "12345",
+        },
+        "unknown_nested": {
+            "field": "value",
+        },
+    }
+
+    result = _cast_secrets_to_types(secrets, sample_spec)
+
+    assert result["api_key"] == "my_key"
+    assert result["port"] == 8080
+    assert result["credentials"]["user_id"] == 12345
+    assert result["unknown_nested"]["field"] == "value"  # Unknown fields remain strings
+
+
+# Integration Tests for hydrate_config with spec
+
+
+def test_hydrate_config_with_spec_casts_types(sample_spec):
+    """Test hydrate_config with spec performs type casting."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("api_key=my_key\n")
+        f.write("port=8080\n")
+        f.write("enabled=true\n")
+        f.write("credentials.user_id=12345\n")
+        f.flush()
+
+        config = {"host": "localhost"}
+        result = hydrate_config(config, spec=sample_spec, dotenv_file_uris=f.name)
+
+        assert result["api_key"] == "my_key"
+        assert result["port"] == 8080
+        assert isinstance(result["port"], int)
+        assert result["enabled"] is True
+        assert isinstance(result["enabled"], bool)
+        assert result["credentials"]["user_id"] == 12345
+        assert isinstance(result["credentials"]["user_id"], int)
+
+        Path(f.name).unlink()
+
+
+def test_hydrate_config_without_spec_no_casting(sample_spec):
+    """Test hydrate_config without spec doesn't perform type casting."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("api_key=my_key\n")
+        f.write("port=8080\n")
+        f.write("enabled=true\n")
+        f.flush()
+
+        config = {"host": "localhost"}
+        result = hydrate_config(config, spec=None, dotenv_file_uris=f.name)
+
+        # Without spec, all values remain strings
+        assert result["api_key"] == "my_key"
+        assert result["port"] == "8080"
+        assert isinstance(result["port"], str)
+        assert result["enabled"] == "true"
+        assert isinstance(result["enabled"], str)
+
+        Path(f.name).unlink()
+
+
+def test_hydrate_config_with_spec_invalid_values_fallback(sample_spec):
+    """Test hydrate_config with spec falls back to strings for invalid values."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("port=not_a_number\n")
+        f.write("enabled=maybe\n")
+        f.flush()
+
+        config = {}
+        result = hydrate_config(config, spec=sample_spec, dotenv_file_uris=f.name)
+
+        # Invalid values should fallback to strings
+        assert result["port"] == "not_a_number"
+        assert isinstance(result["port"], str)
+        assert result["enabled"] == "maybe"
+        assert isinstance(result["enabled"], str)
+
+        Path(f.name).unlink()
+
+
+def test_hydrate_config_with_spec_preserves_existing_typed_values(sample_spec):
+    """Test hydrate_config with spec preserves existing typed values in config."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("api_key=new_key\n")
+        f.write("port=9000\n")
+        f.flush()
+
+        # Config already has port as an integer
+        config = {
+            "host": "localhost",
+            "port": 8080,
+            "max_connections": 100,
+        }
+        result = hydrate_config(config, spec=sample_spec, dotenv_file_uris=f.name)
+
+        # Secrets should overwrite and be cast
+        assert result["api_key"] == "new_key"
+        assert result["port"] == 9000
+        assert isinstance(result["port"], int)
+        # Existing value not overwritten
+        assert result["max_connections"] == 100
+
+        Path(f.name).unlink()
+
+
+def test_hydrate_config_with_spec_nested_secrets(sample_spec):
+    """Test hydrate_config with spec and nested secrets."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("credentials.password=secret123\n")
+        f.write("credentials.user_id=99\n")
+        f.write("oauth.client_secret=oauth_secret\n")
+        f.flush()
+
+        config = {"host": "localhost"}
+        result = hydrate_config(config, spec=sample_spec, dotenv_file_uris=f.name)
+
+        assert result["credentials"]["password"] == "secret123"
+        assert result["credentials"]["user_id"] == 99
+        assert isinstance(result["credentials"]["user_id"], int)
+        assert result["oauth"]["client_secret"] == "oauth_secret"
+
+        Path(f.name).unlink()
+
+
+def test_hydrate_config_with_spec_boolean_variations(sample_spec):
+    """Test hydrate_config with various boolean string representations."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("enabled=yes\n")
+        f.flush()
+
+        config = {}
+        result = hydrate_config(config, spec=sample_spec, dotenv_file_uris=f.name)
+
+        assert result["enabled"] is True
+        assert isinstance(result["enabled"], bool)
+
+        Path(f.name).unlink()
+
+    # Test with "1"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("enabled=1\n")
+        f.flush()
+
+        config = {}
+        result = hydrate_config(config, spec=sample_spec, dotenv_file_uris=f.name)
+
+        assert result["enabled"] is True
+
+        Path(f.name).unlink()
+
+    # Test with "FALSE"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("enabled=FALSE\n")
+        f.flush()
+
+        config = {}
+        result = hydrate_config(config, spec=sample_spec, dotenv_file_uris=f.name)
+
+        assert result["enabled"] is False
+
+        Path(f.name).unlink()
+
+
+def test_hydrate_config_with_spec_array_and_object_types():
+    """Test hydrate_config with array and object type fields."""
+    spec = {
+        "connection_specification": {
+            "properties": {
+                "tags": {"type": "array"},
+                "metadata": {"type": "object"},
+            }
+        }
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write('tags=["tag1", "tag2", "tag3"]\n')
+        f.write('metadata={"key": "value", "count": 42}\n')
+        f.flush()
+
+        config = {}
+        result = hydrate_config(config, spec=spec, dotenv_file_uris=f.name)
+
+        assert result["tags"] == ["tag1", "tag2", "tag3"]
+        assert isinstance(result["tags"], list)
+        assert result["metadata"] == {"key": "value", "count": 42}
+        assert isinstance(result["metadata"], dict)
+
+        Path(f.name).unlink()
+
+
+def test_hydrate_config_with_empty_spec():
+    """Test hydrate_config with an empty spec (no type casting)."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("port=8080\n")
+        f.flush()
+
+        config = {}
+        result = hydrate_config(config, spec={}, dotenv_file_uris=f.name)
+
+        # Empty spec means no casting
+        assert result["port"] == "8080"
+        assert isinstance(result["port"], str)
+
+        Path(f.name).unlink()

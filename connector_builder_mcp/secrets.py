@@ -6,11 +6,12 @@ exposing actual secret values to the LLM. All functions require explicit dotenv
 file paths or privatebin URLs to be passed by the caller.
 """
 
+import json
 import logging
 import os
 from io import StringIO
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from urllib.parse import urlparse
 
 import privatebin
@@ -262,9 +263,154 @@ def _merge_nested_dicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     return merged
 
 
+def _cast_value_to_type(value: str, schema_type: str, schema_format: str | None = None) -> Any:
+    """Cast a string value to a target JSON schema type.
+
+    Args:
+        value: The string value to cast
+        schema_type: The JSON schema type (e.g., "string", "integer", "number", "boolean")
+        schema_format: Optional format specifier (e.g., "date-time")
+
+    Returns:
+        The casted value, or the original string if casting fails
+    """
+    if schema_type == "string":
+        return value
+
+    if schema_type == "integer":
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            logger.debug(f"Failed to cast '{value}' to integer, keeping as string")
+            return value
+
+    if schema_type == "number":
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            logger.debug(f"Failed to cast '{value}' to number, keeping as string")
+            return value
+
+    if schema_type == "boolean":
+        value_lower = value.lower().strip()
+        if value_lower in ("true", "1", "yes"):
+            return True
+        if value_lower in ("false", "0", "no"):
+            return False
+        logger.debug(f"Failed to cast '{value}' to boolean, keeping as string")
+        return value
+
+    if schema_type == "array":
+        if value.strip().startswith("["):
+            try:
+                result = json.loads(value)
+                if isinstance(result, list):
+                    return result
+            except (json.JSONDecodeError, TypeError):
+                pass
+        logger.debug(f"Failed to cast '{value}' to array, keeping as string")
+        return value
+
+    if schema_type == "object":
+        if value.strip().startswith("{"):
+            try:
+                result = json.loads(value)
+                if isinstance(result, dict):
+                    return result
+            except (json.JSONDecodeError, TypeError):
+                pass
+        logger.debug(f"Failed to cast '{value}' to object, keeping as string")
+        return value
+
+    return value
+
+
+def _get_schema_for_path(spec: dict[str, Any] | None, path: str) -> tuple[str | None, str | None]:
+    """Extract type information for a given dot-notation path from the spec.
+
+    Args:
+        spec: The connector spec dictionary
+        path: Dot-notation path (e.g., "credentials.password", "api_key")
+
+    Returns:
+        Tuple of (type, format) where both can be None if not found
+    """
+    if not spec:
+        return None, None
+
+    try:
+        connection_spec = spec.get("connection_specification", {})
+        properties = connection_spec.get("properties", {})
+
+        if not properties:
+            return None, None
+
+        path_parts = path.split(".")
+        current_properties = properties
+
+        for i, part in enumerate(path_parts):
+            if part not in current_properties:
+                return None, None
+
+            field_schema = current_properties[part]
+
+            if i == len(path_parts) - 1:
+                schema_type = field_schema.get("type")
+                schema_format = field_schema.get("format")
+                return schema_type, schema_format
+
+            if field_schema.get("type") == "object":
+                current_properties = field_schema.get("properties", {})
+            else:
+                return None, None
+
+        return None, None
+
+    except Exception as e:
+        logger.debug(f"Error extracting schema for path '{path}': {e}")
+        return None, None
+
+
+def _cast_secrets_to_types(secrets: dict[str, Any], spec: dict[str, Any]) -> dict[str, Any]:
+    """Cast secret values to appropriate types based on the spec.
+
+    Recursively traverses the secrets dictionary and casts string values
+    to their target types as defined in the spec.
+
+    Args:
+        secrets: Nested dictionary of secrets to cast
+        spec: Connector spec dictionary containing type information
+
+    Returns:
+        New dictionary with values cast to appropriate types
+    """
+
+    def _cast_recursive(obj: Any, path_prefix: str = "") -> Any:
+        """Recursively cast values in nested structures."""
+        if isinstance(obj, dict):
+            result = {}
+            for key, value in obj.items():
+                current_path = f"{path_prefix}.{key}" if path_prefix else key
+                result[key] = _cast_recursive(value, current_path)
+            return result
+        elif isinstance(obj, str):
+            # Only cast string values
+            schema_type, schema_format = _get_schema_for_path(spec, path_prefix)
+            if schema_type:
+                return _cast_value_to_type(obj, schema_type, schema_format)
+            return obj
+        else:
+            # Non-string, non-dict values pass through unchanged
+            return obj
+
+    return cast(dict[str, Any], _cast_recursive(secrets))
+
+
 def hydrate_config(
     config: dict[str, Any],
     dotenv_file_uris: str | list[str] | None = None,
+    *,
+    spec: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Hydrate configuration with secrets from dotenv files and privatebin URLs using dot notation.
 
@@ -273,10 +419,14 @@ def hydrate_config(
     - api_key=value              -> {"api_key": "value"}
     - oauth.client_secret=value  -> {"oauth": {"client_secret": "value"}}
 
+    If a spec is provided, secret values will be cast to the types specified in the
+    connection_specification. Values that cannot be cast will remain as strings.
+
     Args:
         config: Configuration dictionary to hydrate with secrets
         dotenv_file_uris: List of paths/URLs to .env files or privatebin URLs,
                               or comma-separated string, or single string
+        spec: Connector spec dictionary to use for type casting (keyword-only)
 
     Returns:
         Configuration with secrets injected from .env files and privatebin URLs
@@ -292,7 +442,13 @@ def hydrate_config(
     if not secrets:
         return config
 
-    return _merge_nested_dicts(config, secrets)
+    # Cast secrets to appropriate types if spec is provided
+    if spec:
+        typed_secrets = _cast_secrets_to_types(secrets, spec)
+    else:
+        typed_secrets = secrets
+
+    return _merge_nested_dicts(config, typed_secrets)
 
 
 def list_dotenv_secrets(
