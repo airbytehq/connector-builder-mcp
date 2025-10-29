@@ -322,7 +322,6 @@ def _cast_value_to_type(value: str, schema_type: str, schema_format: str | None 
         logger.debug(f"Failed to cast '{value}' to object, keeping as string")
         return value
 
-    # Unknown type, keep as string
     return value
 
 
@@ -340,14 +339,12 @@ def _get_schema_for_path(spec: dict[str, Any] | None, path: str) -> tuple[str | 
         return None, None
 
     try:
-        # Navigate to connection_specification properties
         connection_spec = spec.get("connection_specification", {})
         properties = connection_spec.get("properties", {})
 
         if not properties:
             return None, None
 
-        # Split path and traverse
         path_parts = path.split(".")
         current_properties = properties
 
@@ -357,17 +354,14 @@ def _get_schema_for_path(spec: dict[str, Any] | None, path: str) -> tuple[str | 
 
             field_schema = current_properties[part]
 
-            # If this is the last part, extract type and format
             if i == len(path_parts) - 1:
                 schema_type = field_schema.get("type")
                 schema_format = field_schema.get("format")
                 return schema_type, schema_format
 
-            # Otherwise, traverse deeper into nested properties
             if field_schema.get("type") == "object":
                 current_properties = field_schema.get("properties", {})
             else:
-                # Can't traverse further
                 return None, None
 
         return None, None
