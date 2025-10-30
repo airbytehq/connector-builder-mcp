@@ -375,7 +375,9 @@ def execute_stream_test_read(  # noqa: PLR0914
 
     manifest_dict, _ = parse_manifest_input(manifest)
 
-    config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris)
+    spec = manifest_dict.get("spec")
+
+    config = hydrate_config(config, dotenv_file_uris=dotenv_file_uris, spec=spec)
     config_with_manifest = {
         **config,
         "__injected_declarative_manifest": manifest_dict,
@@ -555,6 +557,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     stream_results: dict[str, StreamSmokeTest] = {}
 
     manifest_dict, manifest_path = parse_manifest_input(manifest)
+    spec = manifest_dict.get("spec")
     session_artifacts_dir: Path | None = None
     if manifest_path:
         session_artifacts_dir = Path(manifest_path).parent
@@ -568,6 +571,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     config = hydrate_config(
         config or {},
         dotenv_file_uris=dotenv_file_uris,
+        spec=spec,
     )
 
     available_streams = manifest_dict.get("streams", [])

@@ -144,10 +144,11 @@ These steps ensure you understand roughly the work to do before diving in.
 
 These prereq steps should be performed before you start work - so you can leave the user alone while you work, and so that you won't be blocked waiting for more info after you start.
 
+- [ ] 📝 **Enumerate all available streams first**: Before beginning work on any stream, research the API documentation to identify and list ALL available streams/endpoints. Share this complete list with your user (or the message thread) so they can provide guidance on priorities or exclusions.
 - [ ] If you do need secrets for authentication, and if user is able to create a .env file for you, ask them to provide you a path to the file.
 - [ ] Use your tools to populate required variables to your dotenv file, then let the user enter them, then use your tools to verify they are set. (You will pass the dotenv file to other tools.)
 - [ ] **Important**: Secrets should not be sent directly to or through the LLM.
-- [ ] 📝 If you can detect the list of streams in advance, ask the user to confirm the list before you start. They can: (1) optionally suggest what the 'first stream' should be, or (2) inform you about specific streams they'd like you to ignore.
+- [ ] 📝 After enumerating streams, ask the user to confirm the list before you start. They can: (1) optionally suggest what the 'first stream' should be, or (2) inform you about specific streams they'd like you to ignore.
 
 
 Follow steps for one stream at a time. Lessons learned from one stream are generally applicable to subsequent streams. Moving in small steps reduces wasted efforts and prevents hard-to-diagnose issues.
