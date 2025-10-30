@@ -49,6 +49,8 @@ def _get_version_info() -> dict[str, str | None]:
 
     return {
         "name": package_name,
+        "docs_url": "https://github.com/airbytehq/connector-builder-mcp",
+        "release_history_url": "https://github.com/airbytehq/connector-builder-mcp/releases",
         "version": version,
         "git_sha": git_sha,
         "fastmcp_version": fastmcp_version,
@@ -60,8 +62,10 @@ def _get_version_info() -> dict[str, str | None]:
     description="Version information for the Connector Builder MCP server",
     mime_type="application/json",
 )
-def version_resource() -> dict[str, str | None]:
-    """Resource that returns version information for the MCP server.
+def mcp_server_info() -> dict[str, str | None]:
+    """Resource that returns information for the MCP server.
+
+    This includes package version, release history, help URLs, as well as other information.
 
     Returns:
         Dictionary with version information
