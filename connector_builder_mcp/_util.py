@@ -99,13 +99,6 @@ def parse_manifest_input(
     if len(manifest.splitlines()) == 1:
         # If the manifest is a single line, treat it as a file path
         path = Path(manifest)
-
-    if not isinstance(manifest, str):
-        raise ValueError(f"manifest must be a string, got {type(manifest)}")
-
-    if len(manifest.splitlines()) == 1:
-        # If the manifest is a single line, treat it as a file path
-        path = Path(manifest)
         if path.exists() and path.is_file():
             resolved_path = path.expanduser().resolve()
             contents = path.read_text(encoding="utf-8")
@@ -117,6 +110,8 @@ def parse_manifest_input(
                     f" File content: \n{contents.splitlines()[:25]}\n..."  # Show first 100 chars
                 )
             return result, resolved_path
+
+        raise ValueError(f"Manifest file does not exist at path: {manifest}")
 
     try:
         # Otherwise, treat it as a YAML string
