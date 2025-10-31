@@ -4,6 +4,8 @@
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.usage import UsageLimits
 
 from .constants import PHASE_1_PROMPT_FILE_PATH, PHASE_2_PROMPT_FILE_PATH, PHASE_3_PROMPT_FILE_PATH
 from .guidance import get_default_developer_prompt, get_default_manager_prompt
@@ -66,7 +68,7 @@ def create_developer_agent(
 ) -> Agent:
     """Create the developer agent that executes specific phases."""
     developer_agent = Agent(
-        model,
+        OpenAIChatModel(model_name=model),
         name="MCP Connector Developer",
         deps_type=SessionState,
         system_prompt=get_default_developer_prompt(
@@ -82,6 +84,7 @@ def create_developer_agent(
         ],
         toolsets=mcp_servers,
         output_type=ManagerHandoffInput,
+        instrument=True,
     )
 
     return developer_agent
@@ -97,7 +100,7 @@ def create_manager_agent(
 ) -> Agent:
     """Create the manager agent that orchestrates the 3-phase workflow."""
     manager_agent = Agent(
-        model,
+        OpenAIChatModel(model_name=model),
         name="Connector Builder Manager",
         deps_type=SessionState,
         system_prompt=get_default_manager_prompt(
@@ -116,6 +119,7 @@ def create_manager_agent(
         ],
         toolsets=mcp_servers,
         output_type=ManagerTaskOutput,
+        instrument=True,
     )
 
     @manager_agent.tool
@@ -141,6 +145,7 @@ def create_manager_agent(
             delegated_developer_task.assignment_description,
             message_history=ctx.deps.message_history,
             deps=ctx.deps,
+            usage_limits=UsageLimits(request_limit=100),
         )
 
         update_progress_log(
