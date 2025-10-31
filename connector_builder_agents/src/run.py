@@ -5,8 +5,10 @@ import sys
 import time
 from pathlib import Path
 
+from opentelemetry import trace
 from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelHTTPError
+from pydantic_ai.usage import UsageLimits
 
 from ._util import get_secrets_dotenv
 from .agents import (
@@ -25,6 +27,15 @@ from .tools import (
     is_complete,
     update_progress_log,
 )
+
+
+tracer = trace.get_tracer("connector_build")
+
+
+class TokenUsage:
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_tokens: int = 0
 
 
 def generate_session_id() -> str:
@@ -49,6 +60,7 @@ async def run_connector_build(
     *,
     interactive: bool = False,
     session_id: str | None = None,
+    token_usage: TokenUsage | None = None,
 ) -> list | None:
     """Run an agentic AI connector build session with automatic mode selection."""
     if not api_name and not instructions:
@@ -78,35 +90,51 @@ async def run_connector_build(
     if session_id is None:
         session_id = generate_session_id()
 
-    if not interactive:
-        print("\n🤖 Building Connector using Manager-Developer Architecture", flush=True)
-        print("=" * 60, flush=True)
-        print(f"API: {api_name or 'N/A'}")
-        print(f"USER PROMPT: {instructions}", flush=True)
-        print("=" * 60, flush=True)
-        results = await run_manager_developer_build(
-            api_name=api_name,
-            instructions=instructions,
-            developer_model=developer_model,
-            manager_model=manager_model,
-            session_id=session_id,
-        )
-        return results
-    else:
-        print("\n🤖 Building Connector using Interactive AI", flush=True)
-        print("=" * 30, flush=True)
-        print(f"API: {api_name or 'N/A'}")
-        print(f"USER PROMPT: {instructions}", flush=True)
-        print("=" * 30, flush=True)
-        prompt_file = ROOT_PROMPT_FILE_PATH
-        prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
-        prompt += instructions
-        await run_interactive_build(
-            prompt=prompt,
-            model=developer_model,
-            session_id=session_id,
-        )
-        return None
+    with tracer.start_as_current_span("connector_build.run_connector_build") as current_span:
+        if not interactive:
+            print("\n🤖 Building Connector using Manager-Developer Architecture", flush=True)
+            print("=" * 60, flush=True)
+            print(f"API: {api_name or 'N/A'}")
+            print(f"USER PROMPT: {instructions}", flush=True)
+            print("=" * 60, flush=True)
+            results = await run_manager_developer_build(
+                api_name=api_name,
+                instructions=instructions,
+                developer_model=developer_model,
+                manager_model=manager_model,
+                session_id=session_id,
+                token_usage=token_usage,
+            )
+            current_span.set_attribute("llm.token_count.prompt", token_usage.total_input_tokens)
+            current_span.set_attribute(
+                "llm.token_count.completion", token_usage.total_output_tokens
+            )
+            current_span.set_attribute("llm.token_count.total", token_usage.total_tokens)
+            current_span.set_attribute("llm.model_name", manager_model)
+            current_span.set_attribute("llm.provider", "openai")
+            return results
+        else:
+            print("\n🤖 Building Connector using Interactive AI", flush=True)
+            print("=" * 30, flush=True)
+            print(f"API: {api_name or 'N/A'}")
+            print(f"USER PROMPT: {instructions}", flush=True)
+            print("=" * 30, flush=True)
+            prompt_file = ROOT_PROMPT_FILE_PATH
+            prompt = prompt_file.read_text(encoding="utf-8") + "\n\n"
+            prompt += instructions
+            await run_interactive_build(
+                prompt=prompt,
+                model=developer_model,
+                session_id=session_id,
+            )
+            current_span.set_attribute("llm.token_count.prompt", token_usage.total_input_tokens)
+            current_span.set_attribute(
+                "llm.token_count.completion", token_usage.total_output_tokens
+            )
+            current_span.set_attribute("llm.token_count.total", token_usage.total_tokens)
+            current_span.set_attribute("llm.model_name", manager_model)
+            current_span.set_attribute("llm.provider", "openai")
+            return None
 
 
 async def run_interactive_build(
@@ -163,6 +191,7 @@ async def run_manager_developer_build(
     developer_model: str = DEFAULT_DEVELOPER_MODEL,
     manager_model: str = DEFAULT_MANAGER_MODEL,
     session_id: str | None = None,
+    token_usage: TokenUsage | None = None,
 ) -> list:
     """Run a 3-phase connector build using manager-developer architecture."""
     if session_id is None:
@@ -214,7 +243,14 @@ async def run_manager_developer_build(
                         run_prompt,
                         message_history=session_state.message_history,
                         deps=session_state,
+                        usage_limits=UsageLimits(request_limit=100),
                     )
+                    run_usage = run_result.usage()
+                    if token_usage:
+                        token_usage.total_input_tokens += run_usage.input_tokens
+                        token_usage.total_output_tokens += run_usage.output_tokens
+                        token_usage.total_tokens += run_usage.total_tokens
+
                     break
                 except ModelHTTPError as e:
                     if attempt_num + 1 == max_attempts:
