@@ -25,7 +25,7 @@ jobs:
           # Pass in dummy version '0.0.0dev0' version to appease dynamic versioning
           UV_DYNAMIC_VERSIONING_BYPASS: 0.0.0dev0
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: Packages-${{ github.run_id }}
           path: |
@@ -76,7 +76,7 @@ jobs:
             build/test-results/**/*.xml
       - name: Upload coverage to GitHub Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: fasttest-coverage
           path: htmlcov/

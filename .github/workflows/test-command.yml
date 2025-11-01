@@ -27,7 +27,7 @@ jobs:
           echo "sha=$(jq -r .head.sha < pr-info.json)" >> "$GITHUB_OUTPUT"
           echo "run-url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
       - name: Upload PR details as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pr-info
           path: pr-info.json
