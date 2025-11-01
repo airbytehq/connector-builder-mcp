@@ -50,7 +50,7 @@ jobs:
 
       - name: Edit comment with error message
         if: steps.dispatch.outputs.error-message
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@v5
         with:
           comment-id: ${{ github.event.comment.id }}
           body: |
@@ -81,7 +81,7 @@ jobs:
         if: >
           startsWith(github.event.comment.body, '/') &&
           !steps.dispatch.outputs.dispatched
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@v5
         with:
           comment-id: ${{ github.event.comment.id }}
           body: ${{ steps.help.outputs.body }}
