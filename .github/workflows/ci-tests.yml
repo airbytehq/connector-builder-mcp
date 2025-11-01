@@ -100,7 +100,7 @@ jobs:
             build/test-results/**/*.xml
       - name: Upload coverage to GitHub Artifacts
         if: always() && steps.changes.outputs.src == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: py${{ matrix.python-version }}-${{ matrix.os }}-test-coverage
           path: htmlcov/
