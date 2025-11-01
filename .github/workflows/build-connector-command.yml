@@ -32,7 +32,7 @@ jobs:
 
       # Some MCP Servers need npx/node, so set that up:
       - name: Set up Node.js and npx
-        uses: actions/setup-node@v5.0.0
+        uses: actions/setup-node@v6.0.0
         with:
           node-version: '20'
 
