@@ -24,6 +24,7 @@ from connector_builder_mcp.manifest_scaffold import (
     create_connector_manifest_scaffold,
 )
 from connector_builder_mcp.secrets import register_secrets_tools
+from connector_builder_mcp.session_manifest import register_session_manifest_tools
 from connector_builder_mcp.validation_testing import (
     execute_dynamic_manifest_resolution_test,
     execute_stream_test_read,
@@ -313,3 +314,4 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(find_connectors_by_class_name)
     app.tool(create_connector_manifest_scaffold)
     register_secrets_tools(app)
+    register_session_manifest_tools(app)

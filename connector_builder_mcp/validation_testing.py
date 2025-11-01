@@ -40,6 +40,7 @@ from connector_builder_mcp._util import (
     validate_manifest_structure,
 )
 from connector_builder_mcp.secrets import hydrate_config
+from connector_builder_mcp.session_manifest import get_session_manifest_content
 
 
 logger = logging.getLogger(__name__)
@@ -212,12 +213,13 @@ def _format_validation_error(
 
 def validate_manifest(
     manifest: Annotated[
-        str,
+        str | None,
         Field(
             description="The connector manifest to validate. "
-            "Can be raw a YAML string or path to YAML file"
+            "Can be raw a YAML string or path to YAML file. "
+            "If not provided, uses the session manifest."
         ),
-    ],
+    ] = None,
 ) -> ManifestValidationResult:
     """Validate a connector manifest structure and configuration.
 
@@ -231,6 +233,16 @@ def validate_manifest(
     resolved_manifest = None
 
     try:
+        if manifest is None:
+            manifest = get_session_manifest_content()
+            if manifest is None:
+                errors.append(
+                    "No manifest provided and no session manifest found. "
+                    "Either provide a manifest or use set_session_manifest() to save one."
+                )
+                return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+            logger.info("Using session manifest for validation")
+
         manifest_dict, _ = parse_manifest_input(manifest)
 
         if not validate_manifest_structure(manifest_dict):
@@ -311,13 +323,16 @@ def validate_manifest(
 
 def execute_stream_test_read(  # noqa: PLR0914
     manifest: Annotated[
-        str,
-        Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
-    ],
+        str | None,
+        Field(
+            description="The connector manifest. Can be raw a YAML string or path to YAML file. "
+            "If not provided, uses the session manifest."
+        ),
+    ] = None,
     stream_name: Annotated[
-        str,
+        str | None,
         Field(description="Name of the stream to test"),
-    ],
+    ] = None,
     config: Annotated[
         dict[str, Any] | str | None,
         Field(description="Connector configuration dictionary."),
@@ -370,8 +385,26 @@ def execute_stream_test_read(  # noqa: PLR0914
         include_raw_responses_data,
         default=False,
     )
+    if stream_name is None:
+        return StreamTestResult(
+            success=False,
+            message="stream_name parameter is required",
+            errors=["stream_name parameter is required"],
+        )
+    
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})
+
+    if manifest is None:
+        manifest = get_session_manifest_content()
+        if manifest is None:
+            return StreamTestResult(
+                success=False,
+                message="No manifest provided and no session manifest found. "
+                "Either provide a manifest or use set_session_manifest() to save one.",
+                errors=["No manifest available"],
+            )
+        logger.info("Using session manifest for stream test")
 
     manifest_dict, _ = parse_manifest_input(manifest)
 
@@ -512,9 +545,12 @@ def _as_saved_report(
 
 def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too complex)
     manifest: Annotated[
-        str,
-        Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
-    ],
+        str | None,
+        Field(
+            description="The connector manifest. Can be raw a YAML string or path to YAML file. "
+            "If not provided, uses the session manifest."
+        ),
+    ] = None,
     config: Annotated[
         dict[str, Any] | None,
         Field(description="Connector configuration"),
@@ -555,6 +591,15 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     total_streams_successful = 0
     total_records_count = 0
     stream_results: dict[str, StreamSmokeTest] = {}
+
+    if manifest is None:
+        manifest = get_session_manifest_content()
+        if manifest is None:
+            return (
+                "ERROR: No manifest provided and no session manifest found. "
+                "Either provide a manifest or use set_session_manifest() to save one."
+            )
+        logger.info("Using session manifest for readiness test")
 
     manifest_dict, manifest_path = parse_manifest_input(manifest)
     spec = manifest_dict.get("spec")
@@ -773,12 +818,13 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
 def execute_dynamic_manifest_resolution_test(
     manifest: Annotated[
-        str,
+        str | None,
         Field(
             description="The connector manifest with dynamic elements to resolve. "
-            "Can be raw YAML content or path to YAML file"
+            "Can be raw YAML content or path to YAML file. "
+            "If not provided, uses the session manifest."
         ),
-    ],
+    ] = None,
     config: Annotated[
         dict[str, Any] | None,
         Field(description="Optional connector configuration"),
@@ -803,6 +849,12 @@ def execute_dynamic_manifest_resolution_test(
     logger.info("Getting resolved manifest")
 
     try:
+        if manifest is None:
+            manifest = get_session_manifest_content()
+            if manifest is None:
+                return "Failed to resolve manifest"
+            logger.info("Using session manifest for dynamic resolution test")
+
         manifest_dict, _ = parse_manifest_input(manifest)
 
         if config is None:

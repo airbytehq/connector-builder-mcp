@@ -7,6 +7,7 @@ from typing import Annotated
 
 from pydantic import Field
 
+from connector_builder_mcp.session_manifest import set_session_manifest_content
 from connector_builder_mcp.validation_testing import validate_manifest
 
 
@@ -225,6 +226,13 @@ def create_connector_manifest_scaffold(
     ],
     *,
     http_method: Annotated[str, Field(description="HTTP method for requests")] = "GET",
+    save_to_session: Annotated[
+        bool,
+        Field(
+            description="Whether to save the generated manifest to the session. "
+            "When True, the manifest is automatically saved and can be used by other tools without passing it explicitly."
+        ),
+    ] = True,
 ) -> str:
     """Create a basic connector manifest scaffold with the specified configuration.
 
@@ -233,6 +241,9 @@ def create_connector_manifest_scaffold(
 
     The generated manifest includes TODO placeholders with inline comments for fields
     that need to be filled in later, ensuring the manifest is valid even in its initial state.
+
+    By default, the generated manifest is saved to the session so other tools can use it
+    without needing to pass the manifest content explicitly.
 
     Tool should only be invoked when setting up the initial connector.
     """
@@ -262,6 +273,13 @@ def create_connector_manifest_scaffold(
         if not validation_result.is_valid:
             error_details = "; ".join(validation_result.errors)
             return f"ERROR: Generated manifest failed validation: {error_details}"
+
+        if save_to_session:
+            try:
+                manifest_path = set_session_manifest_content(manifest_yaml)
+                logger.info(f"Saved generated manifest to session at: {manifest_path}")
+            except Exception as save_error:
+                logger.warning(f"Failed to save manifest to session: {save_error}")
 
         return manifest_yaml
 
