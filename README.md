@@ -64,8 +64,32 @@ For streamlined onboarding, the below config contains both a PyAirbyte MCP and C
 ```
 
 Important:
+
 - Remember to update the `AIRBYTE_MCP_ENV_FILE` path to your actual path, and to create a new file there at that path. Note that the file can be empty to start.
 - For complete setup instructions and environment variable documentation, see the [PyAirbyte MCP documentation](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
+
+### Sample Prompts to Get Started
+
+Below is a simple prompt to get started.
+
+> Please create an Airbyte source connector for the `Sentry API` from scratch using the connector-builder-mcp server tools. Report back to me if your tools do not appear to be working correctly, and don't get creative without permission.
+>
+> I have a populated a `.env` file that contains my secrets for the API:
+>
+> - `AUTH_TOKEN`
+> - `ORGANIZATION`
+> - `PROJECT`
+> - `HOSTNAME`
+>
+> The path to the .env is: `/path/to/secrets/my-connector-secrets.env`. You should pass the absolute path your tools but you should not look inside or try to edit the file.
+
+If testing this process on a connector that already exists, you may also want to append this guidance.
+
+> Don't cheat or use any pre-existing connector definitions.
+
+If you want to also publish to Builder, and assuming you've provided your Cloud creds to the PyAirbyte MCP server, you can add:
+
+> When this is fully working and tested you can use your other Airbyte MCP server to publish to my Airbyte Cloud workspace.
 
 ### Running from Source
 
