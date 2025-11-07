@@ -338,7 +338,7 @@ def execute_stream_test_read(  # noqa: PLR0914
         ),
     ] = None,
     stream_name: Annotated[
-        str | None,
+        str,
         Field(description="Name of the stream to test"),
 stream_name: Annotated[
         str,
