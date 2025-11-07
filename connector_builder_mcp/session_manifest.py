@@ -17,6 +17,8 @@ from pydantic import BaseModel, Field
 
 from connector_builder_mcp._text_utils import (
     insert_text_lines,
+    replace_all_text,
+    replace_text_content,
     replace_text_lines,
     unified_diff_with_context,
 )
@@ -27,6 +29,7 @@ from connector_builder_mcp.constants import (
     CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH,
     CONNECTOR_BUILDER_MCP_SESSION_ROOT,
     CONNECTOR_BUILDER_MCP_SESSIONS_DIR,
+    MCP_SERVER_NAME,
     SESSION_BASE_DIR,
 )
 from connector_builder_mcp.mcp_capabilities import mcp_resource
@@ -52,16 +55,7 @@ def set_transport_mode(mode: Literal["stdio", "remote"]) -> None:
     logger.info(f"Transport mode set to: {mode}")
 
 
-class SessionManifestResource(BaseModel):
-    """Response model for the session manifest resource."""
-
-    session_id: str
-    manifest_path: str
-    exists: bool
-    content: str
-
-
-class SetManifestResult(BaseModel):
+class SetManifestContentsResult(BaseModel):
     """Result of setting session manifest text."""
 
     message: str
@@ -331,29 +325,25 @@ def set_session_manifest_content(
 
 
 @mcp_resource(
-    uri="connector-builder-mcp://session/manifest",
-    description="Current session's connector manifest and metadata",
-    mime_type="application/json",
+    uri=f"{MCP_SERVER_NAME}://session/manifest",
+    description="Current session's connector manifest YAML content",
+    mime_type="text/yaml",
 )
-def session_manifest_resource(ctx: Context) -> SessionManifestResource:
+def session_manifest_yaml_contents(ctx: Context) -> str:
     """Resource that exposes the current session's manifest file.
+
+    This resource returns the raw YAML manifest content as a string.
+    For metadata like session ID and file path, use the get_session_manifest tool instead.
 
     Args:
         ctx: FastMCP context (automatically injected in MCP resource calls)
 
     Returns:
-        SessionManifestResource with manifest content and metadata
+        The manifest YAML content as a string, or empty string if not found
     """
     session_id = ctx.session_id
-    manifest_path = get_session_manifest_path(session_id)
     content = get_session_manifest_content(session_id)
-
-    return SessionManifestResource(
-        session_id=session_id,
-        manifest_path=str(manifest_path.resolve()),
-        exists=content is not None,
-        content=content or "",
-    )
+    return content or ""
 
 
 @mcp_tool(
@@ -367,21 +357,21 @@ def set_session_manifest_text(
     ctx: Context,
     *,
     mode: Annotated[
-        Literal["replace_all", "replace_lines", "insert_lines"],
+        Literal["replace_all", "replace_lines", "insert_lines", "replace_text"],
         Field(
-            description="Edit mode: 'replace_all' (overwrite entire file), 'replace_lines' (replace specific line range), or 'insert_lines' (insert before specific line)"
+            description="Edit mode: 'replace_all' (overwrite entire file), 'replace_lines' (replace specific line range), 'insert_lines' (insert before specific line), or 'replace_text' (find and replace text content)"
         ),
     ],
-    manifest_yaml: Annotated[
-        str,
+    new_text: Annotated[
+        str | None,
         Field(
-            description="The connector manifest YAML content to save, insert, or use for replacement"
+            description="New content for the operation (required for replace_all, replace_lines, and insert_lines modes)"
         ),
-    ],
+    ] = None,
     insert_at_line_number: Annotated[
         int | None,
         Field(
-            description="Line number to insert before (1-indexed, required for insert_lines mode, valid range: 1 to num_lines+1)"
+            description="Line number to insert before (1-indexed, required for insert_lines mode)"
         ),
     ] = None,
     replace_lines: Annotated[
@@ -390,110 +380,96 @@ def set_session_manifest_text(
             description="(start_line, end_line) tuple for replacement (1-indexed, inclusive, required for replace_lines mode)"
         ),
     ] = None,
-) -> SetManifestResult:
+    replace_text: Annotated[
+        str | None,
+        Field(description="Text to find and replace (required for replace_text mode)"),
+    ] = None,
+    replace_all_occurrences: Annotated[
+        bool,
+        Field(
+            description="Replace all occurrences of text (for replace_text mode). If False, will fail if text appears multiple times."
+        ),
+    ] = False,
+) -> SetManifestContentsResult:
     """Save or edit a connector manifest in the current session.
 
-    This tool supports three modes for updating the session manifest:
+    This tool supports four modes (line numbering is 1-indexed):
 
-    1. **replace_all**: Overwrites the entire manifest file with new content.
-       - Use manifest_yaml to provide the full new content
-       - To clear the manifest, use mode='replace_all' with manifest_yaml=""
-       - Cannot be used with insert_at_line_number or replace_lines
-       - Returns diff_summary with line count: "Replaced X lines with Y lines" or "Deleted X lines"
+    1. **replace_all**: Overwrites entire file with new content.
+       - Requires: new_text (use new_text="" to clear)
 
-    2. **replace_lines**: Replaces a specific range of lines in the existing manifest.
-       - Requires replace_lines=(start_line, end_line) tuple (1-indexed, inclusive)
-       - Use manifest_yaml to provide the replacement content
-       - Example: replace_lines=(3, 5) replaces lines 3, 4, and 5
-       - Cannot be used with insert_at_line_number
-       - Returns diff_summary with unified diff
+    2. **replace_lines**: Replaces specific line range (1-indexed, inclusive).
+       - Requires: replace_lines=(start_line, end_line), new_text
 
-    3. **insert_lines**: Inserts new lines before a specific line number.
-       - Requires insert_at_line_number (1-indexed)
-       - Use manifest_yaml to provide the content to insert
-       - Valid range: 1 to num_lines+1 (num_lines+1 appends at end)
-       - Example: insert_at_line_number=1 inserts at the beginning
-       - Cannot be used with replace_lines
-       - Returns diff_summary with unified diff
+    3. **insert_lines**: Inserts new lines before specified line (1-indexed).
+       - Requires: insert_at_line_number, new_text
+       - Range: 1 to num_lines+1 (num_lines+1 appends at end)
 
-    Returns:
-        SetManifestResult with message, diff_summary, validation_warnings, and error fields
+    4. **replace_text**: Find and replace text content.
+       - Requires: replace_text, new_text
+       - Optional: replace_all_occurrences (default: False)
+       - Fails if text appears multiple times unless replace_all_occurrences=True
 
     Examples:
-        - Replace entire manifest: mode='replace_all', manifest_yaml='<full yaml>'
-        - Clear manifest: mode='replace_all', manifest_yaml=''
-        - Replace lines 10-15: mode='replace_lines', replace_lines=(10, 15), manifest_yaml='<replacement>'
-        - Insert at line 5: mode='insert_lines', insert_at_line_number=5, manifest_yaml='<new lines>'
-        - Append at end: mode='insert_lines', insert_at_line_number=<num_lines+1>, manifest_yaml='<new lines>'
+        mode='replace_lines', replace_lines=(10, 15), new_text='new content'
+        mode='insert_lines', insert_at_line_number=5, new_text='new lines'
+        mode='replace_text', replace_text='old_value', new_text='new_value'
+        mode='replace_text', replace_text='old_value', new_text='new_value', replace_all_occurrences=True
     """
     logger.info(f"Setting session manifest with mode={mode}")
 
     session_id = ctx.session_id
 
     if mode == "replace_all":
-        if insert_at_line_number is not None:
-            return SetManifestResult(
+        if new_text is None:
+            return SetManifestContentsResult(
                 message="",
-                error="mode='replace_all' cannot be used with insert_at_line_number",
-            )
-        if replace_lines is not None:
-            return SetManifestResult(
-                message="",
-                error="mode='replace_all' cannot be used with replace_lines",
+                error="mode='replace_all' requires new_text parameter",
             )
 
         old_content = get_session_manifest_content(session_id) or ""
-        old_line_count = len(old_content.splitlines())
-        new_line_count = len(manifest_yaml.splitlines())
+        new_content, diff_summary = replace_all_text(
+            old_content=old_content,
+            new_content=new_text,
+        )
 
         # Write new content
-        set_session_manifest_content(manifest_yaml, session_id=session_id)
+        set_session_manifest_content(new_content, session_id=session_id)
 
-        if manifest_yaml == "":
-            diff_summary = f"Deleted {old_line_count} lines"
-        else:
-            diff_summary = f"Replaced {old_line_count} lines with {new_line_count} lines"
-
-        _, errors, warnings, _ = validate_manifest_content(manifest_yaml)
+        _, errors, warnings, _ = validate_manifest_content(new_content)
         validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
 
-        return SetManifestResult(
+        return SetManifestContentsResult(
             message="Saved manifest",
             diff_summary=diff_summary,
             validation_warnings=validation_warnings,
         )
 
-    # Get existing content for line-based operations
+    # Get existing content for other modes
     existing_content = get_session_manifest_content(session_id) or ""
-    lines = existing_content.splitlines(keepends=True)
-    num_lines = len(lines)
 
     if mode == "replace_lines":
         if replace_lines is None:
-            return SetManifestResult(
+            return SetManifestContentsResult(
                 message="",
                 error="mode='replace_lines' requires replace_lines=(start,end) tuple",
             )
-        if insert_at_line_number is not None:
-            return SetManifestResult(
+        if new_text is None:
+            return SetManifestContentsResult(
                 message="",
-                error="mode='replace_lines' cannot be used with insert_at_line_number",
+                error="mode='replace_lines' requires new_text parameter",
             )
 
         start_line, end_line = replace_lines
+        new_content, error = replace_text_lines(
+            existing_content=existing_content,
+            start_line=start_line,
+            end_line=end_line,
+            replacement_text=new_text,
+        )
 
-        if not (1 <= start_line <= end_line):
-            return SetManifestResult(
-                message="",
-                error=f"replace_lines requires 1 <= start_line <= end_line, got start={start_line}, end={end_line}",
-            )
-        if end_line > num_lines:
-            return SetManifestResult(
-                message="",
-                error=f"replace_lines end_line={end_line} exceeds file length ({num_lines} lines)",
-            )
-
-        new_content = replace_text_lines(lines, start_line, end_line, manifest_yaml)
+        if error:
+            return SetManifestContentsResult(message="", error=error)
 
         diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
 
@@ -503,7 +479,7 @@ def set_session_manifest_text(
         _, errors, warnings, _ = validate_manifest_content(new_content)
         validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
 
-        return SetManifestResult(
+        return SetManifestContentsResult(
             message="Saved manifest",
             diff_summary=diff_summary,
             validation_warnings=validation_warnings,
@@ -511,23 +487,24 @@ def set_session_manifest_text(
 
     if mode == "insert_lines":
         if insert_at_line_number is None:
-            return SetManifestResult(
+            return SetManifestContentsResult(
                 message="",
-                error=f"mode='insert_lines' requires insert_at_line_number (1..{num_lines + 1})",
+                error="mode='insert_lines' requires insert_at_line_number parameter",
             )
-        if replace_lines is not None:
-            return SetManifestResult(
+        if new_text is None:
+            return SetManifestContentsResult(
                 message="",
-                error="mode='insert_lines' cannot be used with replace_lines",
-            )
-
-        if not (1 <= insert_at_line_number <= num_lines + 1):
-            return SetManifestResult(
-                message="",
-                error=f"insert_at_line_number must be in range 1..{num_lines + 1}, got {insert_at_line_number}",
+                error="mode='insert_lines' requires new_text parameter",
             )
 
-        new_content = insert_text_lines(lines, insert_at_line_number, manifest_yaml)
+        new_content, error = insert_text_lines(
+            existing_content=existing_content,
+            insert_at_line=insert_at_line_number,
+            text_to_insert=new_text,
+        )
+
+        if error:
+            return SetManifestContentsResult(message="", error=error)
 
         diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
 
@@ -537,13 +514,49 @@ def set_session_manifest_text(
         _, errors, warnings, _ = validate_manifest_content(new_content)
         validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
 
-        return SetManifestResult(
+        return SetManifestContentsResult(
             message="Saved manifest",
             diff_summary=diff_summary,
             validation_warnings=validation_warnings,
         )
 
-    return SetManifestResult(
+    if mode == "replace_text":
+        if replace_text is None:
+            return SetManifestContentsResult(
+                message="",
+                error="mode='replace_text' requires replace_text parameter",
+            )
+        if new_text is None:
+            return SetManifestContentsResult(
+                message="",
+                error="mode='replace_text' requires new_text parameter",
+            )
+
+        new_content, success_msg, error = replace_text_content(
+            existing_content=existing_content,
+            find_text=replace_text,
+            replacement_text=new_text,
+            replace_all=replace_all_occurrences,
+        )
+
+        if error:
+            return SetManifestContentsResult(message="", error=error)
+
+        diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
+
+        # Write new content
+        set_session_manifest_content(new_content, session_id=session_id)
+
+        _, errors, warnings, _ = validate_manifest_content(new_content)
+        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+
+        return SetManifestContentsResult(
+            message=f"Saved manifest (replaced {success_msg})",
+            diff_summary=diff_summary,
+            validation_warnings=validation_warnings,
+        )
+
+    return SetManifestContentsResult(
         message="",
         error=f"Unexpected mode: {mode}",
     )
@@ -553,6 +566,10 @@ def set_session_manifest_text(
 def get_session_manifest(ctx: Context) -> str:
     """Get the connector manifest from the current session.
 
+    Note: This tool is provided for backwards compatibility with clients that
+    don't support MCP resources. For clients that support MCP resources, prefer
+    using the 'session_manifest_yaml_contents' resource for more efficient read access.
+    The resource URI should be approximately 'connector-builder-mcp://session/manifest'.
     Args:
         ctx: FastMCP context (automatically injected in MCP tool calls)
 

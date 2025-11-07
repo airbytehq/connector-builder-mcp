@@ -4,6 +4,7 @@
 This module provides constants, error definitions, and topic mappings for the Connector Builder MCP.
 """
 
+
 DOTENV_FILE_URI_DESCRIPTION = """
 Optional paths/URLs to local .env files or Privatebin.net URLs for secret
 hydration. Can be a single string, comma-separated string, or list of strings.
@@ -130,49 +131,84 @@ NEWLINE = "\n"
 
 CONNECTOR_BUILDER_CHECKLIST = """# Connector Builder Development Checklist
 
-Use this checklist to guide you through the process of building a declarative (yaml) source connector using the Connector Builder MCP Server.
+Use this checklist to guide you through the process of building a declarative
+(yaml) source connector using the Connector Builder MCP Server.
 
-Steps marked with "📝" have outputs which should be shared with your user, or in a log file if no user is available.
+Steps marked with "📝" have outputs which should be shared with your user,
+or in a log file if no user is available.
 
 
 These steps ensure you understand roughly the work to do before diving in.
 
 - [ ] 📝 Locate API reference docs using online search.
-- [ ] 📝 Identify required authentication methods. If multiple auth methods are available, decide which to build first.
-- [ ] If the user or the API itself appear to require advanced features, check the docs tool to understand how those features might be implemented before you start.
+- [ ] 📝 Identify required authentication methods. If multiple auth methods
+      are available, decide which to build first.
+- [ ] If the user or the API itself appear to require advanced features,
+      check the docs tool to understand how those features might be
+      implemented before you start.
 
 
-These prereq steps should be performed before you start work - so you can leave the user alone while you work, and so that you won't be blocked waiting for more info after you start.
+These prereq steps should be performed before you start work - so you can
+leave the user alone while you work, and so that you won't be blocked waiting
+for more info after you start.
 
-- [ ] 📝 **Enumerate all available streams first**: Before beginning work on any stream, research the API documentation to identify and list ALL available streams/endpoints. Share this complete list with your user (or the message thread) so they can provide guidance on priorities or exclusions.
-- [ ] If you do need secrets for authentication, and if user is able to create a .env file for you, ask them to provide you a path to the file.
-- [ ] Use your tools to populate required variables to your dotenv file, then let the user enter them, then use your tools to verify they are set. (You will pass the dotenv file to other tools.)
+- [ ] 📝 **Enumerate all available streams first**: Before beginning work on
+      any stream, research the API documentation to identify and list ALL
+      available streams/endpoints. Share this complete list with your user
+      (or the message thread) so they can provide guidance on priorities or
+      exclusions.
+- [ ] If you do need secrets for authentication, and if user is able to
+      create a .env file for you, ask them to provide you a path to the file.
+- [ ] Use your tools to populate required variables to your dotenv file,
+      then let the user enter them, then use your tools to verify they are
+      set. (You will pass the dotenv file to other tools.)
 - [ ] **Important**: Secrets should not be sent directly to or through the LLM.
-- [ ] 📝 After enumerating streams, ask the user to confirm the list before you start. They can: (1) optionally suggest what the 'first stream' should be, or (2) inform you about specific streams they'd like you to ignore.
+- [ ] 📝 After enumerating streams, ask the user to confirm the list before
+      you start. They can: (1) optionally suggest what the 'first stream'
+      should be, or (2) inform you about specific streams they'd like you to
+      ignore.
 
 
-Follow steps for one stream at a time. Lessons learned from one stream are generally applicable to subsequent streams. Moving in small steps reduces wasted efforts and prevents hard-to-diagnose issues.
+Follow steps for one stream at a time. Lessons learned from one stream are
+generally applicable to subsequent streams. Moving in small steps reduces
+wasted efforts and prevents hard-to-diagnose issues.
 
-- [ ] Validate that authentication works for the stream, without pagination, and that you can see records.
+- [ ] Validate that authentication works for the stream, without pagination,
+      and that you can see records.
 - [ ] Add pagination next. (See steps below.)
-- [ ] If other advanced topics are needed, such as custom error handling, address these issues for each stream as needed.
+- [ ] If other advanced topics are needed, such as custom error handling,
+      address these issues for each stream as needed.
 
 
 - [ ] Add pagination logic after working stream is established.
 - [ ] Confirm you can read a few pages.
-- [ ] Confirm you can reach the end of the stream and that stream counts are not suspect.
-      - Use a suitably high record limit to get a total record count, while keeping context window manageable by opting not to returning records data or raw responses.
-      - Counts are suspect if they are an even multiple of 10 or 25, or if they are an even multiple of the page size.
-      - If counts are suspect, you can sometimes get helpful info from raw responses data, inspecting the headers and returned content body for clues.
-- [ ] 📝 Record the total records count for each stream, as you go. This is information the user will want to audit when the connector is complete.
+- [ ] Confirm you can reach the end of the stream and that stream counts are
+      not suspect.
+      - Use a suitably high record limit to get a total record count, while
+        keeping context window manageable by opting not to returning records
+        data or raw responses.
+      - Counts are suspect if they are an even multiple of 10 or 25, or if
+        they are an even multiple of the page size.
+      - If counts are suspect, you can sometimes get helpful info from raw
+        responses data, inspecting the headers and returned content body
+        for clues.
+- [ ] 📝 Record the total records count for each stream, as you go. This is
+      information the user will want to audit when the connector is complete.
 
-**Important**: When streaming to end of stream to get record counts, disable records and raw responses to avoid overloading the LLM context window.
+**Important**: When streaming to end of stream to get record counts, disable
+records and raw responses to avoid overloading the LLM context window.
 
 
 - [ ] Only add additional streams after first stream is fully validated.
-- [ ] Test each new stream individually before proceeding, repeat until all streams are complete.
-- [ ] 📝 Double-check the list of completed streams with the list of planned streams (if available) or against your API docs. If you've omitted any streams, consider if they should be added. Otherwise document what was excluded as well as what was included.
-- [ ] 📝 If performance will permit, run a full 'smoke test' operation on all streams, validating record counts and sharing the final counts with your user.
+- [ ] Test each new stream individually before proceeding, repeat until all
+      streams are complete.
+- [ ] 📝 Double-check the list of completed streams with the list of planned
+      streams (if available) or against your API docs. If you've omitted any
+      streams, consider if they should be added. Otherwise document what was
+      excluded as well as what was included.
+- [ ] 📝 If performance will permit, run a full 'smoke test' operation on all
+      streams, validating record counts and sharing the final counts with
+      your user.
 
 
 - [ ] All streams pass individual tests.
@@ -183,20 +219,33 @@ Follow steps for one stream at a time. Lessons learned from one stream are gener
 
 Rules:
 - Custom Python components are not supported (for security reasons).
-- All MCP tools support receiving .env file path - please pass it without parsing secrets yourself.
+- All MCP tools support receiving .env file path - please pass it without
+  parsing secrets yourself.
 - Call connector builder docs tool for specific component topics as needed.
-- YAML anchors are not supported, although other means are available, such as ref pointers.
-- The connector spec should be included in the manifest, not as a separate file.
-- If manifest validation fails, review the errors and relevant documentation and then attempt to resolve the errors.
+- YAML anchors are not supported, although other means are available, such
+  as ref pointers.
+- The connector spec should be included in the manifest, not as a separate
+  file.
+- If manifest validation fails, review the errors and relevant documentation
+  and then attempt to resolve the errors.
+- For reading manifest content, prefer using the 'session_manifest_yaml_contents'
+  MCP resource instead of the get_session_manifest tool for better performance
+  and caching. The resource URI format is '{server_name}://session/manifest'
+  where server_name matches your MCP configuration.
 
 
-For detailed guidance on specific components, use the connector builder docs tool. If called with no inputs, it will provide you an index of all available topics.
+For detailed guidance on specific components, use the connector builder docs
+tool. If called with no inputs, it will provide you an index of all available
+topics.
 """
 OVERVIEW_PROMPT = f"""# Connector Builder Documentation
 
-**Important**: Before starting development, call the `get_connector_builder_checklist()` tool first to get the comprehensive development checklist.
+**Important**: Before starting development, call the
+`get_connector_builder_checklist()` tool first to get the comprehensive
+development checklist.
 
-The checklist provides step-by-step guidance for building connectors and helps avoid common pitfalls like pagination issues and incomplete validation.
+The checklist provides step-by-step guidance for building connectors and
+helps avoid common pitfalls like pagination issues and incomplete validation.
 
 
 For detailed guidance on specific components and features, you can request documentation for any of these topics:
@@ -207,7 +256,8 @@ For detailed guidance on specific components and features, you can request docum
 
 BUILD_CONNECTOR_FROM_SCRATCH_PROMPT = """# Build a Connector from Scratch
 
-You are building a declarative (YAML) source connector using the Connector Builder MCP Server.
+You are building a declarative (YAML) source connector using the Connector
+Builder MCP Server.
 
 
 1. **Research & Planning**
@@ -231,7 +281,8 @@ You are building a declarative (YAML) source connector using the Connector Build
 4. **Add Pagination**
    - Add pagination configuration to manifest
    - Test reading multiple pages with `execute_stream_test_read`
-   - Read to end of stream with high max_records to verify pagination works correctly
+   - Read to end of stream with high max_records to verify pagination works
+     correctly
    - Check that record counts are not suspicious multiples (10, 25, page size)
 
 5. **Add Remaining Streams**
@@ -263,7 +314,8 @@ You are building a declarative (YAML) source connector using the Connector Build
 - YAML anchors are not supported (use $ref pointers instead)
 
 
-Use `get_connector_builder_docs` without arguments to see available documentation topics, or with a specific topic for detailed guidance.
+Use `get_connector_builder_docs` without arguments to see available
+documentation topics, or with a specific topic for detailed guidance.
 """
 
 ADD_STREAM_TO_CONNECTOR_PROMPT = """# Add a New Stream to Existing Connector
@@ -279,7 +331,8 @@ You are adding a new stream to an existing declarative connector manifest.
 2. **Identify Stream Requirements**
    - Determine API endpoint for {stream_name}
    - Check if authentication is already configured
-   - Identify any special requirements (pagination, partitioning, transformations)
+   - Identify any special requirements (pagination, partitioning,
+     transformations)
 
 3. **Add Stream Definition**
    - Add new stream to manifest following existing patterns
@@ -313,5 +366,26 @@ You are adding a new stream to an existing declarative connector manifest.
 - Test incrementally (basic read, then pagination, then edge cases)
 
 
-Use `get_connector_builder_docs` with topics like 'pagination', 'record-processing', or 'partitioning' for detailed guidance.
+Use `get_connector_builder_docs` with topics like 'pagination',
+'record-processing', or 'partitioning' for detailed guidance.
+"""
+
+
+SCAFFOLD_CREATION_SUCCESS_MESSAGE = """✅ Manifest scaffold created successfully!
+
+The manifest has been saved to your session and is ready to use.
+
+**To view the manifest:**
+- **Preferred**: Use the MCP resource `session_manifest_yaml_contents`
+  (URI: '{MCP_SERVER_NAME}://session/manifest').
+- **Fallback**: Use the `get_session_manifest` tool if your client does not
+  support MCP resources.
+
+**Next steps:**
+1. Review the manifest content
+2. Update TODO placeholders with actual values from the API documentation
+3. Test the first stream with `execute_stream_test_read`
+4. Add pagination if needed
+
+**Note:** The manifest includes inline TODO comments marking fields that need attention.
 """

@@ -8,6 +8,8 @@ from typing import Annotated
 from fastmcp import Context
 from pydantic import Field
 
+from connector_builder_mcp._guidance import SCAFFOLD_CREATION_SUCCESS_MESSAGE
+from connector_builder_mcp.constants import MCP_SERVER_NAME
 from connector_builder_mcp.session_manifest import (
     get_session_manifest_content,
     set_session_manifest_content,
@@ -281,4 +283,4 @@ def create_connector_manifest_scaffold(
     manifest_path = set_session_manifest_content(manifest_yaml, session_id=ctx.session_id)
     logger.info(f"Saved generated manifest to session at: {manifest_path}")
 
-    return manifest_yaml
+    return SCAFFOLD_CREATION_SUCCESS_MESSAGE.format(MCP_SERVER_NAME=MCP_SERVER_NAME)

@@ -10,6 +10,7 @@ from functools import lru_cache
 
 from fastmcp import FastMCP
 
+from connector_builder_mcp.constants import MCP_SERVER_NAME
 from connector_builder_mcp.mcp_capabilities import (
     mcp_resource,
     register_deferred_resources,
@@ -58,7 +59,7 @@ def _get_version_info() -> dict[str, str | None]:
 
 
 @mcp_resource(
-    uri="connector-builder-mcp://version",
+    uri=f"{MCP_SERVER_NAME}://version",
     description="Version information for the Connector Builder MCP server",
     mime_type="application/json",
 )

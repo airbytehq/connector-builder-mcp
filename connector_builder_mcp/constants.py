@@ -69,6 +69,15 @@ session-specific data. Each session gets its own subdirectory based on
 a hashed session ID.
 """
 
+MCP_SERVER_NAME = os.environ.get("CONNECTOR_BUILDER_MCP_SERVER_NAME", "connector-builder-mcp")
+"""MCP server name used for server identification and resource URIs.
+
+This can be overridden via the CONNECTOR_BUILDER_MCP_SERVER_NAME environment
+variable to match the name configured in the client's MCP settings file.
+
+Default: "connector-builder-mcp"
+"""
+
 REQUIRE_SESSION_MANIFEST_IN_TOOL_CALLS = True
 """Whether to require a session manifest for tool calls.
 
