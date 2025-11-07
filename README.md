@@ -216,11 +216,7 @@ Precedence (most specific to least specific):
 
 All path overrides must be absolute paths. Relative paths will be rejected for security reasons.
 
-### Remote Mode Configuration
-
-- **`CONNECTOR_BUILDER_MCP_REMOTE_MODE`** - Set to `true`, `1`, or `yes` to indicate remote mode
-  - Default: `false` (STDIO mode)
-  - When set to `true`, path override environment variables are not allowed and will cause startup failure
+**Security Note:** Path overrides are only allowed when the server is running in STDIO mode. The transport mode is detected internally from the server entrypoint and cannot be overridden by users. When running in remote mode (SSE/HTTP), path overrides will cause the server to fail at startup for security reasons.
 
 ## Contributing and Testing Guides
 

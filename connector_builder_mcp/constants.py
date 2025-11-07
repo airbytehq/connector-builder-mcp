@@ -52,16 +52,6 @@ manifest files will be stored. Treated as an alias for SESSION_ROOT with the
 lowest precedence. If not set, defaults to a temporary directory.
 """
 
-CONNECTOR_BUILDER_MCP_REMOTE_MODE = "CONNECTOR_BUILDER_MCP_REMOTE_MODE"
-"""Environment variable name for remote mode flag.
-
-If set to "true", "1", or "yes" (case-insensitive), indicates the server is
-running in remote mode (e.g., SSE/HTTP transport). When remote mode is active,
-path override environment variables are not allowed for security reasons.
-
-Default: false (STDIO mode)
-"""
-
 SESSION_BASE_DIR = Path(
     os.environ.get(
         CONNECTOR_BUILDER_MCP_SESSIONS_DIR,

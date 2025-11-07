@@ -6,7 +6,6 @@ from unittest.mock import patch
 import pytest
 
 from connector_builder_mcp.constants import (
-    CONNECTOR_BUILDER_MCP_REMOTE_MODE,
     CONNECTOR_BUILDER_MCP_SESSION_DIR,
     CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH,
     CONNECTOR_BUILDER_MCP_SESSION_ROOT,
@@ -17,31 +16,36 @@ from connector_builder_mcp.session_manifest import (
     _is_remote_mode,
     _validate_absolute_path,
     resolve_session_manifest_path,
+    set_transport_mode,
 )
 
 
 @pytest.mark.parametrize(
-    "env_value,expected",
+    "mode,expected",
     [
-        ("true", True),
-        ("True", True),
-        ("TRUE", True),
-        ("1", True),
-        ("yes", True),
-        ("YES", True),
-        ("false", False),
-        ("False", False),
-        ("0", False),
-        ("no", False),
-        ("", False),
-        (None, False),
+        ("remote", True),
+        ("stdio", False),
     ],
 )
-def test_is_remote_mode(env_value, expected):
-    """Test remote mode detection from environment variable."""
-    env = {CONNECTOR_BUILDER_MCP_REMOTE_MODE: env_value} if env_value is not None else {}
-    with patch.dict(os.environ, env, clear=True):
+def test_is_remote_mode(mode, expected):
+    """Test remote mode detection from internal transport mode."""
+    set_transport_mode(mode)
+    try:
         assert _is_remote_mode() == expected
+    finally:
+        set_transport_mode("stdio")
+
+
+def test_is_remote_mode_unknown_defaults_to_remote():
+    """Test that unknown transport mode defaults to remote (secure-by-default)."""
+    import connector_builder_mcp.session_manifest as sm
+
+    original_mode = sm._TRANSPORT_MODE
+    try:
+        sm._TRANSPORT_MODE = "unknown"
+        assert _is_remote_mode() is True
+    finally:
+        sm._TRANSPORT_MODE = original_mode
 
 
 @pytest.mark.parametrize(
@@ -76,23 +80,40 @@ def test_validate_absolute_path(path_str, should_succeed, tmp_path):
 )
 def test_check_path_overrides_security_remote_mode(override_var, tmp_path):
     """Test that path overrides are rejected in remote mode."""
-    env = {
-        CONNECTOR_BUILDER_MCP_REMOTE_MODE: "true",
-        override_var: str(tmp_path / "test"),
-    }
-    with patch.dict(os.environ, env, clear=True):
-        with pytest.raises(RuntimeError, match="not allowed in remote mode"):
-            _check_path_overrides_security()
+    set_transport_mode("remote")
+    try:
+        env = {override_var: str(tmp_path / "test")}
+        with patch.dict(os.environ, env, clear=True):
+            with pytest.raises(RuntimeError, match="not allowed in remote mode"):
+                _check_path_overrides_security()
+    finally:
+        set_transport_mode("stdio")
+
+
+def test_check_path_overrides_security_unknown_mode(tmp_path):
+    """Test that path overrides are rejected in unknown mode (secure-by-default)."""
+    import connector_builder_mcp.session_manifest as sm
+
+    original_mode = sm._TRANSPORT_MODE
+    try:
+        sm._TRANSPORT_MODE = "unknown"
+        env = {CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH: str(tmp_path / "manifest.yaml")}
+        with patch.dict(os.environ, env, clear=True):
+            with pytest.raises(RuntimeError, match="not allowed in unknown transport mode"):
+                _check_path_overrides_security()
+    finally:
+        sm._TRANSPORT_MODE = original_mode
 
 
 def test_check_path_overrides_security_stdio_mode(tmp_path):
     """Test that path overrides are allowed in STDIO mode."""
-    env = {
-        CONNECTOR_BUILDER_MCP_REMOTE_MODE: "false",
-        CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH: str(tmp_path / "manifest.yaml"),
-    }
-    with patch.dict(os.environ, env, clear=True):
-        _check_path_overrides_security()
+    set_transport_mode("stdio")
+    try:
+        env = {CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH: str(tmp_path / "manifest.yaml")}
+        with patch.dict(os.environ, env, clear=True):
+            _check_path_overrides_security()
+    finally:
+        set_transport_mode("stdio")
 
 
 @pytest.mark.parametrize(

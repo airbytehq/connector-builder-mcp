@@ -23,7 +23,6 @@ from connector_builder_mcp._text_utils import (
 from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool, register_tools
 from connector_builder_mcp._validation_helpers import validate_manifest_content
 from connector_builder_mcp.constants import (
-    CONNECTOR_BUILDER_MCP_REMOTE_MODE,
     CONNECTOR_BUILDER_MCP_SESSION_DIR,
     CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH,
     CONNECTOR_BUILDER_MCP_SESSION_ROOT,
@@ -34,6 +33,23 @@ from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 
 logger = logging.getLogger(__name__)
+
+
+_TRANSPORT_MODE: str = "unknown"
+
+
+def set_transport_mode(mode: Literal["stdio", "remote"]) -> None:
+    """Set the transport mode for the server.
+
+    This should only be called by the server entrypoint (server.py) based on
+    which run method is being used (run_stdio_async vs run_sse/http).
+
+    Args:
+        mode: Transport mode - "stdio" for local STDIO, "remote" for SSE/HTTP
+    """
+    global _TRANSPORT_MODE
+    _TRANSPORT_MODE = mode
+    logger.info(f"Transport mode set to: {mode}")
 
 
 class SessionManifestResource(BaseModel):
@@ -57,11 +73,14 @@ class SetManifestResult(BaseModel):
 def _is_remote_mode() -> bool:
     """Check if the server is running in remote mode.
 
+    This checks the internal transport mode flag that is set by the server
+    entrypoint. It cannot be overridden by users via environment variables.
+
     Returns:
-        True if remote mode is active, False otherwise (STDIO mode)
+        True if remote mode is active or unknown (secure-by-default),
+        False only if explicitly set to STDIO mode
     """
-    remote_mode_str = os.environ.get(CONNECTOR_BUILDER_MCP_REMOTE_MODE, "false").lower()
-    return remote_mode_str in ("true", "1", "yes")
+    return _TRANSPORT_MODE != "stdio"
 
 
 def _validate_absolute_path(path_str: str, var_name: str) -> Path:
@@ -89,6 +108,9 @@ def _validate_absolute_path(path_str: str, var_name: str) -> Path:
 def _check_path_overrides_security() -> None:
     """Check if path overrides are set in remote mode and raise if so.
 
+    This function checks the internal transport mode (not user-controllable)
+    and rejects path overrides if running in remote mode or if mode is unknown.
+
     Raises:
         RuntimeError: If any path override is set while in remote mode
     """
@@ -105,10 +127,11 @@ def _check_path_overrides_security() -> None:
     set_overrides = [var for var in override_vars if os.environ.get(var)]
 
     if set_overrides:
+        mode_desc = "remote mode" if _TRANSPORT_MODE == "remote" else "unknown transport mode"
         raise RuntimeError(
-            f"Path override environment variables are not allowed in remote mode for security reasons. "
+            f"Path override environment variables are not allowed in {mode_desc} for security reasons. "
             f"The following variables are set: {', '.join(set_overrides)}. "
-            f"Please unset these variables or set {CONNECTOR_BUILDER_MCP_REMOTE_MODE}=false."
+            f"Path overrides are only allowed when running in STDIO mode."
         )
 
 
