@@ -213,6 +213,8 @@ def _format_validation_error(
 
 
 def validate_manifest(
+    ctx: Context,
+    *,
     manifest: Annotated[
         str | None,
         Field(
@@ -221,9 +223,12 @@ def validate_manifest(
             "If not provided, uses the session manifest."
         ),
     ] = None,
-    ctx: Context | None = None,
 ) -> ManifestValidationResult:
     """Validate a connector manifest structure and configuration.
+
+    Args:
+        ctx: FastMCP context (automatically injected)
+        manifest: The connector manifest to validate (optional, uses session manifest if not provided)
 
     Returns:
         Validation result with success status and any errors/warnings
@@ -235,7 +240,7 @@ def validate_manifest(
     resolved_manifest = None
 
     try:
-        if manifest is None and ctx is not None:
+        if manifest is None:
             manifest = get_session_manifest_content(ctx.session_id)
             if manifest is None:
                 errors.append(
@@ -244,12 +249,6 @@ def validate_manifest(
                 )
                 return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
             logger.info("Using session manifest for validation")
-        elif manifest is None:
-            errors.append(
-                "No manifest provided and no context available to load session manifest. "
-                "Please provide a manifest."
-            )
-            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         manifest_dict, _ = parse_manifest_input(manifest)
 

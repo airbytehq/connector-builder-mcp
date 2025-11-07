@@ -158,11 +158,12 @@ def session_manifest_resource(ctx: Context) -> SessionManifestResource:
 
 @mcp_tool("local", read_only=False, destructive=False, idempotent=False, open_world=False)
 def set_session_manifest(
+    ctx: Context,
+    *,
     manifest_yaml: Annotated[
         str,
         Field(description="The connector manifest YAML content to save to the session"),
     ],
-    ctx: Context,
 ) -> str:
     """Save a connector manifest to the current session.
 
@@ -170,8 +171,8 @@ def set_session_manifest(
     referenced by other tools without needing to pass the manifest content repeatedly.
 
     Args:
-        manifest_yaml: The manifest YAML content to save
         ctx: FastMCP context (automatically injected in MCP tool calls)
+        manifest_yaml: The manifest YAML content to save
 
     Returns:
         Success message with the file path
@@ -185,7 +186,7 @@ def set_session_manifest(
 
 
 @mcp_tool("local", read_only=True, idempotent=True, open_world=False)
-def get_session_manifest(ctx: Context) -> str:
+def get_session_manifest(ctx: Context, *) -> str:
     """Get the connector manifest from the current session.
 
     Args:
