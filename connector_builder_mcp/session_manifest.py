@@ -227,7 +227,9 @@ def set_session_manifest_text(
             return "ERROR: mode='replace_all' cannot be used with replace_lines"
 
         manifest_path = set_session_manifest_content(manifest_yaml, session_id=session_id)
-        return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+        return (
+            f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+        )
 
     # Get existing content for line-based operations
     existing_content = get_session_manifest_content(session_id) or ""
@@ -245,11 +247,15 @@ def set_session_manifest_text(
         if not (1 <= start_line <= end_line):
             return f"ERROR: replace_lines requires 1 <= start_line <= end_line, got start={start_line}, end={end_line}"
         if end_line > num_lines:
-            return f"ERROR: replace_lines end_line={end_line} exceeds file length ({num_lines} lines)"
+            return (
+                f"ERROR: replace_lines end_line={end_line} exceeds file length ({num_lines} lines)"
+            )
 
         result = replace_text_lines(lines, start_line, end_line, manifest_yaml)
         manifest_path = set_session_manifest_content(result, session_id=session_id)
-        return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+        return (
+            f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+        )
 
     if mode == "insert_lines":
         if insert_at_line_number is None:
@@ -262,7 +268,9 @@ def set_session_manifest_text(
 
         result = insert_text_lines(lines, insert_at_line_number, manifest_yaml)
         manifest_path = set_session_manifest_content(result, session_id=session_id)
-        return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+        return (
+            f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+        )
 
     return f"ERROR: Unexpected mode: {mode}"
 
