@@ -7,6 +7,7 @@ for deferred registration.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from enum import Enum
 from typing import Any, TypeVar
@@ -146,7 +147,10 @@ def register_tools(app: Any, domain: ToolDomain | str) -> None:  # noqa: ANN401
                 #   use a different arg name.
                 # - Perform a full text search of `manifest: Annotated[` when auditing tool
                 #   implementations.
-                exclude_args = ["manifest"]
+
+                params = set(inspect.signature(func).parameters.keys())
+                excluded = [name for name in ["manifest"] if name in params]
+                exclude_args = excluded if excluded else None
 
             app.tool(
                 func,
