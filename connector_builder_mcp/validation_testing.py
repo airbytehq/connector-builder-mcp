@@ -340,7 +340,6 @@ def execute_stream_test_read(  # noqa: PLR0914
     stream_name: Annotated[
         str,
         Field(description="Name of the stream to test"),
-stream_name: Annotated[
     ],
     config: Annotated[
         dict[str, Any] | str | None,
