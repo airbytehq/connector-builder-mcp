@@ -62,7 +62,9 @@ def test_resolve_rick_and_morty_manifest(
     rick_and_morty_manifest_yaml,
 ) -> None:
     """Test resolution of Rick and Morty API manifest."""
-    result = execute_dynamic_manifest_resolution_test(ctx, manifest=rick_and_morty_manifest_yaml, config={})
+    result = execute_dynamic_manifest_resolution_test(
+        ctx, manifest=rick_and_morty_manifest_yaml, config={}
+    )
 
     assert isinstance(result, dict)
     assert "streams" in result, f"Expected 'streams' key in resolved manifest, got: {result}"
@@ -124,7 +126,9 @@ def test_complete_connector_workflow(
     assert validation_result.is_valid
     assert validation_result.resolved_manifest is not None
 
-    resolved_manifest = execute_dynamic_manifest_resolution_test(ctx, manifest=rick_and_morty_manifest_yaml, config={})
+    resolved_manifest = execute_dynamic_manifest_resolution_test(
+        ctx, manifest=rick_and_morty_manifest_yaml, config={}
+    )
     assert isinstance(resolved_manifest, dict)
     assert "streams" in resolved_manifest
 
@@ -164,7 +168,9 @@ def test_performance_multiple_tool_calls(
 
     for _ in range(5):
         validate_manifest(ctx, manifest=rick_and_morty_manifest_yaml)
-        execute_dynamic_manifest_resolution_test(ctx, manifest=rick_and_morty_manifest_yaml, config={})
+        execute_dynamic_manifest_resolution_test(
+            ctx, manifest=rick_and_morty_manifest_yaml, config={}
+        )
 
     end_time = time.time()
     duration = end_time - start_time
@@ -207,7 +213,9 @@ spec:
         ValueError,
         match=r"Invalid manifest structure.*streams.*must be a list of stream definition objects",
     ):
-        run_connector_readiness_test_report(ctx, manifest=malformed_manifest, config={}, max_records=5)
+        run_connector_readiness_test_report(
+            ctx, manifest=malformed_manifest, config={}, max_records=5
+        )
 
 
 @pytest.mark.parametrize(

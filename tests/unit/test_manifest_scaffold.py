@@ -104,7 +104,7 @@ def test_all_generated_manifests_pass_validation(ctx) -> None:
     """Test that all generated manifests pass validation regardless of inputs."""
     for auth_type in [at.value for at in AuthenticationType]:
         set_session_manifest_content("", session_id=ctx.session_id)
-        
+
         result = create_connector_manifest_scaffold(
             ctx,
             connector_name=f"source-test-{auth_type.lower().replace('authenticator', '').replace('auth', '').replace('_', '-')}",

@@ -250,7 +250,7 @@ def create_connector_manifest_scaffold(
     if existing_manifest and existing_manifest.strip():
         return (
             "ERROR: Refusing to overwrite existing session manifest. "
-            "To proceed, first call set_session_manifest with manifest_yaml=\"\" to reset the session manifest."
+            'To proceed, first call set_session_manifest with manifest_yaml="" to reset the session manifest.'
         )
 
     try:
@@ -279,9 +279,7 @@ def create_connector_manifest_scaffold(
             return f"ERROR: Generated manifest failed validation: {error_details}"
 
         try:
-            manifest_path = set_session_manifest_content(
-                manifest_yaml, session_id=ctx.session_id
-            )
+            manifest_path = set_session_manifest_content(manifest_yaml, session_id=ctx.session_id)
             logger.info(f"Saved generated manifest to session at: {manifest_path}")
         except Exception as save_error:
             logger.warning(f"Failed to save manifest to session: {save_error}")

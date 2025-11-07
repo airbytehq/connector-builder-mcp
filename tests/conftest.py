@@ -1,16 +1,17 @@
 """Shared test fixtures."""
 
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
 
 
+@dataclass
 class FakeContext:
     """Fake FastMCP Context for testing."""
 
-    def __init__(self, session_id: str):
-        self.session_id = session_id
+    session_id: str
 
 
 @pytest.fixture
