@@ -1,5 +1,7 @@
 """Generic text manipulation utilities."""
 
+import difflib
+
 
 def replace_text_lines(
     lines: list[str],
@@ -48,3 +50,30 @@ def insert_text_lines(
 
     new_lines = lines[:insert_idx] + insert_lines + lines[insert_idx:]
     return "".join(new_lines)
+
+
+def unified_diff_with_context(old_text: str, new_text: str, context: int = 2) -> str:
+    """Generate a unified diff between two text strings with context lines.
+
+    Args:
+        old_text: Original text content
+        new_text: Modified text content
+        context: Number of context lines to show around changes (default: 2)
+
+    Returns:
+        Unified diff string, or "[no changes]" if texts are identical
+    """
+    old_lines = old_text.splitlines(keepends=True)
+    new_lines = new_text.splitlines(keepends=True)
+
+    diff_lines = difflib.unified_diff(
+        old_lines,
+        new_lines,
+        fromfile="before",
+        tofile="after",
+        n=context,
+        lineterm="",
+    )
+
+    diff = "\n".join(diff_lines)
+    return diff or "[no changes]"
