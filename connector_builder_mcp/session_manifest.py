@@ -186,7 +186,7 @@ def set_session_manifest(
 
 
 @mcp_tool("local", read_only=True, idempotent=True, open_world=False)
-def get_session_manifest(ctx: Context, *) -> str:
+def get_session_manifest(ctx: Context) -> str:
     """Get the connector manifest from the current session.
 
     Args:
