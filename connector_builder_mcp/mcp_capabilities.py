@@ -31,8 +31,16 @@ class ResourceDef:
     func: Callable[..., Any]
 
 
+@dataclass
+class ToolDef:
+    """Definition of a deferred MCP tool."""
+
+    func: Callable[..., Any]
+
+
 PROMPT_REGISTRY: dict[str, PromptDef] = {}
 RESOURCE_REGISTRY: dict[str, ResourceDef] = {}
+TOOL_REGISTRY: list[ToolDef] = []
 
 
 def mcp_prompt(name: str, description: str):
@@ -82,6 +90,20 @@ def mcp_resource(uri: str, description: str, mime_type: str):
     return decorator
 
 
+def mcp_tool():
+    """Decorator for deferred MCP tool registration.
+
+    Returns:
+        Decorator function that registers the tool
+    """
+
+    def decorator(func: Callable[..., Any]):
+        TOOL_REGISTRY.append(ToolDef(func=func))
+        return func
+
+    return decorator
+
+
 def register_deferred_prompts(app: FastMCP) -> None:
     """Register all deferred prompts with the FastMCP app.
 
@@ -100,3 +122,13 @@ def register_deferred_resources(app: FastMCP) -> None:
     """
     for defn in RESOURCE_REGISTRY.values():
         app.resource(defn.uri, description=defn.description, mime_type=defn.mime_type)(defn.func)
+
+
+def register_deferred_tools(app: FastMCP) -> None:
+    """Register all deferred tools with the FastMCP app.
+
+    Args:
+        app: FastMCP application instance
+    """
+    for defn in TOOL_REGISTRY:
+        app.tool(defn.func)
