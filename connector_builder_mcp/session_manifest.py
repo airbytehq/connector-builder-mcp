@@ -15,7 +15,8 @@ from typing import Annotated
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
-from connector_builder_mcp.mcp_capabilities import mcp_resource, mcp_tool, register_deferred_tools
+from connector_builder_mcp._tool_utils import mcp_tool, register_tools
+from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 
 logger = logging.getLogger(__name__)
@@ -155,7 +156,7 @@ def session_manifest_resource(ctx: Context) -> SessionManifestResource:
     )
 
 
-@mcp_tool()
+@mcp_tool("local", read_only=False, destructive=False, idempotent=False, open_world=False)
 def set_session_manifest(
     manifest_yaml: Annotated[
         str,
@@ -183,7 +184,7 @@ def set_session_manifest(
     return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
 
 
-@mcp_tool()
+@mcp_tool("local", read_only=True, idempotent=True, open_world=False)
 def get_session_manifest(ctx: Context) -> str:
     """Get the connector manifest from the current session.
 
@@ -211,4 +212,4 @@ def register_session_manifest_tools(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_deferred_tools(app)
+    register_tools(app, "local")

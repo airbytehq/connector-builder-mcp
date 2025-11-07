@@ -71,9 +71,9 @@ def test_execute_stream_test_read_rick_and_morty(
 ) -> None:
     """Test reading from Rick and Morty characters stream."""
     result = execute_stream_test_read(
-        rick_and_morty_manifest_yaml,
-        config={},
         stream_name="characters",
+        manifest=rick_and_morty_manifest_yaml,
+        config={},
         max_records=5,
     )
 
@@ -123,9 +123,9 @@ def test_complete_connector_workflow(
     assert "streams" in resolved_manifest
 
     stream_result = execute_stream_test_read(
-        rick_and_morty_manifest_yaml,
-        config={},
         stream_name="characters",
+        manifest=rick_and_morty_manifest_yaml,
+        config={},
         max_records=3,
     )
     assert isinstance(stream_result, StreamTestResult)
@@ -137,8 +137,8 @@ def test_error_handling_scenarios(
 ) -> None:
     """Test various error handling scenarios."""
     result = execute_stream_test_read(
-        rick_and_morty_manifest_yaml,
         stream_name="nonexistent_stream",
+        manifest=rick_and_morty_manifest_yaml,
         config={},
         max_records=1,
     )
@@ -216,9 +216,9 @@ def test_sample_manifests_with_both_tools(
     manifest = request.getfixturevalue(manifest_fixture)
 
     stream_result = execute_stream_test_read(
-        manifest,
-        config={},
         stream_name=stream_name,
+        manifest=manifest,
+        config={},
         max_records=5,
     )
     assert isinstance(stream_result, StreamTestResult)
