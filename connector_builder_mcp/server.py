@@ -14,21 +14,9 @@ from connector_builder_mcp.connector_builder import register_connector_builder_t
 from connector_builder_mcp.constants import MCP_SERVER_NAME
 from connector_builder_mcp.prompts import register_prompts
 from connector_builder_mcp.resources import register_resources
-from connector_builder_mcp.session_manifest import (
-    _check_path_overrides_security,
-    set_transport_mode,
-)
 
 
 initialize_logging()
-
-set_transport_mode("stdio")
-
-try:
-    _check_path_overrides_security()
-except RuntimeError as e:
-    print(f"FATAL: {e}", file=sys.stderr, flush=True)
-    sys.exit(1)
 
 app: FastMCP = FastMCP(MCP_SERVER_NAME)
 register_connector_builder_tools(app)
