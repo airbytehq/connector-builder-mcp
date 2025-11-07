@@ -254,39 +254,31 @@ def create_connector_manifest_scaffold(
             'To proceed, first call set_session_manifest_text with manifest_yaml="" to reset the session manifest.'
         )
 
+    if not re.match(r"^source-[a-z0-9]+(-[a-z0-9]+)*$", connector_name):
+        return "ERROR: Input validation error: Connector name must be in kebab-case starting with 'source-'"
+
     try:
-        if not re.match(r"^source-[a-z0-9]+(-[a-z0-9]+)*$", connector_name):
-            return "ERROR: Input validation error: Connector name must be in kebab-case starting with 'source-'"
+        auth_type = AuthenticationType(authentication_type)
+    except ValueError:
+        valid_auth_types = [at.value for at in AuthenticationType]
+        return f"ERROR: Input validation error: Invalid authentication_type. Must be one of: {valid_auth_types}"
 
-        try:
-            auth_type = AuthenticationType(authentication_type)
-        except ValueError:
-            valid_auth_types = [at.value for at in AuthenticationType]
-            return f"ERROR: Input validation error: Invalid authentication_type. Must be one of: {valid_auth_types}"
+    manifest_yaml = _generate_manifest_yaml_directly(
+        connector_name=connector_name,
+        api_base_url=api_base_url,
+        initial_stream_name=initial_stream_name,
+        initial_stream_path=initial_stream_path,
+        authentication_type=auth_type,
+        http_method=http_method.upper(),
+    )
 
-        manifest_yaml = _generate_manifest_yaml_directly(
-            connector_name=connector_name,
-            api_base_url=api_base_url,
-            initial_stream_name=initial_stream_name,
-            initial_stream_path=initial_stream_path,
-            authentication_type=auth_type,
-            http_method=http_method.upper(),
-        )
+    validation_result = validate_manifest(ctx, manifest=manifest_yaml)
 
-        validation_result = validate_manifest(ctx, manifest=manifest_yaml)
+    if not validation_result.is_valid:
+        error_details = "; ".join(validation_result.errors)
+        return f"ERROR: Generated manifest failed validation: {error_details}"
 
-        if not validation_result.is_valid:
-            error_details = "; ".join(validation_result.errors)
-            return f"ERROR: Generated manifest failed validation: {error_details}"
+    manifest_path = set_session_manifest_content(manifest_yaml, session_id=ctx.session_id)
+    logger.info(f"Saved generated manifest to session at: {manifest_path}")
 
-        try:
-            manifest_path = set_session_manifest_content(manifest_yaml, session_id=ctx.session_id)
-            logger.info(f"Saved generated manifest to session at: {manifest_path}")
-        except Exception as save_error:
-            logger.warning(f"Failed to save manifest to session: {save_error}")
-
-        return manifest_yaml
-
-    except Exception as e:
-        logger.error(f"Error creating manifest scaffold: {e}")
-        return f"ERROR: Manifest generation error: {str(e)}"
+    return manifest_yaml

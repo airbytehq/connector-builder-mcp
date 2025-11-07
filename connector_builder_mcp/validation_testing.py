@@ -239,87 +239,78 @@ def validate_manifest(
     warnings: list[str] = []
     resolved_manifest = None
 
-    try:
+    if manifest is None:
+        manifest = get_session_manifest_content(ctx.session_id)
         if manifest is None:
-            manifest = get_session_manifest_content(ctx.session_id)
-            if manifest is None:
-                errors.append(
-                    "No manifest provided and no session manifest found. "
-                    "Either provide a manifest or use set_session_manifest_text() to save one."
-                )
-                return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-            logger.info("Using session manifest for validation")
-
-        manifest_dict, _ = parse_manifest_input(manifest)
-
-        if not validate_manifest_structure(manifest_dict):
             errors.append(
-                "Manifest missing required fields: version, type, check, and either streams or dynamic_streams"
+                "No manifest provided and no session manifest found. "
+                "Either provide a manifest or use set_session_manifest_text() to save one."
             )
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+        logger.info("Using session manifest for validation")
 
-        try:
-            logger.info("Applying CDK preprocessing: resolving references")
-            reference_resolver = ManifestReferenceResolver()
-            resolved_manifest = reference_resolver.preprocess_manifest(manifest_dict)
+    manifest_dict, _ = parse_manifest_input(manifest)
 
-            logger.info("Applying CDK preprocessing: propagating types and parameters")
-            component_transformer = ManifestComponentTransformer()
-            processed_manifest = component_transformer.propagate_types_and_parameters(
-                "", resolved_manifest, {}
-            )
+    if not validate_manifest_structure(manifest_dict):
+        errors.append(
+            "Manifest missing required fields: version, type, check, and either streams or dynamic_streams"
+        )
+        return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
-            logger.info("CDK preprocessing completed successfully")
-            manifest_dict = processed_manifest
+    try:
+        logger.info("Applying CDK preprocessing: resolving references")
+        reference_resolver = ManifestReferenceResolver()
+        resolved_manifest = reference_resolver.preprocess_manifest(manifest_dict)
 
-        except Exception as preprocessing_error:
-            logger.error(f"CDK preprocessing failed: {preprocessing_error}")
-            errors.append(f"Preprocessing error: {str(preprocessing_error)}")
+        logger.info("Applying CDK preprocessing: propagating types and parameters")
+        component_transformer = ManifestComponentTransformer()
+        processed_manifest = component_transformer.propagate_types_and_parameters(
+            "", resolved_manifest, {}
+        )
+
+        logger.info("CDK preprocessing completed successfully")
+        manifest_dict = processed_manifest
+
+    except Exception as preprocessing_error:
+        logger.error(f"CDK preprocessing failed: {preprocessing_error}")
+        errors.append(f"Preprocessing error: {str(preprocessing_error)}")
+        return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+
+    try:
+        is_valid, error = is_valid_declarative_source_manifest(manifest_dict)
+        if not is_valid and error:
+            errors.append(error)
             return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-
-        try:
-            is_valid, error = is_valid_declarative_source_manifest(manifest_dict)
-            if not is_valid and error:
-                errors.append(error)
-                return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-        except Exception as e:
-            errors.append(f"Error validating manifest: {e}")
-            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-
-        try:
-            schema = _get_declarative_component_schema()
-            validate(manifest_dict, schema)
-            logger.info("JSON schema validation passed")
-        except ValidationError as schema_error:
-            detailed_error = _format_validation_error(schema_error)
-            logger.error(f"JSON schema validation failed: {detailed_error}")
-            errors.append(detailed_error)
-            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-        except Exception as schema_load_error:
-            logger.warning(f"Could not load schema for pre-validation: {schema_load_error}")
-
-        config_with_manifest = {"__injected_declarative_manifest": manifest_dict}
-
-        limits = get_limits(config_with_manifest)
-        source = create_source(config_with_manifest, limits)
-
-        resolve_result = resolve_manifest(source)
-        if (
-            resolve_result.type.value == "RECORD"
-            and resolve_result.record is not None
-            and resolve_result.record.data is not None
-        ):
-            resolved_manifest = resolve_result.record.data.get("manifest")
-        else:
-            errors.append("Failed to resolve manifest")
-
-    except ValidationError as e:
-        logger.error(f"CDK validation error: {e}")
-        detailed_error = _format_validation_error(e)
-        errors.append(detailed_error)
     except Exception as e:
-        logger.error(f"Error validating manifest: {e}")
-        errors.append(f"Validation error: {str(e)}")
+        errors.append(f"Error validating manifest: {e}")
+        return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+
+    try:
+        schema = _get_declarative_component_schema()
+        validate(manifest_dict, schema)
+        logger.info("JSON schema validation passed")
+    except ValidationError as schema_error:
+        detailed_error = _format_validation_error(schema_error)
+        logger.error(f"JSON schema validation failed: {detailed_error}")
+        errors.append(detailed_error)
+        return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+    except Exception as schema_load_error:
+        logger.warning(f"Could not load schema for pre-validation: {schema_load_error}")
+
+    config_with_manifest = {"__injected_declarative_manifest": manifest_dict}
+
+    limits = get_limits(config_with_manifest)
+    source = create_source(config_with_manifest, limits)
+
+    resolve_result = resolve_manifest(source)
+    if (
+        resolve_result.type.value == "RECORD"
+        and resolve_result.record is not None
+        and resolve_result.record.data is not None
+    ):
+        resolved_manifest = resolve_result.record.data.get("manifest")
+    else:
+        errors.append("Failed to resolve manifest")
 
     is_valid = len(errors) == 0
 
@@ -854,43 +845,38 @@ def execute_dynamic_manifest_resolution_test(
     """
     logger.info("Getting resolved manifest")
 
-    try:
+    if manifest is None:
+        manifest = get_session_manifest_content(ctx.session_id)
         if manifest is None:
-            manifest = get_session_manifest_content(ctx.session_id)
-            if manifest is None:
-                return "Failed to resolve manifest"
-            logger.info("Using session manifest for dynamic resolution test")
+            return "Failed to resolve manifest"
+        logger.info("Using session manifest for dynamic resolution test")
 
-        manifest_dict, _ = parse_manifest_input(manifest)
+    manifest_dict, _ = parse_manifest_input(manifest)
 
-        if config is None:
-            config = {}
+    if config is None:
+        config = {}
 
-        config_with_manifest = {
-            **config,
-            "__injected_declarative_manifest": manifest_dict,
-        }
+    config_with_manifest = {
+        **config,
+        "__injected_declarative_manifest": manifest_dict,
+    }
 
-        limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
+    limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
 
-        source = create_source(config_with_manifest, limits)
-        result = full_resolve_manifest(
-            source,
-            limits,
-        )
+    source = create_source(config_with_manifest, limits)
+    result = full_resolve_manifest(
+        source,
+        limits,
+    )
 
-        if (
-            result.type.value == "RECORD"
-            and result.record is not None
-            and result.record.data is not None
-        ):
-            manifest_data = result.record.data.get("manifest", {})
-            if isinstance(manifest_data, dict):
-                return manifest_data
-            return {}
+    if (
+        result.type.value == "RECORD"
+        and result.record is not None
+        and result.record.data is not None
+    ):
+        manifest_data = result.record.data.get("manifest", {})
+        if isinstance(manifest_data, dict):
+            return manifest_data
+        return {}
 
-        return "Failed to resolve manifest"
-
-    except Exception as e:
-        logger.error(f"Error resolving manifest: {e}")
-        return "Failed to resolve manifest"
+    return "Failed to resolve manifest"
