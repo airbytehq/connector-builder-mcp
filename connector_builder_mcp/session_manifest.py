@@ -436,8 +436,11 @@ def set_session_manifest_text(
         # Write new content
         set_session_manifest_content(new_content, session_id=session_id)
 
-        _, errors, warnings, _ = validate_manifest_content(new_content)
-        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        if new_content.strip():
+            _, errors, warnings, _ = validate_manifest_content(new_content)
+            validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        else:
+            validation_warnings = ["WARNING: Manifest is empty"]
 
         return SetManifestContentsResult(
             message="Saved manifest",
@@ -476,8 +479,11 @@ def set_session_manifest_text(
         # Write new content
         set_session_manifest_content(new_content, session_id=session_id)
 
-        _, errors, warnings, _ = validate_manifest_content(new_content)
-        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        if new_content.strip():
+            _, errors, warnings, _ = validate_manifest_content(new_content)
+            validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        else:
+            validation_warnings = ["WARNING: Manifest is empty"]
 
         return SetManifestContentsResult(
             message="Saved manifest",
@@ -511,8 +517,11 @@ def set_session_manifest_text(
         # Write new content
         set_session_manifest_content(new_content, session_id=session_id)
 
-        _, errors, warnings, _ = validate_manifest_content(new_content)
-        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        if new_content.strip():
+            _, errors, warnings, _ = validate_manifest_content(new_content)
+            validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        else:
+            validation_warnings = ["WARNING: Manifest is empty"]
 
         return SetManifestContentsResult(
             message="Saved manifest",
@@ -547,8 +556,11 @@ def set_session_manifest_text(
         # Write new content
         set_session_manifest_content(new_content, session_id=session_id)
 
-        _, errors, warnings, _ = validate_manifest_content(new_content)
-        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        if new_content.strip():
+            _, errors, warnings, _ = validate_manifest_content(new_content)
+            validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        else:
+            validation_warnings = ["WARNING: Manifest is empty"]
 
         return SetManifestContentsResult(
             message=f"Saved manifest (replaced {success_msg})",
