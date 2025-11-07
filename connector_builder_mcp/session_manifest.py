@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
+from connector_builder_mcp._text_utils import insert_text_lines, replace_text_lines
 from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool, register_tools
 from connector_builder_mcp.constants import SESSION_BASE_DIR
 from connector_builder_mcp.mcp_capabilities import mcp_resource
@@ -122,97 +123,6 @@ def set_session_manifest_content(
     return manifest_path
 
 
-def _apply_text_edit(
-    existing: str,
-    mode: Literal["replace_all", "replace_lines", "insert_lines"],
-    manifest_yaml: str,
-    insert_at_line_number: int | None,
-    replace_lines: tuple[int, int] | None,
-) -> str | tuple[str, str]:
-    """Apply text edit to existing content based on mode.
-
-    Args:
-        existing: Existing manifest content (empty string if no manifest exists)
-        mode: Edit mode ('replace_all', 'replace_lines', or 'insert_lines')
-        manifest_yaml: Content to insert or use for replacement
-        insert_at_line_number: Line number to insert before (1-indexed, for insert_lines mode)
-        replace_lines: (start_line, end_line) tuple (1-indexed, inclusive, for replace_lines mode)
-
-    Returns:
-        Modified content string, or tuple of ("ERROR: ...", error_message) on validation failure
-    """
-    valid_modes = ["replace_all", "replace_lines", "insert_lines"]
-    if mode not in valid_modes:
-        return ("ERROR", f"ERROR: mode must be one of {valid_modes}")
-
-    if mode == "replace_all":
-        if insert_at_line_number is not None:
-            return ("ERROR", "ERROR: mode='replace_all' cannot be used with insert_at_line_number")
-        if replace_lines is not None:
-            return ("ERROR", "ERROR: mode='replace_all' cannot be used with replace_lines")
-        return manifest_yaml
-
-    lines = existing.splitlines(keepends=True)
-    num_lines = len(lines)
-
-    if mode == "replace_lines":
-        if replace_lines is None:
-            return (
-                "ERROR",
-                "ERROR: mode='replace_lines' requires replace_lines=(start,end) tuple",
-            )
-        if insert_at_line_number is not None:
-            return (
-                "ERROR",
-                "ERROR: mode='replace_lines' cannot be used with insert_at_line_number",
-            )
-
-        start_line, end_line = replace_lines
-
-        if not (1 <= start_line <= end_line):
-            return (
-                "ERROR",
-                f"ERROR: replace_lines requires 1 <= start_line <= end_line, got start={start_line}, end={end_line}",
-            )
-        if end_line > num_lines:
-            return (
-                "ERROR",
-                f"ERROR: replace_lines end_line={end_line} exceeds file length ({num_lines} lines)",
-            )
-
-        start_idx = start_line - 1
-        end_idx = end_line  # end_line is inclusive, so end_idx is exclusive
-
-        replacement_lines = manifest_yaml.splitlines(keepends=True)
-
-        new_lines = lines[:start_idx] + replacement_lines + lines[end_idx:]
-        return "".join(new_lines)
-
-    if mode == "insert_lines":
-        if insert_at_line_number is None:
-            return (
-                "ERROR",
-                f"ERROR: mode='insert_lines' requires insert_at_line_number (1..{num_lines + 1})",
-            )
-        if replace_lines is not None:
-            return ("ERROR", "ERROR: mode='insert_lines' cannot be used with replace_lines")
-
-        if not (1 <= insert_at_line_number <= num_lines + 1):
-            return (
-                "ERROR",
-                f"ERROR: insert_at_line_number must be in range 1..{num_lines + 1}, got {insert_at_line_number}",
-            )
-
-        insert_idx = insert_at_line_number - 1
-
-        insert_lines = manifest_yaml.splitlines(keepends=True)
-
-        new_lines = lines[:insert_idx] + insert_lines + lines[insert_idx:]
-        return "".join(new_lines)
-
-    return ("ERROR", f"ERROR: Unexpected mode: {mode}")
-
-
 @mcp_resource(
     uri="connector-builder-mcp://session/manifest",
     description="Current session's connector manifest and metadata",
@@ -317,24 +227,51 @@ def set_session_manifest_text(
 
     session_id = ctx.session_id
 
-    # Get existing content (empty string if no manifest exists)
+    if mode == "replace_all":
+        if insert_at_line_number is not None:
+            return "ERROR: mode='replace_all' cannot be used with insert_at_line_number"
+        if replace_lines is not None:
+            return "ERROR: mode='replace_all' cannot be used with replace_lines"
+
+        manifest_path = set_session_manifest_content(manifest_yaml, session_id=session_id)
+        return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+
+    # Get existing content for line-based operations
     existing_content = get_session_manifest_content(session_id) or ""
+    lines = existing_content.splitlines(keepends=True)
+    num_lines = len(lines)
 
-    result = _apply_text_edit(
-        existing=existing_content,
-        mode=mode,
-        manifest_yaml=manifest_yaml,
-        insert_at_line_number=insert_at_line_number,
-        replace_lines=replace_lines,
-    )
+    if mode == "replace_lines":
+        if replace_lines is None:
+            return "ERROR: mode='replace_lines' requires replace_lines=(start,end) tuple"
+        if insert_at_line_number is not None:
+            return "ERROR: mode='replace_lines' cannot be used with insert_at_line_number"
 
-    if isinstance(result, tuple) and result[0] == "ERROR":
-        return result[1]
+        start_line, end_line = replace_lines
 
-    assert isinstance(result, str)
-    manifest_path = set_session_manifest_content(result, session_id=session_id)
+        if not (1 <= start_line <= end_line):
+            return f"ERROR: replace_lines requires 1 <= start_line <= end_line, got start={start_line}, end={end_line}"
+        if end_line > num_lines:
+            return f"ERROR: replace_lines end_line={end_line} exceeds file length ({num_lines} lines)"
 
-    return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+        result = replace_text_lines(lines, start_line, end_line, manifest_yaml)
+        manifest_path = set_session_manifest_content(result, session_id=session_id)
+        return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+
+    if mode == "insert_lines":
+        if insert_at_line_number is None:
+            return f"ERROR: mode='insert_lines' requires insert_at_line_number (1..{num_lines + 1})"
+        if replace_lines is not None:
+            return "ERROR: mode='insert_lines' cannot be used with replace_lines"
+
+        if not (1 <= insert_at_line_number <= num_lines + 1):
+            return f"ERROR: insert_at_line_number must be in range 1..{num_lines + 1}, got {insert_at_line_number}"
+
+        result = insert_text_lines(lines, insert_at_line_number, manifest_yaml)
+        manifest_path = set_session_manifest_content(result, session_id=session_id)
+        return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
+
+    return f"ERROR: Unexpected mode: {mode}"
 
 
 @mcp_tool(ToolDomain.MANIFEST_EDITS, read_only=True, idempotent=True, open_world=False)
