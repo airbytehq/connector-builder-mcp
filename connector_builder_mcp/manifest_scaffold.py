@@ -8,7 +8,10 @@ from typing import Annotated
 from fastmcp import Context
 from pydantic import Field
 
-from connector_builder_mcp.session_manifest import set_session_manifest_content
+from connector_builder_mcp.session_manifest import (
+    get_session_manifest_content,
+    set_session_manifest_content,
+)
 from connector_builder_mcp.validation_testing import validate_manifest
 
 
@@ -243,8 +246,6 @@ def create_connector_manifest_scaffold(
     Tool should only be invoked when setting up the initial connector.
     """
     logger.info(f"Creating connector manifest scaffold for {connector_name}")
-
-    from connector_builder_mcp.session_manifest import get_session_manifest_content
 
     existing_manifest = get_session_manifest_content(ctx.session_id)
     if existing_manifest and existing_manifest.strip():

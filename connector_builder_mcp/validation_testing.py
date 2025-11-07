@@ -393,12 +393,6 @@ def execute_stream_test_read(  # noqa: PLR0914
         include_raw_responses_data,
         default=False,
     )
-    if stream_name is None:
-        return StreamTestResult(
-            success=False,
-            message="stream_name parameter is required",
-            errors=["stream_name parameter is required"],
-        )
 
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})

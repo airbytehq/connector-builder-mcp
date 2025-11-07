@@ -65,7 +65,7 @@ def get_registered_tools(
     """Get all registered tools, optionally filtered by domain.
 
     Args:
-        domain: The domain to filter by (e.g., ToolDomain.SESSION, "session").
+        domain: The domain to filter by (e.g., ToolDomain.GUIDANCE, "guidance").
             If None, returns all tools.
 
     Returns:
