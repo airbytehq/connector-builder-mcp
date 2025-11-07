@@ -296,13 +296,6 @@ def set_session_manifest_text(
        - Example: insert_at_line_number=1 inserts at the beginning
        - Cannot be used with replace_lines
 
-    Args:
-        ctx: FastMCP context (automatically injected in MCP tool calls)
-        mode: Edit mode ('replace_all', 'replace_lines', or 'insert_lines')
-        manifest_yaml: Content to save, insert, or use for replacement
-        insert_at_line_number: Line number to insert before (for insert_lines mode only)
-        replace_lines: (start_line, end_line) tuple for replacement (for replace_lines mode only)
-
     Returns:
         Success message with the file path, or error message if validation fails
 
