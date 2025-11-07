@@ -8,7 +8,7 @@ for deferred registration.
 from __future__ import annotations
 
 from collections.abc import Callable
-from enum import StrEnum
+from enum import Enum
 from typing import Any, TypeVar
 
 from connector_builder_mcp._annotations import (
@@ -22,7 +22,7 @@ from connector_builder_mcp._annotations import (
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-class ToolDomain(StrEnum):
+class ToolDomain(str, Enum):
     """Tool domain categories for the Connector Builder MCP server.
 
     These domains correspond to the main functional areas of the server.
