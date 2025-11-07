@@ -139,7 +139,9 @@ def test_resolve_session_manifest_path_precedence(env_overrides, expected_path_s
         else:
             assert "manifest.yaml" in str(result)
             parts = result.parts
-            assert any(len(part) == 64 and all(c in "0123456789abcdef" for c in part) for part in parts)
+            assert any(
+                len(part) == 64 and all(c in "0123456789abcdef" for c in part) for part in parts
+            )
 
 
 def test_resolve_session_manifest_path_precedence_warnings(tmp_path, caplog):

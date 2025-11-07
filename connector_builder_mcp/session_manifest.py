@@ -154,7 +154,9 @@ def resolve_session_manifest_path(session_id: str) -> Path:
                 f"{CONNECTOR_BUILDER_MCP_SESSIONS_DIR} is ignored because "
                 f"{CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH} is set"
             )
-        return _validate_absolute_path(manifest_path_override, CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH)
+        return _validate_absolute_path(
+            manifest_path_override, CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH
+        )
 
     session_dir_override = os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_DIR)
     if session_dir_override:
@@ -171,7 +173,9 @@ def resolve_session_manifest_path(session_id: str) -> Path:
                 f"{CONNECTOR_BUILDER_MCP_SESSIONS_DIR} is ignored because "
                 f"{CONNECTOR_BUILDER_MCP_SESSION_DIR} is set"
             )
-        session_dir = _validate_absolute_path(session_dir_override, CONNECTOR_BUILDER_MCP_SESSION_DIR)
+        session_dir = _validate_absolute_path(
+            session_dir_override, CONNECTOR_BUILDER_MCP_SESSION_DIR
+        )
         return session_dir / "manifest.yaml"
 
     session_root_override = os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_ROOT)
@@ -184,7 +188,9 @@ def resolve_session_manifest_path(session_id: str) -> Path:
                 f"{CONNECTOR_BUILDER_MCP_SESSIONS_DIR} is ignored because "
                 f"{CONNECTOR_BUILDER_MCP_SESSION_ROOT} is set"
             )
-        session_root = _validate_absolute_path(session_root_override, CONNECTOR_BUILDER_MCP_SESSION_ROOT)
+        session_root = _validate_absolute_path(
+            session_root_override, CONNECTOR_BUILDER_MCP_SESSION_ROOT
+        )
         sanitized_id = _sanitize_session_id(session_id)
         return session_root / sanitized_id / "manifest.yaml"
 
