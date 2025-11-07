@@ -8,7 +8,7 @@ import hashlib
 import logging
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
@@ -122,6 +122,94 @@ def set_session_manifest_content(
     return manifest_path
 
 
+def _apply_text_edit(
+    existing: str,
+    mode: Literal["replace_all", "replace_lines", "insert_lines"],
+    manifest_yaml: str,
+    insert_at_line_number: int | None,
+    replace_lines: tuple[int, int] | None,
+) -> str | tuple[str, str]:
+    """Apply text edit to existing content based on mode.
+
+    Args:
+        existing: Existing manifest content (empty string if no manifest exists)
+        mode: Edit mode ('replace_all', 'replace_lines', or 'insert_lines')
+        manifest_yaml: Content to insert or use for replacement
+        insert_at_line_number: Line number to insert before (1-indexed, for insert_lines mode)
+        replace_lines: (start_line, end_line) tuple (1-indexed, inclusive, for replace_lines mode)
+
+    Returns:
+        Modified content string, or tuple of ("ERROR: ...", error_message) on validation failure
+    """
+    valid_modes = ["replace_all", "replace_lines", "insert_lines"]
+    if mode not in valid_modes:
+        return ("ERROR", f"ERROR: mode must be one of {valid_modes}")
+
+    if mode == "replace_all":
+        if insert_at_line_number is not None:
+            return ("ERROR", "ERROR: mode='replace_all' cannot be used with insert_at_line_number")
+        if replace_lines is not None:
+            return ("ERROR", "ERROR: mode='replace_all' cannot be used with replace_lines")
+        return manifest_yaml
+
+    lines = existing.splitlines(keepends=True)
+    num_lines = len(lines)
+
+    if mode == "replace_lines":
+        if replace_lines is None:
+            return (
+                "ERROR",
+                f"ERROR: mode='replace_lines' requires replace_lines=(start,end) tuple",
+            )
+        if insert_at_line_number is not None:
+            return ("ERROR", "ERROR: mode='replace_lines' cannot be used with insert_at_line_number")
+
+        start_line, end_line = replace_lines
+
+        if not (1 <= start_line <= end_line):
+            return (
+                "ERROR",
+                f"ERROR: replace_lines requires 1 <= start_line <= end_line, got start={start_line}, end={end_line}",
+            )
+        if end_line > num_lines:
+            return (
+                "ERROR",
+                f"ERROR: replace_lines end_line={end_line} exceeds file length ({num_lines} lines)",
+            )
+
+        start_idx = start_line - 1
+        end_idx = end_line  # end_line is inclusive, so end_idx is exclusive
+
+        replacement_lines = manifest_yaml.splitlines(keepends=True)
+
+        new_lines = lines[:start_idx] + replacement_lines + lines[end_idx:]
+        return "".join(new_lines)
+
+    if mode == "insert_lines":
+        if insert_at_line_number is None:
+            return (
+                "ERROR",
+                f"ERROR: mode='insert_lines' requires insert_at_line_number (1..{num_lines + 1})",
+            )
+        if replace_lines is not None:
+            return ("ERROR", "ERROR: mode='insert_lines' cannot be used with replace_lines")
+
+        if not (1 <= insert_at_line_number <= num_lines + 1):
+            return (
+                "ERROR",
+                f"ERROR: insert_at_line_number must be in range 1..{num_lines + 1}, got {insert_at_line_number}",
+            )
+
+        insert_idx = insert_at_line_number - 1
+
+        insert_lines = manifest_yaml.splitlines(keepends=True)
+
+        new_lines = lines[:insert_idx] + insert_lines + lines[insert_idx:]
+        return "".join(new_lines)
+
+    return ("ERROR", f"ERROR: Unexpected mode: {mode}")
+
+
 @mcp_resource(
     uri="connector-builder-mcp://session/manifest",
     description="Current session's connector manifest and metadata",
@@ -158,29 +246,82 @@ def session_manifest_resource(ctx: Context) -> SessionManifestResource:
 def set_session_manifest_text(
     ctx: Context,
     *,
+    mode: Annotated[
+        Literal["replace_all", "replace_lines", "insert_lines"],
+        Field(description="Edit mode: 'replace_all' (overwrite entire file), 'replace_lines' (replace specific line range), or 'insert_lines' (insert before specific line)"),
+    ],
     manifest_yaml: Annotated[
         str,
-        Field(description="The connector manifest YAML content to save to the session"),
+        Field(description="The connector manifest YAML content to save, insert, or use for replacement"),
     ],
+    insert_at_line_number: Annotated[
+        int | None,
+        Field(description="Line number to insert before (1-indexed, required for insert_lines mode, valid range: 1 to num_lines+1)"),
+    ] = None,
+    replace_lines: Annotated[
+        tuple[int, int] | None,
+        Field(description="(start_line, end_line) tuple for replacement (1-indexed, inclusive, required for replace_lines mode)"),
+    ] = None,
 ) -> str:
-    """Save a connector manifest to the current session.
+    """Save or edit a connector manifest in the current session.
 
-    This tool stores the manifest YAML in a session-specific file that can be
-    referenced by other tools without needing to pass the manifest content repeatedly.
+    This tool supports three modes for updating the session manifest:
 
-    To clear the session manifest, call this tool with an empty string for manifest_yaml.
+    1. **replace_all**: Overwrites the entire manifest file with new content.
+       - Use manifest_yaml to provide the full new content
+       - To clear the manifest, use mode='replace_all' with manifest_yaml=""
+       - Cannot be used with insert_at_line_number or replace_lines
+
+    2. **replace_lines**: Replaces a specific range of lines in the existing manifest.
+       - Requires replace_lines=(start_line, end_line) tuple (1-indexed, inclusive)
+       - Use manifest_yaml to provide the replacement content
+       - Example: replace_lines=(3, 5) replaces lines 3, 4, and 5
+       - Cannot be used with insert_at_line_number
+
+    3. **insert_lines**: Inserts new lines before a specific line number.
+       - Requires insert_at_line_number (1-indexed)
+       - Use manifest_yaml to provide the content to insert
+       - Valid range: 1 to num_lines+1 (num_lines+1 appends at end)
+       - Example: insert_at_line_number=1 inserts at the beginning
+       - Cannot be used with replace_lines
 
     Args:
         ctx: FastMCP context (automatically injected in MCP tool calls)
-        manifest_yaml: The manifest YAML content to save (or empty string to clear)
+        mode: Edit mode ('replace_all', 'replace_lines', or 'insert_lines')
+        manifest_yaml: Content to save, insert, or use for replacement
+        insert_at_line_number: Line number to insert before (for insert_lines mode only)
+        replace_lines: (start_line, end_line) tuple for replacement (for replace_lines mode only)
 
     Returns:
-        Success message with the file path
+        Success message with the file path, or error message if validation fails
+
+    Examples:
+        - Replace entire manifest: mode='replace_all', manifest_yaml='<full yaml>'
+        - Clear manifest: mode='replace_all', manifest_yaml=''
+        - Replace lines 10-15: mode='replace_lines', replace_lines=(10, 15), manifest_yaml='<replacement>'
+        - Insert at line 5: mode='insert_lines', insert_at_line_number=5, manifest_yaml='<new lines>'
+        - Append at end: mode='insert_lines', insert_at_line_number=<num_lines+1>, manifest_yaml='<new lines>'
     """
-    logger.info("Setting session manifest")
+    logger.info(f"Setting session manifest with mode={mode}")
 
     session_id = ctx.session_id
-    manifest_path = set_session_manifest_content(manifest_yaml, session_id=session_id)
+
+    # Get existing content (empty string if no manifest exists)
+    existing_content = get_session_manifest_content(session_id) or ""
+
+    result = _apply_text_edit(
+        existing=existing_content,
+        mode=mode,
+        manifest_yaml=manifest_yaml,
+        insert_at_line_number=insert_at_line_number,
+        replace_lines=replace_lines,
+    )
+
+    if isinstance(result, tuple) and result[0] == "ERROR":
+        return result[1]
+
+    assert isinstance(result, str)
+    manifest_path = set_session_manifest_content(result, session_id=session_id)
 
     return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
 
