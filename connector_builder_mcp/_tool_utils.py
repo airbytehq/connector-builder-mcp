@@ -17,6 +17,7 @@ from connector_builder_mcp._annotations import (
     OPEN_WORLD_HINT,
     READ_ONLY_HINT,
 )
+from connector_builder_mcp.constants import REQUIRE_SESSION_MANIFEST_IN_TOOL_CALLS
 
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -118,9 +119,9 @@ def mcp_tool(
     }
 
     def decorator(func: F) -> F:
-        func._mcp_annotations = annotations  # type: ignore[attr-defined]  # noqa: SLF001
-        func._mcp_domain = domain_str  # type: ignore[attr-defined]  # noqa: SLF001
-        func._mcp_extra_help_text = extra_help_text  # type: ignore[attr-defined]  # noqa: SLF001
+        if extra_help_text:
+            func.__doc__ = ((func.__doc__ or "") + "\n\n" + (extra_help_text or "")).rstrip()
+
         _REGISTERED_TOOLS.append((func, annotations))
         return func
 
@@ -136,9 +137,19 @@ def register_tools(app: Any, domain: ToolDomain | str) -> None:  # noqa: ANN401
     """
     for func, tool_annotations in get_registered_tools(domain):
         if should_register_tool(tool_annotations):
-            extra_help_text = getattr(func, "_mcp_extra_help_text", None)
-            if extra_help_text:
-                description = (func.__doc__ or "").rstrip() + "\n" + extra_help_text
-                app.tool(func, annotations=tool_annotations, description=description)
-            else:
-                app.tool(func, annotations=tool_annotations)
+            exclude_args: list[str] | None = None
+            if REQUIRE_SESSION_MANIFEST_IN_TOOL_CALLS:
+                # By default, we require users to set the manifest using the dedicated tools.
+                # Therefore, we exclude 'manifest' arguments from being advertised in tool calls.
+                # Important:
+                # - Careful with tools that actually need a `manifest` input arg; they should
+                #   use a different arg name.
+                # - Perform a full text search of `manifest: Annotated[` when auditing tool
+                #   implementations.
+                exclude_args = ["manifest"]
+
+            app.tool(
+                func,
+                annotations=tool_annotations,
+                exclude_args=exclude_args,
+            )

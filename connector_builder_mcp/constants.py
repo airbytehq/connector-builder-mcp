@@ -32,3 +32,15 @@ The directory can be configured via the CONNECTOR_BUILDER_MCP_SESSIONS_DIR
 environment variable. If not set, defaults to a subdirectory in the system
 temporary directory.
 """
+
+REQUIRE_SESSION_MANIFEST_IN_TOOL_CALLS = True
+"""Whether to require a session manifest for tool calls.
+
+If True, tool calls do not allow sending custom file paths or custom
+manifest strings. When this is True (default), the scaffolded manifest
+tool and the set_session_manifest_text tool must be used to set
+the session manifest before calling other tools.
+
+For now, this cannot be overridden by env vars. We will consider adding
+that ability in the future if there is a strong use case.
+"""
