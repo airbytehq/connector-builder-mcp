@@ -38,9 +38,6 @@ from connector_builder_mcp.mcp_capabilities import mcp_resource
 logger = logging.getLogger(__name__)
 
 
-_TRANSPORT_MODE: str = "unknown"
-
-
 class SetManifestContentsResult(BaseModel):
     """Result of setting session manifest text."""
 
