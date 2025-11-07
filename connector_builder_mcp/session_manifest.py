@@ -6,8 +6,6 @@ allowing multiple concurrent sessions to work with different manifests without c
 
 import hashlib
 import logging
-import os
-import tempfile
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -15,18 +13,12 @@ from typing import Annotated
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
-from connector_builder_mcp._tool_utils import mcp_tool, register_tools
+from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool, register_tools
+from connector_builder_mcp.constants import SESSION_BASE_DIR
 from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 
 logger = logging.getLogger(__name__)
-
-SESSION_BASE_DIR = Path(
-    os.environ.get(
-        "CONNECTOR_BUILDER_MCP_SESSIONS_DIR",
-        str(Path(tempfile.gettempdir()) / "connector-builder-mcp-sessions"),
-    )
-)
 
 
 class SessionManifestResource(BaseModel):
@@ -156,8 +148,14 @@ def session_manifest_resource(ctx: Context) -> SessionManifestResource:
     )
 
 
-@mcp_tool("local", read_only=False, destructive=False, idempotent=False, open_world=False)
-def set_session_manifest(
+@mcp_tool(
+    ToolDomain.MANIFEST_EDITS,
+    read_only=False,
+    destructive=False,
+    idempotent=False,
+    open_world=False,
+)
+def set_session_manifest_text(
     ctx: Context,
     *,
     manifest_yaml: Annotated[
@@ -170,9 +168,11 @@ def set_session_manifest(
     This tool stores the manifest YAML in a session-specific file that can be
     referenced by other tools without needing to pass the manifest content repeatedly.
 
+    To clear the session manifest, call this tool with an empty string for manifest_yaml.
+
     Args:
         ctx: FastMCP context (automatically injected in MCP tool calls)
-        manifest_yaml: The manifest YAML content to save
+        manifest_yaml: The manifest YAML content to save (or empty string to clear)
 
     Returns:
         Success message with the file path
@@ -185,7 +185,7 @@ def set_session_manifest(
     return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
 
 
-@mcp_tool("local", read_only=True, idempotent=True, open_world=False)
+@mcp_tool(ToolDomain.MANIFEST_EDITS, read_only=True, idempotent=True, open_world=False)
 def get_session_manifest(ctx: Context) -> str:
     """Get the connector manifest from the current session.
 
@@ -213,4 +213,4 @@ def register_session_manifest_tools(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_tools(app, "local")
+    register_tools(app, ToolDomain.MANIFEST_EDITS)

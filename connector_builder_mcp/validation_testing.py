@@ -245,7 +245,7 @@ def validate_manifest(
             if manifest is None:
                 errors.append(
                     "No manifest provided and no session manifest found. "
-                    "Either provide a manifest or use set_session_manifest() to save one."
+                    "Either provide a manifest or use set_session_manifest_text() to save one."
                 )
                 return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
             logger.info("Using session manifest for validation")
@@ -409,7 +409,7 @@ def execute_stream_test_read(  # noqa: PLR0914
             return StreamTestResult(
                 success=False,
                 message="No manifest provided and no session manifest found. "
-                "Either provide a manifest or use set_session_manifest() to save one.",
+                "Either provide a manifest or use set_session_manifest_text() to save one.",
                 errors=["No manifest available"],
             )
         logger.info("Using session manifest for stream test")
@@ -606,7 +606,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
         if manifest is None:
             return (
                 "ERROR: No manifest provided and no session manifest found. "
-                "Either provide a manifest or use set_session_manifest() to save one."
+                "Either provide a manifest or use set_session_manifest_text() to save one."
             )
         logger.info("Using session manifest for readiness test")
 

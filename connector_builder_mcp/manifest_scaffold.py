@@ -250,7 +250,7 @@ def create_connector_manifest_scaffold(
     if existing_manifest and existing_manifest.strip():
         return (
             "ERROR: Refusing to overwrite existing session manifest. "
-            'To proceed, first call set_session_manifest with manifest_yaml="" to reset the session manifest.'
+            'To proceed, first call set_session_manifest_text with manifest_yaml="" to reset the session manifest.'
         )
 
     try:
