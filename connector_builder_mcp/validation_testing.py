@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
+from fastmcp import Context
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel, Field
 
@@ -220,6 +221,7 @@ def validate_manifest(
             "If not provided, uses the session manifest."
         ),
     ] = None,
+    ctx: Context | None = None,
 ) -> ManifestValidationResult:
     """Validate a connector manifest structure and configuration.
 
@@ -233,8 +235,8 @@ def validate_manifest(
     resolved_manifest = None
 
     try:
-        if manifest is None:
-            manifest = get_session_manifest_content()
+        if manifest is None and ctx is not None:
+            manifest = get_session_manifest_content(ctx.session_id)
             if manifest is None:
                 errors.append(
                     "No manifest provided and no session manifest found. "
@@ -242,6 +244,12 @@ def validate_manifest(
                 )
                 return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
             logger.info("Using session manifest for validation")
+        elif manifest is None:
+            errors.append(
+                "No manifest provided and no context available to load session manifest. "
+                "Please provide a manifest."
+            )
+            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         manifest_dict, _ = parse_manifest_input(manifest)
 
@@ -365,6 +373,7 @@ def execute_stream_test_read(  # noqa: PLR0914
             description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
         ),
     ] = None,
+    ctx: Context | None = None,
 ) -> StreamTestResult:
     """Execute reading from a connector stream.
 
@@ -395,8 +404,8 @@ def execute_stream_test_read(  # noqa: PLR0914
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})
 
-    if manifest is None:
-        manifest = get_session_manifest_content()
+    if manifest is None and ctx is not None:
+        manifest = get_session_manifest_content(ctx.session_id)
         if manifest is None:
             return StreamTestResult(
                 success=False,
@@ -405,6 +414,13 @@ def execute_stream_test_read(  # noqa: PLR0914
                 errors=["No manifest available"],
             )
         logger.info("Using session manifest for stream test")
+    elif manifest is None:
+        return StreamTestResult(
+            success=False,
+            message="No manifest provided and no context available to load session manifest. "
+            "Please provide a manifest.",
+            errors=["No manifest available"],
+        )
 
     manifest_dict, _ = parse_manifest_input(manifest)
 
@@ -573,6 +589,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
             description="Optional paths/URLs to local .env files or Privatebin.net URLs for secret hydration. Can be a single string, comma-separated string, or list of strings. Privatebin secrets may be created at privatebin.net, and must: contain text formatted as a dotenv file, use a password sent via the `PRIVATEBIN_PASSWORD` env var, and not include password text in the URL."
         ),
     ] = None,
+    ctx: Context | None = None,
 ) -> str:
     """Execute a connector readiness test and generate a comprehensive markdown report.
 
@@ -592,14 +609,19 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     total_records_count = 0
     stream_results: dict[str, StreamSmokeTest] = {}
 
-    if manifest is None:
-        manifest = get_session_manifest_content()
+    if manifest is None and ctx is not None:
+        manifest = get_session_manifest_content(ctx.session_id)
         if manifest is None:
             return (
                 "ERROR: No manifest provided and no session manifest found. "
                 "Either provide a manifest or use set_session_manifest() to save one."
             )
         logger.info("Using session manifest for readiness test")
+    elif manifest is None:
+        return (
+            "ERROR: No manifest provided and no context available to load session manifest. "
+            "Please provide a manifest."
+        )
 
     manifest_dict, manifest_path = parse_manifest_input(manifest)
     spec = manifest_dict.get("spec")
@@ -829,6 +851,7 @@ def execute_dynamic_manifest_resolution_test(
         dict[str, Any] | None,
         Field(description="Optional connector configuration"),
     ] = None,
+    ctx: Context | None = None,
 ) -> dict[str, Any] | Literal["Failed to resolve manifest"]:
     """Get the resolved connector manifest, expanded with detected dynamic streams and schemas.
 
@@ -849,11 +872,13 @@ def execute_dynamic_manifest_resolution_test(
     logger.info("Getting resolved manifest")
 
     try:
-        if manifest is None:
-            manifest = get_session_manifest_content()
+        if manifest is None and ctx is not None:
+            manifest = get_session_manifest_content(ctx.session_id)
             if manifest is None:
                 return "Failed to resolve manifest"
             logger.info("Using session manifest for dynamic resolution test")
+        elif manifest is None:
+            return "Failed to resolve manifest"
 
         manifest_dict, _ = parse_manifest_input(manifest)
 

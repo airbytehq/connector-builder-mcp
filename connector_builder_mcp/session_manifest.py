@@ -5,7 +5,6 @@ allowing multiple concurrent sessions to work with different manifests without c
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -17,51 +16,27 @@ from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SESSION_ID = "default"
-
 SESSION_BASE_DIR = Path.home() / ".mcp-sessions"
 
 
-def get_session_id(ctx: Context | None = None) -> str:
-    """Get the current session ID from context, environment, or use default.
-
-    Args:
-        ctx: Optional FastMCP context (automatically injected in MCP tool calls)
-
-    Returns:
-        Session ID string
-    """
-    if ctx is not None:
-        try:
-            return ctx.session_id
-        except Exception:
-            pass
-    session_id = os.environ.get("MCP_SESSION_ID", DEFAULT_SESSION_ID)
-    logger.debug(f"Using session ID: {session_id}")
-    return session_id
-
-
-def get_session_dir(session_id: str | None = None) -> Path:
+def get_session_dir(session_id: str) -> Path:
     """Get the directory path for a session.
 
     Args:
-        session_id: Optional session ID, defaults to current session
+        session_id: Session ID
 
     Returns:
         Path to the session directory
     """
-    if session_id is None:
-        session_id = get_session_id()
-
     session_dir = SESSION_BASE_DIR / session_id
     return session_dir
 
 
-def get_session_manifest_path(session_id: str | None = None) -> Path:
+def get_session_manifest_path(session_id: str) -> Path:
     """Get the path to the session manifest file.
 
     Args:
-        session_id: Optional session ID, defaults to current session
+        session_id: Session ID
 
     Returns:
         Path to the manifest.yaml file for the session
@@ -70,11 +45,11 @@ def get_session_manifest_path(session_id: str | None = None) -> Path:
     return session_dir / "manifest.yaml"
 
 
-def session_manifest_exists(session_id: str | None = None) -> bool:
+def session_manifest_exists(session_id: str) -> bool:
     """Check if a session manifest file exists.
 
     Args:
-        session_id: Optional session ID, defaults to current session
+        session_id: Session ID
 
     Returns:
         True if the manifest file exists, False otherwise
@@ -83,11 +58,11 @@ def session_manifest_exists(session_id: str | None = None) -> bool:
     return manifest_path.exists()
 
 
-def get_session_manifest_content(session_id: str | None = None) -> str | None:
+def get_session_manifest_content(session_id: str) -> str | None:
     """Get the content of the session manifest file.
 
     Args:
-        session_id: Optional session ID, defaults to current session
+        session_id: Session ID
 
     Returns:
         Manifest YAML content as string, or None if file doesn't exist
@@ -109,13 +84,13 @@ def get_session_manifest_content(session_id: str | None = None) -> str | None:
 
 def set_session_manifest_content(
     manifest_yaml: str,
-    session_id: str | None = None,
+    session_id: str,
 ) -> Path:
     """Set the content of the session manifest file.
 
     Args:
         manifest_yaml: YAML content to write
-        session_id: Optional session ID, defaults to current session
+        session_id: Session ID
 
     Returns:
         Path to the written manifest file
@@ -133,11 +108,11 @@ def set_session_manifest_content(
     return manifest_path
 
 
-def clear_session_manifest(session_id: str | None = None) -> bool:
+def clear_session_manifest(session_id: str) -> bool:
     """Clear/delete the session manifest file.
 
     Args:
-        session_id: Optional session ID, defaults to current session
+        session_id: Session ID
 
     Returns:
         True if file was deleted, False if it didn't exist
@@ -167,7 +142,7 @@ def session_manifest_resource(ctx: Context) -> dict[str, Any]:
     Returns:
         Dictionary with manifest content and metadata
     """
-    session_id = get_session_id(ctx)
+    session_id = ctx.session_id
     manifest_path = get_session_manifest_path(session_id)
     content = get_session_manifest_content(session_id)
 
@@ -184,7 +159,7 @@ def set_session_manifest(
         str,
         Field(description="The connector manifest YAML content to save to the session"),
     ],
-    ctx: Context | None = None,
+    ctx: Context,
 ) -> str:
     """Save a connector manifest to the current session.
 
@@ -193,31 +168,31 @@ def set_session_manifest(
 
     Args:
         manifest_yaml: The manifest YAML content to save
-        ctx: Optional FastMCP context (automatically injected in MCP tool calls)
+        ctx: FastMCP context (automatically injected in MCP tool calls)
 
     Returns:
         Success message with the file path
     """
     logger.info("Setting session manifest")
 
-    session_id = get_session_id(ctx)
+    session_id = ctx.session_id
     manifest_path = set_session_manifest_content(manifest_yaml, session_id=session_id)
 
     return f"Successfully saved manifest to session '{session_id}' at: {manifest_path.resolve()}"
 
 
-def get_session_manifest(ctx: Context | None = None) -> str:
+def get_session_manifest(ctx: Context) -> str:
     """Get the connector manifest from the current session.
 
     Args:
-        ctx: Optional FastMCP context (automatically injected in MCP tool calls)
+        ctx: FastMCP context (automatically injected in MCP tool calls)
 
     Returns:
         The manifest YAML content, or an error message if not found
     """
     logger.info("Getting session manifest")
 
-    session_id = get_session_id(ctx)
+    session_id = ctx.session_id
     content = get_session_manifest_content(session_id)
 
     if content is None:
@@ -227,18 +202,18 @@ def get_session_manifest(ctx: Context | None = None) -> str:
     return content
 
 
-def clear_session_manifest_tool(ctx: Context | None = None) -> str:
+def clear_session_manifest_tool(ctx: Context) -> str:
     """Clear/delete the connector manifest from the current session.
 
     Args:
-        ctx: Optional FastMCP context (automatically injected in MCP tool calls)
+        ctx: FastMCP context (automatically injected in MCP tool calls)
 
     Returns:
         Success message indicating whether the file was deleted
     """
     logger.info("Clearing session manifest")
 
-    session_id = get_session_id(ctx)
+    session_id = ctx.session_id
     was_deleted = clear_session_manifest(session_id)
 
     if was_deleted:

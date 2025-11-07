@@ -5,6 +5,7 @@ import re
 from enum import Enum
 from typing import Annotated
 
+from fastmcp import Context
 from pydantic import Field
 
 from connector_builder_mcp.session_manifest import set_session_manifest_content
@@ -233,6 +234,7 @@ def create_connector_manifest_scaffold(
             "When True, the manifest is automatically saved and can be used by other tools without passing it explicitly."
         ),
     ] = True,
+    ctx: Context | None = None,
 ) -> str:
     """Create a basic connector manifest scaffold with the specified configuration.
 
@@ -274,9 +276,11 @@ def create_connector_manifest_scaffold(
             error_details = "; ".join(validation_result.errors)
             return f"ERROR: Generated manifest failed validation: {error_details}"
 
-        if save_to_session:
+        if save_to_session and ctx is not None:
             try:
-                manifest_path = set_session_manifest_content(manifest_yaml)
+                manifest_path = set_session_manifest_content(
+                    manifest_yaml, session_id=ctx.session_id
+                )
                 logger.info(f"Saved generated manifest to session at: {manifest_path}")
             except Exception as save_error:
                 logger.warning(f"Failed to save manifest to session: {save_error}")
