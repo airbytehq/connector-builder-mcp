@@ -159,10 +159,13 @@ def _apply_text_edit(
         if replace_lines is None:
             return (
                 "ERROR",
-                f"ERROR: mode='replace_lines' requires replace_lines=(start,end) tuple",
+                "ERROR: mode='replace_lines' requires replace_lines=(start,end) tuple",
             )
         if insert_at_line_number is not None:
-            return ("ERROR", "ERROR: mode='replace_lines' cannot be used with insert_at_line_number")
+            return (
+                "ERROR",
+                "ERROR: mode='replace_lines' cannot be used with insert_at_line_number",
+            )
 
         start_line, end_line = replace_lines
 
@@ -248,19 +251,27 @@ def set_session_manifest_text(
     *,
     mode: Annotated[
         Literal["replace_all", "replace_lines", "insert_lines"],
-        Field(description="Edit mode: 'replace_all' (overwrite entire file), 'replace_lines' (replace specific line range), or 'insert_lines' (insert before specific line)"),
+        Field(
+            description="Edit mode: 'replace_all' (overwrite entire file), 'replace_lines' (replace specific line range), or 'insert_lines' (insert before specific line)"
+        ),
     ],
     manifest_yaml: Annotated[
         str,
-        Field(description="The connector manifest YAML content to save, insert, or use for replacement"),
+        Field(
+            description="The connector manifest YAML content to save, insert, or use for replacement"
+        ),
     ],
     insert_at_line_number: Annotated[
         int | None,
-        Field(description="Line number to insert before (1-indexed, required for insert_lines mode, valid range: 1 to num_lines+1)"),
+        Field(
+            description="Line number to insert before (1-indexed, required for insert_lines mode, valid range: 1 to num_lines+1)"
+        ),
     ] = None,
     replace_lines: Annotated[
         tuple[int, int] | None,
-        Field(description="(start_line, end_line) tuple for replacement (1-indexed, inclusive, required for replace_lines mode)"),
+        Field(
+            description="(start_line, end_line) tuple for replacement (1-indexed, inclusive, required for replace_lines mode)"
+        ),
     ] = None,
 ) -> str:
     """Save or edit a connector manifest in the current session.
