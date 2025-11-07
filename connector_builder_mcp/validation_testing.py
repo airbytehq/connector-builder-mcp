@@ -340,7 +340,10 @@ def execute_stream_test_read(  # noqa: PLR0914
     stream_name: Annotated[
         str | None,
         Field(description="Name of the stream to test"),
-    ] = None,
+stream_name: Annotated[
+        str,
+Field(description="Name of the stream to test"),
+    ],
     config: Annotated[
         dict[str, Any] | str | None,
         Field(description="Connector configuration dictionary."),
