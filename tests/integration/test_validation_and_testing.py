@@ -46,10 +46,11 @@ def invalid_manifest_yaml() -> str:
 
 
 def test_validate_rick_and_morty_manifest(
+    ctx,
     rick_and_morty_manifest_yaml,
 ) -> None:
     """Test validation of Rick and Morty API manifest."""
-    result = validate_manifest(rick_and_morty_manifest_yaml)
+    result = validate_manifest(ctx, manifest=rick_and_morty_manifest_yaml)
 
     assert result.is_valid
     assert len(result.errors) == 0
@@ -57,20 +58,23 @@ def test_validate_rick_and_morty_manifest(
 
 
 def test_resolve_rick_and_morty_manifest(
+    ctx,
     rick_and_morty_manifest_yaml,
 ) -> None:
     """Test resolution of Rick and Morty API manifest."""
-    result = execute_dynamic_manifest_resolution_test(rick_and_morty_manifest_yaml, {})
+    result = execute_dynamic_manifest_resolution_test(ctx, manifest=rick_and_morty_manifest_yaml, config={})
 
     assert isinstance(result, dict)
     assert "streams" in result, f"Expected 'streams' key in resolved manifest, got: {result}"
 
 
 def test_execute_stream_test_read_rick_and_morty(
+    ctx,
     rick_and_morty_manifest_yaml,
 ) -> None:
     """Test reading from Rick and Morty characters stream."""
     result = execute_stream_test_read(
+        ctx,
         stream_name="characters",
         manifest=rick_and_morty_manifest_yaml,
         config={},
@@ -93,6 +97,7 @@ def test_execute_stream_test_read_rick_and_morty(
     ],
 )
 def test_manifest_validation_scenarios(
+    ctx,
     manifest_fixture,
     expected_valid,
     request,
@@ -100,7 +105,7 @@ def test_manifest_validation_scenarios(
     """Test validation of different manifest scenarios."""
     manifest = request.getfixturevalue(manifest_fixture)
 
-    result = validate_manifest(manifest)
+    result = validate_manifest(ctx, manifest=manifest)
     assert result.is_valid == expected_valid
 
     if expected_valid:
@@ -111,18 +116,20 @@ def test_manifest_validation_scenarios(
 
 
 def test_complete_connector_workflow(
+    ctx,
     rick_and_morty_manifest_yaml: str,
 ) -> None:
     """Test complete workflow: validate -> resolve -> test stream read."""
-    validation_result = validate_manifest(rick_and_morty_manifest_yaml)
+    validation_result = validate_manifest(ctx, manifest=rick_and_morty_manifest_yaml)
     assert validation_result.is_valid
     assert validation_result.resolved_manifest is not None
 
-    resolved_manifest = execute_dynamic_manifest_resolution_test(rick_and_morty_manifest_yaml, {})
+    resolved_manifest = execute_dynamic_manifest_resolution_test(ctx, manifest=rick_and_morty_manifest_yaml, config={})
     assert isinstance(resolved_manifest, dict)
     assert "streams" in resolved_manifest
 
     stream_result = execute_stream_test_read(
+        ctx,
         stream_name="characters",
         manifest=rick_and_morty_manifest_yaml,
         config={},
@@ -133,10 +140,12 @@ def test_complete_connector_workflow(
 
 
 def test_error_handling_scenarios(
+    ctx,
     rick_and_morty_manifest_yaml: str,
 ) -> None:
     """Test various error handling scenarios."""
     result = execute_stream_test_read(
+        ctx,
         stream_name="nonexistent_stream",
         manifest=rick_and_morty_manifest_yaml,
         config={},
@@ -147,14 +156,15 @@ def test_error_handling_scenarios(
 
 @pytest.mark.requires_creds
 def test_performance_multiple_tool_calls(
+    ctx,
     rick_and_morty_manifest_yaml: str,
 ) -> None:
     """Test performance with multiple rapid tool calls."""
     start_time = time.time()
 
     for _ in range(5):
-        validate_manifest(rick_and_morty_manifest_yaml)
-        execute_dynamic_manifest_resolution_test(rick_and_morty_manifest_yaml, config={})
+        validate_manifest(ctx, manifest=rick_and_morty_manifest_yaml)
+        execute_dynamic_manifest_resolution_test(ctx, manifest=rick_and_morty_manifest_yaml, config={})
 
     end_time = time.time()
     duration = end_time - start_time
@@ -162,19 +172,19 @@ def test_performance_multiple_tool_calls(
     assert duration < 20.0, f"Multiple tool calls took too long: {duration}s"
 
 
-def test_simple_api_manifest_workflow(simple_api_manifest_yaml) -> None:
+def test_simple_api_manifest_workflow(ctx, simple_api_manifest_yaml) -> None:
     """Test workflow with simple API manifest."""
-    validation_result = validate_manifest(simple_api_manifest_yaml)
+    validation_result = validate_manifest(ctx, manifest=simple_api_manifest_yaml)
     assert validation_result.is_valid
 
     resolved_manifest = execute_dynamic_manifest_resolution_test(
-        simple_api_manifest_yaml, config={}
+        ctx, manifest=simple_api_manifest_yaml, config={}
     )
     assert isinstance(resolved_manifest, dict)
     assert "streams" in resolved_manifest
 
 
-def test_malformed_manifest_streams_validation() -> None:
+def test_malformed_manifest_streams_validation(ctx) -> None:
     """Test that malformed manifest with streams as list of strings raises clear error."""
     malformed_manifest = """
 version: 4.6.2
@@ -197,7 +207,7 @@ spec:
         ValueError,
         match=r"Invalid manifest structure.*streams.*must be a list of stream definition objects",
     ):
-        run_connector_readiness_test_report(manifest=malformed_manifest, config={}, max_records=5)
+        run_connector_readiness_test_report(ctx, manifest=malformed_manifest, config={}, max_records=5)
 
 
 @pytest.mark.parametrize(
@@ -208,6 +218,7 @@ spec:
     ],
 )
 def test_sample_manifests_with_both_tools(
+    ctx,
     manifest_fixture,
     stream_name,
     request,
@@ -216,6 +227,7 @@ def test_sample_manifests_with_both_tools(
     manifest = request.getfixturevalue(manifest_fixture)
 
     stream_result = execute_stream_test_read(
+        ctx,
         stream_name=stream_name,
         manifest=manifest,
         config={},
@@ -231,6 +243,7 @@ def test_sample_manifests_with_both_tools(
         )
 
     readiness_result = run_connector_readiness_test_report(
+        ctx,
         manifest=manifest,
         config={},
         max_records=10,
@@ -247,16 +260,18 @@ def test_sample_manifests_with_both_tools(
 
 
 def test_concurrent_tool_execution(
+    ctx,
     rick_and_morty_manifest_yaml: str,
 ) -> None:
     """Test concurrent execution of multiple tools."""
 
     def run_validation():
-        return validate_manifest(rick_and_morty_manifest_yaml)
+        return validate_manifest(ctx, manifest=rick_and_morty_manifest_yaml)
 
     def run_resolution():
         return execute_dynamic_manifest_resolution_test(
-            rick_and_morty_manifest_yaml,
+            ctx,
+            manifest=rick_and_morty_manifest_yaml,
             config={},
         )
 

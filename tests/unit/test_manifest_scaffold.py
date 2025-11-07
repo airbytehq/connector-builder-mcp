@@ -9,9 +9,10 @@ from connector_builder_mcp.manifest_scaffold import (
 from connector_builder_mcp.validation_testing import validate_manifest
 
 
-def test_valid_basic_manifest() -> None:
+def test_valid_basic_manifest(ctx) -> None:
     """Test creating a basic manifest with no auth and no pagination."""
     result = create_connector_manifest_scaffold(
+        ctx,
         connector_name="source-test-api",
         api_base_url="https://api.example.com",
         initial_stream_name="users",
@@ -24,9 +25,10 @@ def test_valid_basic_manifest() -> None:
     assert "source-test-api" in result
 
 
-def test_invalid_connector_name() -> None:
+def test_invalid_connector_name(ctx) -> None:
     """Test validation of invalid connector names."""
     result = create_connector_manifest_scaffold(
+        ctx,
         connector_name="invalid-name",
         api_base_url="https://api.example.com",
         initial_stream_name="users",
@@ -39,9 +41,10 @@ def test_invalid_connector_name() -> None:
     assert "Input validation error" in result
 
 
-def test_api_key_authentication() -> None:
+def test_api_key_authentication(ctx) -> None:
     """Test manifest generation with API key authentication."""
     result = create_connector_manifest_scaffold(
+        ctx,
         connector_name="source-test-api",
         api_base_url="https://api.example.com",
         initial_stream_name="users",
@@ -55,9 +58,10 @@ def test_api_key_authentication() -> None:
     assert "api_key" in result
 
 
-def test_pagination_configuration() -> None:
+def test_pagination_configuration(ctx) -> None:
     """Test manifest generation includes commented pagination block."""
     result = create_connector_manifest_scaffold(
+        ctx,
         connector_name="source-test-api",
         api_base_url="https://api.example.com",
         initial_stream_name="users",
@@ -73,9 +77,10 @@ def test_pagination_configuration() -> None:
     assert "#   type: DefaultPaginator" in result
 
 
-def test_todo_placeholders() -> None:
+def test_todo_placeholders(ctx) -> None:
     """Test that TODO placeholders are included in the manifest."""
     result = create_connector_manifest_scaffold(
+        ctx,
         connector_name="source-test-api",
         api_base_url="https://api.example.com",
         initial_stream_name="users",
@@ -94,10 +99,11 @@ def test_todo_placeholders() -> None:
     assert manifest["streams"][0]["primary_key"] == ["TODO"]
 
 
-def test_all_generated_manifests_pass_validation() -> None:
+def test_all_generated_manifests_pass_validation(ctx) -> None:
     """Test that all generated manifests pass validation regardless of inputs."""
     for auth_type in [at.value for at in AuthenticationType]:
         result = create_connector_manifest_scaffold(
+            ctx,
             connector_name=f"source-test-{auth_type.lower().replace('authenticator', '').replace('auth', '').replace('_', '-')}",
             api_base_url="https://api.example.com",
             initial_stream_name="users",
@@ -108,15 +114,16 @@ def test_all_generated_manifests_pass_validation() -> None:
         assert isinstance(result, str), f"Expected string, got {type(result)}"
         assert not result.startswith("ERROR:"), f"Failed with auth_type={auth_type}: {result}"
 
-        validation_result = validate_manifest(result)
+        validation_result = validate_manifest(ctx, manifest=result)
         assert validation_result.is_valid, (
             f"Direct validation failed with auth_type={auth_type}: {validation_result.errors}"
         )
 
 
-def test_dynamic_schema_loader_included() -> None:
+def test_dynamic_schema_loader_included(ctx) -> None:
     """Test that dynamic schema loader is included in generated manifests."""
     result = create_connector_manifest_scaffold(
+        ctx,
         connector_name="source-test-api",
         api_base_url="https://api.example.com",
         initial_stream_name="users",
@@ -129,9 +136,10 @@ def test_dynamic_schema_loader_included() -> None:
     assert "TODO" in result
 
 
-def test_incremental_sync_todo_comments() -> None:
+def test_incremental_sync_todo_comments(ctx) -> None:
     """Test that incremental sync TODO comments are included."""
     result = create_connector_manifest_scaffold(
+        ctx,
         connector_name="source-test-api",
         api_base_url="https://api.example.com",
         initial_stream_name="users",

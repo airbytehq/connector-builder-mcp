@@ -211,6 +211,8 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
 
 
 def create_connector_manifest_scaffold(
+    ctx: Context,
+    *,
     connector_name: Annotated[
         str, Field(description="Connector name in kebab-case starting with 'source-'")
     ],
@@ -225,16 +227,7 @@ def create_connector_manifest_scaffold(
             description="Authentication method (NoAuth, ApiKeyAuthenticator, BearerAuthenticator, BasicHttpAuthenticator, OAuthAuthenticator)"
         ),
     ],
-    *,
     http_method: Annotated[str, Field(description="HTTP method for requests")] = "GET",
-    save_to_session: Annotated[
-        bool,
-        Field(
-            description="Whether to save the generated manifest to the session. "
-            "When True, the manifest is automatically saved and can be used by other tools without passing it explicitly."
-        ),
-    ] = True,
-    ctx: Context | None = None,
 ) -> str:
     """Create a basic connector manifest scaffold with the specified configuration.
 
@@ -244,12 +237,21 @@ def create_connector_manifest_scaffold(
     The generated manifest includes TODO placeholders with inline comments for fields
     that need to be filled in later, ensuring the manifest is valid even in its initial state.
 
-    By default, the generated manifest is saved to the session so other tools can use it
+    The generated manifest is automatically saved to the session so other tools can use it
     without needing to pass the manifest content explicitly.
 
     Tool should only be invoked when setting up the initial connector.
     """
     logger.info(f"Creating connector manifest scaffold for {connector_name}")
+
+    from connector_builder_mcp.session_manifest import get_session_manifest_content
+
+    existing_manifest = get_session_manifest_content(ctx.session_id)
+    if existing_manifest and existing_manifest.strip():
+        return (
+            "ERROR: Refusing to overwrite existing session manifest. "
+            "To proceed, first call set_session_manifest with manifest_yaml=\"\" to reset the session manifest."
+        )
 
     try:
         if not re.match(r"^source-[a-z0-9]+(-[a-z0-9]+)*$", connector_name):
@@ -270,20 +272,19 @@ def create_connector_manifest_scaffold(
             http_method=http_method.upper(),
         )
 
-        validation_result = validate_manifest(manifest_yaml)
+        validation_result = validate_manifest(ctx, manifest=manifest_yaml)
 
         if not validation_result.is_valid:
             error_details = "; ".join(validation_result.errors)
             return f"ERROR: Generated manifest failed validation: {error_details}"
 
-        if save_to_session and ctx is not None:
-            try:
-                manifest_path = set_session_manifest_content(
-                    manifest_yaml, session_id=ctx.session_id
-                )
-                logger.info(f"Saved generated manifest to session at: {manifest_path}")
-            except Exception as save_error:
-                logger.warning(f"Failed to save manifest to session: {save_error}")
+        try:
+            manifest_path = set_session_manifest_content(
+                manifest_yaml, session_id=ctx.session_id
+            )
+            logger.info(f"Saved generated manifest to session at: {manifest_path}")
+        except Exception as save_error:
+            logger.warning(f"Failed to save manifest to session: {save_error}")
 
         return manifest_yaml
 
