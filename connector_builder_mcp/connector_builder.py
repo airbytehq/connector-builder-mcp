@@ -20,6 +20,12 @@ from connector_builder_mcp._guidance import (
     CONNECTOR_BUILDER_CHECKLIST,
     TOPIC_MAPPING,
 )
+from connector_builder_mcp.manifest_history import (
+    diff_session_manifest_versions,
+    get_session_manifest_version,
+    list_session_manifest_versions,
+    restore_session_manifest_version,
+)
 from connector_builder_mcp.manifest_scaffold import (
     create_connector_manifest_scaffold,
 )
@@ -313,5 +319,9 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(get_connector_manifest)
     app.tool(find_connectors_by_class_name)
     app.tool(create_connector_manifest_scaffold)
+    app.tool(list_session_manifest_versions)
+    app.tool(get_session_manifest_version)
+    app.tool(diff_session_manifest_versions)
+    app.tool(restore_session_manifest_version)
     register_secrets_tools(app)
     register_session_manifest_tools(app)
