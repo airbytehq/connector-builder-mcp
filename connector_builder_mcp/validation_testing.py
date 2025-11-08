@@ -615,6 +615,7 @@ def execute_stream_test_read(  # noqa: PLR0914
             )
         logger.info("Using session manifest for stream test")
 
+    assert manifest is not None  # Type narrowing for mypy
     manifest_dict, _ = parse_manifest_input(manifest)
 
     spec = manifest_dict.get("spec")
