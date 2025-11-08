@@ -1,4 +1,4 @@
-"""Internal utility functions for manifest history tracking.
+"""Internal utility functions for manifest revision history tracking.
 
 This module contains helper functions used by manifest_history.py.
 It is kept separate to improve code organization and maintainability.
@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     from connector_builder_mcp.manifest_history import (
         CheckpointDetails,
         CheckpointType,
-        ManifestVersionMetadata,
+        ManifestRevisionMetadata,
+        RevisionId,
     )
 
 
@@ -36,73 +37,91 @@ def get_history_dir(session_id: str) -> Path:
     return history_dir
 
 
-def _compute_content_hash(content: str) -> str:
+def _compute_content_hash(content: str, length: int = 16) -> str:
     """Compute SHA256 hash of content.
 
     Args:
         content: Content to hash
+        length: Number of hex characters to return (default: 16)
 
     Returns:
-        Hex digest of SHA256 hash
+        First `length` characters of SHA256 hex digest
     """
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+    full_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return full_hash[:length]
 
 
-def _get_next_version_number(history_dir: Path) -> int:
-    """Get the next version number for a session.
+def _get_next_ordinal(history_dir: Path) -> int:
+    """Get the next ordinal number for a revision.
 
     Args:
         history_dir: History directory path
 
     Returns:
-        Next version number (1-indexed)
+        Next ordinal number (1-indexed)
     """
-    version_files = list(history_dir.glob("*.yaml"))
-    if not version_files:
+    revision_files = list(history_dir.glob("*.yaml"))
+    if not revision_files:
         return 1
 
-    max_version = 0
-    for version_file in version_files:
+    max_ordinal = 0
+    for revision_file in revision_files:
         try:
-            parts = version_file.stem.split("_")
-            if len(parts) >= 2 and parts[0].startswith("v"):
-                version_num = int(parts[0][1:])
-                max_version = max(max_version, version_num)
+            # Parse filename: {ordinal}_{timestamp_ns}_{hash}.yaml
+            parts = revision_file.stem.split("_")
+            if len(parts) >= 3:
+                ordinal = int(parts[0])
+                max_ordinal = max(max_ordinal, ordinal)
+            # Also support legacy format: v{ordinal}_{timestamp}.yaml
+            elif len(parts) >= 2 and parts[0].startswith("v"):
+                ordinal = int(parts[0][1:])
+                max_ordinal = max(max_ordinal, ordinal)
         except (ValueError, IndexError):
             continue
 
-    return max_version + 1
+    return max_ordinal + 1
 
 
-def _save_version_metadata(
+def _save_revision_metadata(
     history_dir: Path,
-    version_number: int,
+    revision_id: "RevisionId",
     timestamp: float,
-    content_hash: str,
     file_size_bytes: int,
     checkpoint_type: "CheckpointType",
     checkpoint_details: "CheckpointDetails | None",
 ) -> Path:
-    """Save version metadata to a JSON file.
+    """Save revision metadata to a JSON file.
+
+    Args:
+        history_dir: History directory path
+        revision_id: Full revision triple (ordinal, timestamp_ns, content_hash)
+        timestamp: Timestamp in seconds (for backwards compat)
+        file_size_bytes: Size of manifest content in bytes
+        checkpoint_type: Type of checkpoint
+        checkpoint_details: Optional checkpoint details
 
     Returns:
         Path to the metadata file
     """
-    from connector_builder_mcp.manifest_history import ManifestVersionMetadata
+    from connector_builder_mcp.manifest_history import ManifestRevisionMetadata
 
+    ordinal, timestamp_ns, content_hash = revision_id
     timestamp_iso = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
 
-    metadata = ManifestVersionMetadata(
-        version_number=version_number,
+    metadata = ManifestRevisionMetadata(
+        revision_id=revision_id,
+        ordinal=ordinal,
+        timestamp_ns=timestamp_ns,
         timestamp=timestamp,
         timestamp_iso=timestamp_iso,
+        content_hash=content_hash,
         checkpoint_type=checkpoint_type,
         checkpoint_details=checkpoint_details,
-        content_hash=content_hash,
         file_size_bytes=file_size_bytes,
     )
 
-    metadata_path = history_dir / f"v{version_number}_{int(timestamp)}.meta.json"
+    # New filename format: {ordinal}_{timestamp_ns}_{hash}.meta.json
+    metadata_path = history_dir / f"{ordinal}_{timestamp_ns}_{content_hash}.meta.json"
     metadata_path.write_text(
         json.dumps(metadata.model_dump(mode="json"), indent=2), encoding="utf-8"
     )
@@ -110,16 +129,16 @@ def _save_version_metadata(
     return metadata_path
 
 
-def _load_version_metadata(metadata_path: Path) -> "ManifestVersionMetadata":
-    """Load version metadata from a JSON file.
+def _load_revision_metadata(metadata_path: Path) -> "ManifestRevisionMetadata":
+    """Load revision metadata from a JSON file.
 
     Args:
         metadata_path: Path to metadata file
 
     Returns:
-        Version metadata
+        Revision metadata
     """
-    from connector_builder_mcp.manifest_history import ManifestVersionMetadata
+    from connector_builder_mcp.manifest_history import ManifestRevisionMetadata
 
     metadata_dict = json.loads(metadata_path.read_text(encoding="utf-8"))
-    return ManifestVersionMetadata(**metadata_dict)
+    return ManifestRevisionMetadata(**metadata_dict)

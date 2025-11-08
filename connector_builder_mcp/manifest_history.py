@@ -1,8 +1,15 @@
-"""Manifest version history tracking for the Connector Builder MCP server.
+"""Manifest revision history tracking for the Connector Builder MCP server.
 
-This module provides version history management for connector manifests,
+This module provides revision history management for connector manifests,
 including automatic versioning on updates, checkpointing on test results,
-version recall, and diff generation between versions.
+revision recall, and diff generation between revisions.
+
+Revisions are identified by a triple: (ordinal, timestamp_ns, content_hash)
+- ordinal: Sequential number (1, 2, 3...) for human-friendliness
+- timestamp_ns: Nanosecond-precision monotonic timestamp
+- content_hash: First 16 chars of SHA-256 hash
+
+Users can reference revisions by any component or combination thereof.
 """
 
 import json
@@ -17,14 +24,36 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from connector_builder_mcp._manifest_history_utils import (
     _compute_content_hash,
-    _get_next_version_number,
-    _load_version_metadata,
-    _save_version_metadata,
+    _get_next_ordinal,
+    _load_revision_metadata,
+    _save_revision_metadata,
     get_history_dir,
 )
 from connector_builder_mcp._text_utils import unified_diff_with_context
 from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool
 from connector_builder_mcp.session_manifest import get_session_manifest_path
+
+
+# Type aliases for revision identification
+RevisionId = tuple[int, int, str]  # (ordinal, timestamp_ns, content_hash)
+RevisionRef = int | str | RevisionId  # Flexible reference type for lookups
+
+
+class AmbiguousHashError(ValueError):
+    """Raised when a hash prefix matches multiple revisions.
+
+    Similar to Git's behavior when an abbreviated commit SHA is ambiguous.
+    """
+
+    def __init__(self, hash_prefix: str, matches: list[RevisionId]):
+        self.hash_prefix = hash_prefix
+        self.matches = matches
+        match_strs = "\n".join(f"  - {m}" for m in matches)
+        super().__init__(
+            f"Ambiguous hash prefix '{hash_prefix}' matches {len(matches)} revisions:\n"
+            f"{match_strs}\n"
+            f"Please provide more characters to disambiguate."
+        )
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +96,8 @@ class RestoreCheckpointDetails(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    restored_from_version: int
+    restored_from_revision: RevisionId  # Full triple of restored revision
+    restored_from_ordinal: int  # For backwards compatibility/readability
 
 
 CheckpointDetails = (
@@ -75,174 +105,435 @@ CheckpointDetails = (
 )
 
 
-class ManifestVersionMetadata(BaseModel):
-    """Metadata for a manifest version."""
+class ManifestRevisionMetadata(BaseModel):
+    """Metadata for a manifest revision.
 
-    version_number: int
-    timestamp: float
-    timestamp_iso: str
+    Revisions are identified by (ordinal, timestamp_ns, content_hash) triple.
+    """
+
+    revision_id: RevisionId  # Full triple: (ordinal, timestamp_ns, content_hash)
+    ordinal: int  # Sequential number (1, 2, 3...)
+    timestamp_ns: int  # Nanosecond-precision timestamp
+    timestamp: float  # Backwards compatibility (seconds since epoch)
+    timestamp_iso: str  # ISO 8601 format
+    content_hash: str  # First 16 chars of SHA-256
     checkpoint_type: CheckpointType = CheckpointType.NONE
     checkpoint_details: CheckpointDetails | None = None
-    content_hash: str
     file_size_bytes: int
 
 
-class ManifestVersion(BaseModel):
-    """A manifest version with content and metadata."""
+class ManifestRevision(BaseModel):
+    """A manifest revision with content and metadata."""
 
-    metadata: ManifestVersionMetadata
+    metadata: ManifestRevisionMetadata
     content: str
 
 
-class ManifestVersionSummary(BaseModel):
-    """Summary of a manifest version (without full content)."""
+class ManifestRevisionSummary(BaseModel):
+    """Summary of a manifest revision (without full content)."""
 
-    version_number: int
+    revision_id: RevisionId  # Full triple
+    ordinal: int  # For backwards compatibility
     timestamp_iso: str
     checkpoint_type: CheckpointType
     checkpoint_summary: str | None = None
-    content_hash: str
+    content_hash: str  # First 16 chars
     file_size_bytes: int
 
 
-class ManifestHistoryList(BaseModel):
-    """List of manifest versions."""
+class ManifestRevisionList(BaseModel):
+    """List of manifest revisions."""
 
-    total_versions: int
-    versions: list[ManifestVersionSummary]
+    total_revisions: int
+    revisions: list[ManifestRevisionSummary]
 
 
-class ManifestDiffResult(BaseModel):
-    """Result of comparing two manifest versions."""
+class ManifestRevisionDiff(BaseModel):
+    """Result of comparing two manifest revisions."""
 
-    from_version: int
-    to_version: int
+    from_revision: RevisionId  # Full triple
+    to_revision: RevisionId  # Full triple
     diff: str
     from_timestamp_iso: str
     to_timestamp_iso: str
 
 
-def save_manifest_version(
+# Revision Resolution Functions
+
+
+def find_revision_by_ordinal(session_id: str, ordinal: int) -> RevisionId | None:
+    """Find revision by ordinal number.
+
+    Args:
+        session_id: Session ID
+        ordinal: Ordinal number (1-indexed)
+
+    Returns:
+        Full RevisionId triple, or None if not found
+    """
+    history_dir = get_history_dir(session_id)
+    revision_files = list(history_dir.glob(f"{ordinal}_*.yaml"))
+
+    if not revision_files:
+        return None
+
+    # Get the most recent file if multiple exist (shouldn't happen)
+    revision_path = max(revision_files, key=lambda p: p.stat().st_mtime)
+
+    # Parse filename: {ordinal}_{timestamp_ns}_{hash}.yaml
+    parts = revision_path.stem.split("_")
+    if len(parts) >= 3:
+        timestamp_ns = int(parts[1])
+        content_hash = parts[2]
+        return (ordinal, timestamp_ns, content_hash)
+
+    return None
+
+
+def find_revision_by_hash_prefix(
+    session_id: str,
+    hash_prefix: str,
+    min_length: int = 4,
+) -> RevisionId:
+    """Find revision by hash prefix (Git-style).
+
+    Args:
+        session_id: Session ID
+        hash_prefix: Partial hash (min 4 chars)
+        min_length: Minimum prefix length (default: 4)
+
+    Returns:
+        Full RevisionId triple
+
+    Raises:
+        ValueError: If hash_prefix < min_length or no matches
+        AmbiguousHashError: If multiple matches found
+    """
+    if len(hash_prefix) < min_length:
+        raise ValueError(
+            f"Hash prefix must be at least {min_length} characters, got {len(hash_prefix)}"
+        )
+
+    history_dir = get_history_dir(session_id)
+    revision_files = list(history_dir.glob("*.yaml"))
+
+    matches: list[RevisionId] = []
+    prefix_lower = hash_prefix.lower()
+
+    for revision_file in revision_files:
+        parts = revision_file.stem.split("_")
+        if len(parts) >= 3:
+            ordinal = int(parts[0])
+            timestamp_ns = int(parts[1])
+            content_hash = parts[2]
+
+            if content_hash.lower().startswith(prefix_lower):
+                matches.append((ordinal, timestamp_ns, content_hash))
+
+    if len(matches) == 0:
+        raise ValueError(f"No revision found with hash prefix '{hash_prefix}'")
+
+    if len(matches) > 1:
+        raise AmbiguousHashError(hash_prefix, matches)
+
+    return matches[0]
+
+
+def find_revision_by_timestamp(session_id: str, timestamp_ns: int) -> RevisionId | None:
+    """Find revision by nanosecond timestamp.
+
+    If multiple revisions share the same timestamp (rare), returns the one with
+    highest ordinal.
+
+    Args:
+        session_id: Session ID
+        timestamp_ns: Nanosecond timestamp
+
+    Returns:
+        Full RevisionId triple, or None if not found
+    """
+    history_dir = get_history_dir(session_id)
+    revision_files = list(history_dir.glob(f"*_{timestamp_ns}_*.yaml"))
+
+    if not revision_files:
+        return None
+
+    # Parse all matching files and return highest ordinal (collision handling)
+    matches: list[RevisionId] = []
+    for revision_file in revision_files:
+        parts = revision_file.stem.split("_")
+        if len(parts) >= 3:
+            ordinal = int(parts[0])
+            content_hash = parts[2]
+            matches.append((ordinal, timestamp_ns, content_hash))
+
+    if not matches:
+        return None
+
+    # Return highest ordinal in case of timestamp collision
+    return max(matches, key=lambda r: r[0])
+
+
+def get_latest_revision(session_id: str) -> RevisionId | None:
+    """Get the most recent revision.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        Full RevisionId triple, or None if no revisions exist
+    """
+    revisions = list_manifest_revisions(session_id)
+
+    if revisions.total_revisions == 0:
+        return None
+
+    # Get the last revision (highest ordinal)
+    latest = revisions.revisions[-1]
+    return latest.revision_id
+
+
+def resolve_revision_ref(
+    session_id: str,
+    ref: RevisionRef,
+) -> RevisionId:
+    """Resolve any revision reference to full RevisionId triple.
+
+    Accepts:
+    - int: ordinal (e.g., 3)
+    - str: hash prefix (e.g., "a3f2c"), timestamp (e.g., "1734564789123456789"),
+           or special refs ("latest", "HEAD", "@")
+    - tuple: full RevisionId triple
+
+    Args:
+        session_id: Session ID
+        ref: Revision reference in any supported format
+
+    Returns:
+        Full RevisionId triple: (ordinal, timestamp_ns, content_hash)
+
+    Raises:
+        ValueError: If reference is invalid or not found
+        AmbiguousHashError: If hash prefix matches multiple revisions
+        TypeError: If reference type is not supported
+    """
+    # Full tuple - validate and return
+    if isinstance(ref, tuple):
+        if len(ref) == 3 and isinstance(ref[0], int) and isinstance(ref[1], int) and isinstance(ref[2], str):
+            return ref
+        raise ValueError(f"Invalid revision tuple: {ref}. Expected (int, int, str)")
+
+    # Integer ordinal
+    if isinstance(ref, int):
+        revision_id = find_revision_by_ordinal(session_id, ref)
+        if revision_id is None:
+            raise ValueError(f"Revision with ordinal {ref} not found")
+        return revision_id
+
+    # String - could be hash prefix, timestamp, or special ref
+    if isinstance(ref, str):
+        # Special refs
+        if ref.lower() in ("latest", "head", "@"):
+            revision_id = get_latest_revision(session_id)
+            if revision_id is None:
+                raise ValueError("No revisions exist in session")
+            return revision_id
+
+        # Timestamp (all digits)
+        if ref.isdigit():
+            timestamp_ns = int(ref)
+            revision_id = find_revision_by_timestamp(session_id, timestamp_ns)
+            if revision_id is None:
+                raise ValueError(f"Revision with timestamp {timestamp_ns} not found")
+            return revision_id
+
+        # Hash prefix (hex characters)
+        if all(c in "0123456789abcdefABCDEF" for c in ref):
+            return find_revision_by_hash_prefix(session_id, ref)
+
+        raise ValueError(f"Invalid revision reference string: '{ref}'")
+
+    raise TypeError(f"Unsupported reference type: {type(ref)}")
+
+
+def save_manifest_revision(
     session_id: str,
     content: str,
     checkpoint_type: CheckpointType = CheckpointType.NONE,
     checkpoint_details: CheckpointDetails | None = None,
-) -> int:
-    """Save a new version of the manifest.
+) -> RevisionId:
+    """Save a new revision of the manifest.
 
     Returns:
-        Version number of the saved version
+        Full RevisionId triple: (ordinal, timestamp_ns, content_hash)
     """
     history_dir = get_history_dir(session_id)
-    version_number = _get_next_version_number(history_dir)
+    ordinal = _get_next_ordinal(history_dir)
+
+    # Get nanosecond-precision timestamp
     timestamp = time.time()
+    timestamp_ns = int(timestamp * 1_000_000_000)
 
-    version_path = history_dir / f"v{version_number}_{int(timestamp)}.yaml"
-    version_path.write_text(content, encoding="utf-8")
-
-    content_hash = _compute_content_hash(content)
+    # Compute content hash (16 chars)
+    content_hash = _compute_content_hash(content, length=16)
     file_size_bytes = len(content.encode("utf-8"))
 
-    _save_version_metadata(
+    # Create full revision ID
+    revision_id: RevisionId = (ordinal, timestamp_ns, content_hash)
+
+    # New filename format: {ordinal}_{timestamp_ns}_{hash}.yaml
+    revision_path = history_dir / f"{ordinal}_{timestamp_ns}_{content_hash}.yaml"
+    revision_path.write_text(content, encoding="utf-8")
+
+    _save_revision_metadata(
         history_dir=history_dir,
-        version_number=version_number,
+        revision_id=revision_id,
         timestamp=timestamp,
-        content_hash=content_hash,
         file_size_bytes=file_size_bytes,
         checkpoint_type=checkpoint_type,
         checkpoint_details=checkpoint_details,
     )
 
     logger.info(
-        f"Saved manifest version {version_number} for session {session_id[:8]}... "
+        f"Saved manifest revision {ordinal} ({content_hash[:8]}) for session {session_id[:8]}... "
         f"(checkpoint: {checkpoint_type.value})"
     )
 
-    return version_number
+    return revision_id
 
 
-def get_manifest_version(session_id: str, version_number: int) -> ManifestVersion | None:
-    """Get a specific version of the manifest.
+def get_manifest_revision(
+    session_id: str,
+    revision: RevisionRef,
+) -> ManifestRevision | None:
+    """Get a specific revision of the manifest.
+
+    Accepts flexible reference: int (ordinal), str (hash/timestamp/"latest"), or full tuple.
 
     Args:
         session_id: Session ID
-        version_number: Version number to retrieve
+        revision: Revision reference (ordinal, hash prefix, timestamp, or full tuple)
 
     Returns:
-        Manifest version with content and metadata, or None if not found
+        Manifest revision with content and metadata, or None if not found
     """
-    history_dir = get_history_dir(session_id)
-
-    version_files = list(history_dir.glob(f"v{version_number}_*.yaml"))
-    if not version_files:
+    try:
+        revision_id = resolve_revision_ref(session_id, revision)
+    except (ValueError, AmbiguousHashError, TypeError):
         return None
 
-    version_path = max(version_files, key=lambda p: p.stat().st_mtime)
+    ordinal, timestamp_ns, content_hash = revision_id
+    history_dir = get_history_dir(session_id)
 
-    content = version_path.read_text(encoding="utf-8")
+    # Look for file with this revision ID
+    revision_path = history_dir / f"{ordinal}_{timestamp_ns}_{content_hash}.yaml"
 
-    metadata_path = version_path.with_suffix(".meta.json")
-    if not metadata_path.exists():
-        timestamp = version_path.stat().st_mtime
-        metadata = ManifestVersionMetadata(
-            version_number=version_number,
+    if not revision_path.exists():
+        return None
+
+    content = revision_path.read_text(encoding="utf-8")
+
+    # Load metadata
+    metadata_path = revision_path.with_suffix(".meta.json")
+    if metadata_path.exists():
+        metadata = _load_revision_metadata(metadata_path)
+    else:
+        # Create metadata from file (for backwards compat or missing metadata)
+        timestamp = timestamp_ns / 1_000_000_000
+        metadata = ManifestRevisionMetadata(
+            revision_id=revision_id,
+            ordinal=ordinal,
+            timestamp_ns=timestamp_ns,
             timestamp=timestamp,
             timestamp_iso=datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat(),
+            content_hash=content_hash,
             checkpoint_type=CheckpointType.NONE,
             checkpoint_details=None,
-            content_hash=_compute_content_hash(content),
             file_size_bytes=len(content.encode("utf-8")),
         )
-    else:
-        metadata = _load_version_metadata(metadata_path)
 
-    return ManifestVersion(metadata=metadata, content=content)
+    return ManifestRevision(metadata=metadata, content=content)
 
 
-def list_manifest_versions(session_id: str) -> ManifestHistoryList:
-    """List all versions of the manifest for a session.
+def list_manifest_revisions(session_id: str) -> ManifestRevisionList:
+    """List all revisions of the manifest for a session.
 
     Args:
         session_id: Session ID
 
     Returns:
-        List of manifest version summaries
+        List of manifest revision summaries with full RevisionId tuples
     """
     history_dir = get_history_dir(session_id)
+    revision_files = sorted(history_dir.glob("*.yaml"), key=lambda p: p.stem)
 
-    version_files = sorted(history_dir.glob("v*.yaml"), key=lambda p: p.stem)
+    revisions: list[ManifestRevisionSummary] = []
+    seen_ordinals: set[int] = set()
 
-    versions: list[ManifestVersionSummary] = []
-    seen_versions: set[int] = set()
-
-    for version_path in version_files:
+    for revision_path in revision_files:
         try:
-            parts = version_path.stem.split("_")
-            if len(parts) < 2 or not parts[0].startswith("v"):
-                continue
+            parts = revision_path.stem.split("_")
 
-            version_num = int(parts[0][1:])
+            # New format: {ordinal}_{timestamp_ns}_{hash}.yaml
+            if len(parts) >= 3:
+                ordinal = int(parts[0])
+                timestamp_ns = int(parts[1])
+                content_hash = parts[2]
 
-            if version_num in seen_versions:
-                continue
-            seen_versions.add(version_num)
+                if ordinal in seen_ordinals:
+                    continue
+                seen_ordinals.add(ordinal)
 
-            metadata_path = version_path.with_suffix(".meta.json")
-            if metadata_path.exists():
-                metadata = _load_version_metadata(metadata_path)
-            else:
-                timestamp = version_path.stat().st_mtime
-                content = version_path.read_text(encoding="utf-8")
-                metadata = ManifestVersionMetadata(
-                    version_number=version_num,
+                revision_id: RevisionId = (ordinal, timestamp_ns, content_hash)
+
+                metadata_path = revision_path.with_suffix(".meta.json")
+                if metadata_path.exists():
+                    metadata = _load_revision_metadata(metadata_path)
+                else:
+                    # Create metadata from file
+                    timestamp = timestamp_ns / 1_000_000_000
+                    content = revision_path.read_text(encoding="utf-8")
+                    metadata = ManifestRevisionMetadata(
+                        revision_id=revision_id,
+                        ordinal=ordinal,
+                        timestamp_ns=timestamp_ns,
+                        timestamp=timestamp,
+                        timestamp_iso=datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat(),
+                        content_hash=content_hash,
+                        checkpoint_type=CheckpointType.NONE,
+                        checkpoint_details=None,
+                        file_size_bytes=len(content.encode("utf-8")),
+                    )
+
+            # Legacy format: v{ordinal}_{timestamp}.yaml
+            elif len(parts) >= 2 and parts[0].startswith("v"):
+                ordinal = int(parts[0][1:])
+                timestamp = float(parts[1])
+                timestamp_ns = int(timestamp * 1_000_000_000)
+
+                if ordinal in seen_ordinals:
+                    continue
+                seen_ordinals.add(ordinal)
+
+                content = revision_path.read_text(encoding="utf-8")
+                content_hash = _compute_content_hash(content, length=16)
+                revision_id = (ordinal, timestamp_ns, content_hash)
+
+                metadata = ManifestRevisionMetadata(
+                    revision_id=revision_id,
+                    ordinal=ordinal,
+                    timestamp_ns=timestamp_ns,
                     timestamp=timestamp,
                     timestamp_iso=datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat(),
+                    content_hash=content_hash,
                     checkpoint_type=CheckpointType.NONE,
                     checkpoint_details=None,
-                    content_hash=_compute_content_hash(content),
                     file_size_bytes=len(content.encode("utf-8")),
                 )
+            else:
+                continue
 
+            # Build checkpoint summary
             checkpoint_summary = None
             if metadata.checkpoint_type != CheckpointType.NONE:
                 checkpoint_summary = metadata.checkpoint_type.value
@@ -254,44 +545,49 @@ def list_manifest_versions(session_id: str) -> ManifestHistoryList:
                             f" ({metadata.checkpoint_details.streams_tested} streams)"
                         )
 
-            summary = ManifestVersionSummary(
-                version_number=metadata.version_number,
+            summary = ManifestRevisionSummary(
+                revision_id=metadata.revision_id,
+                ordinal=metadata.ordinal,
                 timestamp_iso=metadata.timestamp_iso,
                 checkpoint_type=metadata.checkpoint_type,
                 checkpoint_summary=checkpoint_summary,
                 content_hash=metadata.content_hash,
                 file_size_bytes=metadata.file_size_bytes,
             )
-            versions.append(summary)
+            revisions.append(summary)
 
         except (ValueError, IndexError) as e:
-            logger.warning(f"Failed to parse version file {version_path}: {e}")
+            logger.warning(f"Failed to parse revision file {revision_path}: {e}")
             continue
 
-    versions.sort(key=lambda v: v.version_number)
+    revisions.sort(key=lambda r: r.ordinal)
 
-    return ManifestHistoryList(total_versions=len(versions), versions=versions)
+    return ManifestRevisionList(total_revisions=len(revisions), revisions=revisions)
 
 
-def diff_manifest_versions(
+
+
+def diff_manifest_revisions(
     session_id: str,
-    from_version: int,
-    to_version: int,
+    from_revision: RevisionRef,
+    to_revision: RevisionRef,
     context_lines: int = 3,
-) -> ManifestDiffResult | None:
-    """Generate a diff between two manifest versions.
+) -> ManifestRevisionDiff | None:
+    """Generate a diff between two manifest revisions.
+
+    Accepts flexible references: int (ordinal), str (hash/timestamp/"latest"), or full tuple.
 
     Args:
         session_id: Session ID
-        from_version: Source version number
-        to_version: Target version number
+        from_revision: Source revision reference
+        to_revision: Target revision reference
         context_lines: Number of context lines to include in diff
 
     Returns:
-        Diff result, or None if either version not found
+        Diff result with full RevisionId tuples, or None if either revision not found
     """
-    from_manifest = get_manifest_version(session_id, from_version)
-    to_manifest = get_manifest_version(session_id, to_version)
+    from_manifest = get_manifest_revision(session_id, from_revision)
+    to_manifest = get_manifest_revision(session_id, to_revision)
 
     if from_manifest is None or to_manifest is None:
         return None
@@ -302,43 +598,44 @@ def diff_manifest_versions(
         context=context_lines,
     )
 
-    return ManifestDiffResult(
-        from_version=from_version,
-        to_version=to_version,
+    return ManifestRevisionDiff(
+        from_revision=from_manifest.metadata.revision_id,
+        to_revision=to_manifest.metadata.revision_id,
         diff=diff,
         from_timestamp_iso=from_manifest.metadata.timestamp_iso,
         to_timestamp_iso=to_manifest.metadata.timestamp_iso,
     )
 
 
-def checkpoint_manifest_version(
+def checkpoint_manifest_revision(
     session_id: str,
     checkpoint_type: CheckpointType,
     checkpoint_details: CheckpointDetails | None = None,
-) -> int | None:
-    """Create a checkpoint for the most recent manifest version.
+) -> RevisionId | None:
+    """Create a checkpoint for the most recent manifest revision.
 
-    This updates the metadata of the most recent version to mark it as a checkpoint.
-    If no versions exist, returns None.
+    This updates the metadata of the most recent revision to mark it as a checkpoint.
+    If no revisions exist, returns None.
 
     Returns:
-        Version number of the checkpointed version, or None if no versions exist
+        Full RevisionId triple of the checkpointed revision, or None if no revisions exist
     """
-    history = list_manifest_versions(session_id)
+    history = list_manifest_revisions(session_id)
 
-    if history.total_versions == 0:
-        logger.warning(f"No versions exist for session {session_id[:8]}... - cannot checkpoint")
+    if history.total_revisions == 0:
+        logger.warning(f"No revisions exist for session {session_id[:8]}... - cannot checkpoint")
         return None
 
-    latest_version = history.versions[-1]
+    latest_revision = history.revisions[-1]
+    ordinal, timestamp_ns, content_hash = latest_revision.revision_id
 
     history_dir = get_history_dir(session_id)
-    metadata_files = list(history_dir.glob(f"v{latest_version.version_number}_*.meta.json"))
 
-    if metadata_files:
-        metadata_path = max(metadata_files, key=lambda p: p.stat().st_mtime)
-        metadata = _load_version_metadata(metadata_path)
+    # New format: {ordinal}_{timestamp_ns}_{hash}.meta.json
+    metadata_path = history_dir / f"{ordinal}_{timestamp_ns}_{content_hash}.meta.json"
 
+    if metadata_path.exists():
+        metadata = _load_revision_metadata(metadata_path)
         metadata.checkpoint_type = checkpoint_type
         metadata.checkpoint_details = checkpoint_details
 
@@ -347,11 +644,13 @@ def checkpoint_manifest_version(
         )
 
         logger.info(
-            f"Updated checkpoint for version {latest_version.version_number} "
+            f"Updated checkpoint for revision {ordinal} ({content_hash[:8]}) "
             f"to {checkpoint_type.value}"
         )
 
-    return latest_version.version_number
+    return latest_revision.revision_id
+
+
 
 
 @mcp_tool(
@@ -360,21 +659,21 @@ def checkpoint_manifest_version(
     idempotent=True,
     open_world=False,
 )
-def list_session_manifest_versions(ctx: Context) -> ManifestHistoryList:
+def list_session_manifest_versions(ctx: Context) -> ManifestRevisionList:
     """List all versions of the manifest for the current session.
 
-    Returns a list of manifest versions with metadata including version numbers,
-    timestamps, checkpoint types, and content hashes. Versions are sorted by
-    version number (oldest to newest).
+    Returns a list of manifest revisions with metadata including revision IDs,
+    ordinals, timestamps, checkpoint types, and content hashes. Revisions are
+    sorted by ordinal (oldest to newest).
 
     Args:
         ctx: FastMCP context (automatically injected)
 
     Returns:
-        List of manifest version summaries
+        List of manifest revision summaries
     """
     session_id = ctx.session_id
-    return list_manifest_versions(session_id)
+    return list_manifest_revisions(session_id)
 
 
 @mcp_tool(
@@ -393,23 +692,23 @@ def get_session_manifest_version(
 ) -> str:
     """Get a specific version of the manifest from history.
 
-    Retrieves the full manifest content for a specific version number.
-    Use list_session_manifest_versions to see available versions.
+    Retrieves the full manifest content for a specific revision by ordinal.
+    Use list_session_manifest_versions to see available revisions.
 
     Args:
         ctx: FastMCP context (automatically injected)
-        version_number: Version number to retrieve
+        version_number: Ordinal number to retrieve (1-indexed)
 
     Returns:
-        Manifest YAML content for the specified version, or error message if not found
+        Manifest YAML content for the specified revision, or error message if not found
     """
     session_id = ctx.session_id
-    version = get_manifest_version(session_id, version_number)
+    revision = get_manifest_revision(session_id, version_number)
 
-    if version is None:
-        return f"ERROR: Version {version_number} not found for session '{session_id}'"
+    if revision is None:
+        return f"ERROR: Revision {version_number} not found for session '{session_id}'"
 
-    return version.content
+    return revision.content
 
 
 @mcp_tool(
@@ -434,27 +733,27 @@ def diff_session_manifest_versions(
         Field(description="Number of context lines to include in diff", ge=0, le=10),
     ] = 3,
 ) -> str:
-    """Generate a diff between two manifest versions.
+    """Generate a diff between two manifest revisions.
 
-    Compares two versions of the manifest and returns a unified diff showing
+    Compares two revisions of the manifest and returns a unified diff showing
     the changes between them. Use list_session_manifest_versions to see
-    available versions.
+    available revisions.
 
     Args:
         ctx: FastMCP context (automatically injected)
-        from_version: Source version number
-        to_version: Target version number
+        from_version: Source ordinal number
+        to_version: Target ordinal number
         context_lines: Number of context lines to include (default: 3)
 
     Returns:
-        Unified diff between the two versions, or error message if versions not found
+        Unified diff between the two revisions, or error message if revisions not found
     """
     session_id = ctx.session_id
-    diff_result = diff_manifest_versions(session_id, from_version, to_version, context_lines)
+    diff_result = diff_manifest_revisions(session_id, from_version, to_version, context_lines)
 
     if diff_result is None:
         return (
-            f"ERROR: Could not generate diff. One or both versions not found "
+            f"ERROR: Could not generate diff. One or both revisions not found "
             f"(from: {from_version}, to: {to_version})"
         )
 
@@ -476,33 +775,37 @@ def restore_session_manifest_version(
         Field(description="Version number to restore (1-indexed)", ge=1),
     ],
 ) -> str:
-    """Restore a previous version of the manifest as the current manifest.
+    """Restore a previous revision of the manifest as the current manifest.
 
-    This retrieves a specific version from history and sets it as the current
-    session manifest. A new version is automatically created to preserve the
+    This retrieves a specific revision from history and sets it as the current
+    session manifest. A new revision is automatically created to preserve the
     restore operation in history.
 
     Returns:
-        Success message with version info, or error message if version not found
+        Success message with revision info, or error message if revision not found
     """
 
     session_id = ctx.session_id
-    version = get_manifest_version(session_id, version_number)
+    revision = get_manifest_revision(session_id, version_number)
 
-    if version is None:
-        return f"ERROR: Version {version_number} not found for session '{session_id}'"
+    if revision is None:
+        return f"ERROR: Revision {version_number} not found for session '{session_id}'"
 
     manifest_path = get_session_manifest_path(session_id)
-    manifest_path.write_text(version.content, encoding="utf-8")
+    manifest_path.write_text(revision.content, encoding="utf-8")
 
-    new_version = save_manifest_version(
+    new_revision_id = save_manifest_revision(
         session_id=session_id,
-        content=version.content,
+        content=revision.content,
         checkpoint_type=CheckpointType.NONE,
-        checkpoint_details=RestoreCheckpointDetails(restored_from_version=version_number),
+        checkpoint_details=RestoreCheckpointDetails(
+            restored_from_revision=revision.metadata.revision_id,
+            restored_from_ordinal=version_number,
+        ),
     )
 
+    new_ordinal, _, new_hash = new_revision_id
     return (
-        f"Successfully restored version {version_number} as current manifest. "
-        f"New version {new_version} created to record this restore operation."
+        f"Successfully restored revision {version_number} as current manifest. "
+        f"New revision {new_ordinal} ({new_hash[:8]}) created to record this restore operation."
     )

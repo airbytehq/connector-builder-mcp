@@ -38,7 +38,7 @@ from connector_builder_mcp.manifest_history import (
     CheckpointType,
     ReadinessCheckpointDetails,
     ValidationCheckpointDetails,
-    checkpoint_manifest_version,
+    checkpoint_manifest_revision,
 )
 from connector_builder_mcp.secrets import hydrate_config
 from connector_builder_mcp.session_manifest import (
@@ -520,7 +520,7 @@ def validate_manifest(
         warning_count=len(warnings),
         errors=errors[:5] if errors else [],
     )
-    checkpoint_manifest_version(
+    checkpoint_manifest_revision(
         session_id=ctx.session_id,
         checkpoint_type=checkpoint_type,
         checkpoint_details=checkpoint_details,
@@ -1113,7 +1113,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
         streams_successful=total_streams_successful,
         total_records=total_records_count,
     )
-    checkpoint_manifest_version(
+    checkpoint_manifest_revision(
         session_id=ctx.session_id,
         checkpoint_type=checkpoint_type,
         checkpoint_details=checkpoint_details,

@@ -3,7 +3,6 @@
 This module provides session-isolated manifest file storage and management,
 allowing multiple concurrent sessions to work with different manifests without conflicts.
 """
-
 import hashlib
 import logging
 from functools import lru_cache
@@ -26,6 +25,7 @@ from connector_builder_mcp.constants import (
     MCP_SERVER_NAME,
     SESSION_BASE_DIR,
 )
+from connector_builder_mcp.manifest_history import save_manifest_revision
 from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 
@@ -36,6 +36,7 @@ class SetManifestContentsResult(BaseModel):
     """Result of setting session manifest text."""
 
     message: str
+    revision_id: tuple[int, int, str] | None = None  # (ordinal, timestamp_ns, content_hash)
     diff_summary: str | None = None
     validation_warnings: list[str] = []
     error: str | None = None
@@ -132,25 +133,23 @@ def get_session_manifest_content(session_id: str) -> str | None:
 def set_session_manifest_content(
     manifest_yaml: str,
     session_id: str,
-) -> Path:
+) -> tuple[Path, tuple[int, int, str]]:
     """Set the content of the session manifest file.
 
     Returns:
-        Path to the written manifest file
+        Tuple of (path to written manifest file, revision ID triple)
 
     Raises:
         Exception: If writing the file fails
     """
-    from connector_builder_mcp.manifest_history import save_manifest_version
-
     manifest_path = get_session_manifest_path(session_id)
 
     manifest_path.write_text(manifest_yaml, encoding="utf-8")
     logger.info(f"Wrote session manifest to: {manifest_path}")
 
-    save_manifest_version(session_id=session_id, content=manifest_yaml)
+    revision_id = save_manifest_revision(session_id=session_id, content=manifest_yaml)
 
-    return manifest_path
+    return manifest_path, revision_id
 
 
 @mcp_resource(
@@ -263,7 +262,7 @@ def set_session_manifest_text(
         )
 
         # Write new content
-        set_session_manifest_content(new_content, session_id=session_id)
+        _, revision_id = set_session_manifest_content(new_content, session_id=session_id)
 
         if new_content.strip():
             _, errors, warnings, _ = validate_manifest_content(new_content)
@@ -273,6 +272,7 @@ def set_session_manifest_text(
 
         return SetManifestContentsResult(
             message="Saved manifest",
+            revision_id=revision_id,
             diff_summary=diff_summary,
             validation_warnings=validation_warnings,
         )
@@ -306,7 +306,7 @@ def set_session_manifest_text(
         diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
 
         # Write new content
-        set_session_manifest_content(new_content, session_id=session_id)
+        _, revision_id = set_session_manifest_content(new_content, session_id=session_id)
 
         if new_content.strip():
             _, errors, warnings, _ = validate_manifest_content(new_content)
@@ -316,6 +316,7 @@ def set_session_manifest_text(
 
         return SetManifestContentsResult(
             message="Saved manifest",
+            revision_id=revision_id,
             diff_summary=diff_summary,
             validation_warnings=validation_warnings,
         )
@@ -344,7 +345,7 @@ def set_session_manifest_text(
         diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
 
         # Write new content
-        set_session_manifest_content(new_content, session_id=session_id)
+        _, revision_id = set_session_manifest_content(new_content, session_id=session_id)
 
         if new_content.strip():
             _, errors, warnings, _ = validate_manifest_content(new_content)
@@ -354,6 +355,7 @@ def set_session_manifest_text(
 
         return SetManifestContentsResult(
             message="Saved manifest",
+            revision_id=revision_id,
             diff_summary=diff_summary,
             validation_warnings=validation_warnings,
         )
@@ -383,7 +385,7 @@ def set_session_manifest_text(
         diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
 
         # Write new content
-        set_session_manifest_content(new_content, session_id=session_id)
+        _, revision_id = set_session_manifest_content(new_content, session_id=session_id)
 
         if new_content.strip():
             _, errors, warnings, _ = validate_manifest_content(new_content)
@@ -393,6 +395,7 @@ def set_session_manifest_text(
 
         return SetManifestContentsResult(
             message=f"Saved manifest (replaced {success_msg})",
+            revision_id=revision_id,
             diff_summary=diff_summary,
             validation_warnings=validation_warnings,
         )
