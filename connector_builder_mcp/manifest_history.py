@@ -141,8 +141,6 @@ class ManifestRevisionSummary(BaseModel):
     file_size_bytes: int
 
 
-
-
 class ManifestRevisionDiff(BaseModel):
     """Result of comparing two manifest revisions."""
 
@@ -566,8 +564,6 @@ def list_manifest_revisions(session_id: str) -> list[ManifestRevisionSummary]:
     return revisions
 
 
-
-
 def diff_manifest_revisions(
     session_id: str,
     from_revision: RevisionRef,
@@ -651,8 +647,6 @@ def checkpoint_manifest_revision(
         )
 
     return latest_revision.revision_id
-
-
 
 
 @mcp_tool(
