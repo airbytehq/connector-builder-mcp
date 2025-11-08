@@ -119,7 +119,7 @@ def replace_text_content(
     existing_content: str,
     find_text: str,
     replacement_text: str,
-    replace_all: bool = False,
+    replace_all_occurrences: bool = False,
 ) -> tuple[str, str, str | None]:
     """Find and replace text content.
 
@@ -127,7 +127,7 @@ def replace_text_content(
         existing_content: Original text content
         find_text: Text to find and replace
         replacement_text: Text to replace with
-        replace_all: If True, replace all occurrences; if False, fail if multiple matches
+        replace_all_occurrences: If True, replace all occurrences; if False, fail if multiple matches
 
     Returns:
         Tuple of (new_content, success_message, error_message)
@@ -147,7 +147,7 @@ def replace_text_content(
         truncated = find_text[:100] + ("..." if len(find_text) > 100 else "")
         return "", "", f"Text to replace not found: {truncated}"
 
-    if occurrence_count > 1 and not replace_all:
+    if occurrence_count > 1 and not replace_all_occurrences:
         return (
             "",
             "",
