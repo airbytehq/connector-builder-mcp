@@ -247,7 +247,7 @@ def validate_manifest(
         checkpoint_type = (
             CheckpointType.VALIDATION_PASS if is_valid else CheckpointType.VALIDATION_FAIL
         )
-        checkpoint_details = {
+        checkpoint_details: dict[str, Any] = {
             "error_count": len(errors),
             "warning_count": len(warnings),
         }
@@ -759,7 +759,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
         checkpoint_type = (
             CheckpointType.READINESS_PASS if all_streams_passed else CheckpointType.READINESS_FAIL
         )
-        checkpoint_details = {
+        checkpoint_details: dict[str, Any] = {
             "streams_tested": total_streams_tested,
             "streams_successful": total_streams_successful,
             "total_records": total_records_count,
