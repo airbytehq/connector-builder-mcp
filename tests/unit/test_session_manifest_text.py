@@ -1,6 +1,5 @@
 """Tests for set_session_manifest_text tool with all edit modes."""
 
-
 from connector_builder_mcp.session_manifest import (
     SetManifestContentsResult,
     get_session_manifest_content,
