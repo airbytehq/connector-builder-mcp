@@ -3,12 +3,14 @@
 import logging
 import pkgutil
 import time
+from io import StringIO
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from fastmcp import Context
 from jsonschema import ValidationError
 from pydantic import BaseModel, Field
+from ruamel.yaml import YAML
 
 from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
@@ -138,10 +140,6 @@ def _update_stream_schema_in_manifest(
     Returns:
         Tuple of (updated_yaml, error_message)
     """
-    from io import StringIO
-
-    from ruamel.yaml import YAML
-
     yaml = YAML()
     yaml.preserve_quotes = True
     yaml.default_flow_style = False
