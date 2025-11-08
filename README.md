@@ -99,9 +99,14 @@ For information on running from source, see the [Contributing Guide](./CONTRIBUT
 
 The below MCP servers have been tested to work well with the Connector Builder MCP server and will complement its capabilities.
 
-- **Claude Code Users:** You should only need the PyAirbyte MCP server for most tasks. Specifically, this enables publishing to Airbyte Cloud, running local tests, and validating manifests and configurations.
-- **Claude Desktop Users:** As of this writing, Claude Desktop does not have built-in file system or timekeeping capabilities. Therefore, you will likely _also_ want to add the Files Server MCP.
+- **Claude Code and Claude Desktop Users:** You should only need the PyAirbyte MCP server for most tasks. Specifically, this enables publishing to Airbyte Cloud, running local tests, and validating manifests and configurations.
 - **Other Clients:** Depending on your client, you may want to add the Timer MCP and/or the Playwright MCP for web browsing capabilities.
+
+- **PyAirbyte MCP** (Recommended): Enables publishing to Airbyte Cloud, running local tests, and syncing data to a local cache for validation.
+- **Playwright MCP** (Optional): Provides web browsing capabilities for researching API documentation.
+- **Timer MCP** (Optional): Adds timekeeping capabilities if your client doesn't have built-in time awareness.
+
+**Note:** The Connector Builder MCP server manages connector manifest YAML contents via session-based resources, so you do not need a separate file server for manifest storage. However, you may want to enable a Files server in order to store the final manifest contents locally at a path of your choosing.
 
 #### PyAirbyte MCP
 
@@ -130,6 +135,7 @@ The [PyAirbyte MCP Server](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.htm
 ```
 
 Note:
+
 - Make sure to replace `/Users/{YOUR-USER-ID}/.mcp/airbyte_mcp.env` with the actual path to your `airbyte_mcp.env` file.
   - See below for details on the contents of this file.
 - For information about the `AIRBYTE_CLOUD_MCP_SAFE_MODE` and `AIRBYTE_CLOUD_MCP_READ_ONLY` environment variables, see the [PyAirbyte MCP Safety documentation](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html#airbyte-cloud-mcp-server-safety).
@@ -152,6 +158,8 @@ GCP_GSM_CREDENTIALS_JSON={...inline-json...}
 For more detailed setup instructions, please see the [PyAirbyte MCP docs](https://airbytehq.github.io/PyAirbyte/airbyte/mcp.html).
 
 #### Files Server MCP
+
+_Note: In most cases, you will not need a Files server._
 
 If your agent doesn't already have the ability to read-write files, you can add this:
 
@@ -209,6 +217,17 @@ If you'd like to time your agent and it does not already include timekeeping abi
 ### VS Code MCP Extension
 
 For VS Code users with the MCP extension, use the included configuration in `.vscode/mcp.json`.
+
+## Environment Variables
+
+The Connector Builder MCP server supports the following environment variable for configuration:
+
+### Session Manifest Path Configuration
+
+- **`CONNECTOR_BUILDER_MCP_SESSIONS_DIR`** - Session storage directory
+  - Example: `/path/to/sessions`
+  - If set, session-specific subdirectories will be created based on session ID hash
+  - Default: `{temp_dir}/connector-builder-mcp-sessions/{session_id_hash}/manifest.yaml`
 
 ## Contributing and Testing Guides
 

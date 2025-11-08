@@ -6,7 +6,8 @@ import time
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
-from jsonschema import ValidationError, validate
+from fastmcp import Context
+from jsonschema import ValidationError
 from pydantic import BaseModel, Field
 
 from airbyte_cdk import ConfiguredAirbyteStream
@@ -16,7 +17,6 @@ from airbyte_cdk.connector_builder.connector_builder_handler import (
     full_resolve_manifest,
     get_limits,
     read_stream,
-    resolve_manifest,
 )
 from airbyte_cdk.models import (
     AirbyteStream,
@@ -24,22 +24,16 @@ from airbyte_cdk.models import (
     DestinationSyncMode,
     SyncMode,
 )
-from airbyte_cdk.sources.declarative.parsers.manifest_component_transformer import (
-    ManifestComponentTransformer,
-)
-from airbyte_cdk.sources.declarative.parsers.manifest_reference_resolver import (
-    ManifestReferenceResolver,
-)
 
 from connector_builder_mcp._util import (
     as_bool,
     as_dict,
     filter_config_secrets,
-    is_valid_declarative_source_manifest,
     parse_manifest_input,
-    validate_manifest_structure,
 )
+from connector_builder_mcp._validation_helpers import validate_manifest_content
 from connector_builder_mcp.secrets import hydrate_config
+from connector_builder_mcp.session_manifest import get_session_manifest_content
 
 
 logger = logging.getLogger(__name__)
@@ -211,118 +205,69 @@ def _format_validation_error(
 
 
 def validate_manifest(
+    ctx: Context,
+    *,
     manifest: Annotated[
-        str,
+        str | None,
         Field(
             description="The connector manifest to validate. "
-            "Can be raw a YAML string or path to YAML file"
+            "Can be raw a YAML string or path to YAML file. "
+            "If not provided, uses the session manifest."
         ),
-    ],
+    ] = None,
 ) -> ManifestValidationResult:
     """Validate a connector manifest structure and configuration.
+
+    Args:
+        ctx: FastMCP context (automatically injected)
+        manifest: The connector manifest to validate (optional, uses session manifest if not provided)
 
     Returns:
         Validation result with success status and any errors/warnings
     """
     logger.info("Validating connector manifest")
 
-    errors: list[str] = []
-    warnings: list[str] = []
-    resolved_manifest = None
-
-    try:
-        manifest_dict, _ = parse_manifest_input(manifest)
-
-        if not validate_manifest_structure(manifest_dict):
-            errors.append(
-                "Manifest missing required fields: version, type, check, and either streams or dynamic_streams"
+    if manifest is None:
+        manifest = get_session_manifest_content(ctx.session_id)
+        if manifest is None:
+            return ManifestValidationResult(
+                is_valid=False,
+                errors=[
+                    "No manifest provided and no session manifest found. "
+                    "Either provide a manifest or use set_session_manifest_text() to save one."
+                ],
+                warnings=[],
             )
-            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
+        logger.info("Using session manifest for validation")
 
-        try:
-            logger.info("Applying CDK preprocessing: resolving references")
-            reference_resolver = ManifestReferenceResolver()
-            resolved_manifest = reference_resolver.preprocess_manifest(manifest_dict)
-
-            logger.info("Applying CDK preprocessing: propagating types and parameters")
-            component_transformer = ManifestComponentTransformer()
-            processed_manifest = component_transformer.propagate_types_and_parameters(
-                "", resolved_manifest, {}
-            )
-
-            logger.info("CDK preprocessing completed successfully")
-            manifest_dict = processed_manifest
-
-        except Exception as preprocessing_error:
-            logger.error(f"CDK preprocessing failed: {preprocessing_error}")
-            errors.append(f"Preprocessing error: {str(preprocessing_error)}")
-            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-
-        try:
-            is_valid, error = is_valid_declarative_source_manifest(manifest_dict)
-            if not is_valid and error:
-                errors.append(error)
-                return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-        except Exception as e:
-            errors.append(f"Error validating manifest: {e}")
-            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-
-        try:
-            schema = _get_declarative_component_schema()
-            validate(manifest_dict, schema)
-            logger.info("JSON schema validation passed")
-        except ValidationError as schema_error:
-            detailed_error = _format_validation_error(schema_error)
-            logger.error(f"JSON schema validation failed: {detailed_error}")
-            errors.append(detailed_error)
-            return ManifestValidationResult(is_valid=False, errors=errors, warnings=warnings)
-        except Exception as schema_load_error:
-            logger.warning(f"Could not load schema for pre-validation: {schema_load_error}")
-
-        config_with_manifest = {"__injected_declarative_manifest": manifest_dict}
-
-        limits = get_limits(config_with_manifest)
-        source = create_source(config_with_manifest, limits)
-
-        resolve_result = resolve_manifest(source)
-        if (
-            resolve_result.type.value == "RECORD"
-            and resolve_result.record is not None
-            and resolve_result.record.data is not None
-        ):
-            resolved_manifest = resolve_result.record.data.get("manifest")
-        else:
-            errors.append("Failed to resolve manifest")
-
-    except ValidationError as e:
-        logger.error(f"CDK validation error: {e}")
-        detailed_error = _format_validation_error(e)
-        errors.append(detailed_error)
-    except Exception as e:
-        logger.error(f"Error validating manifest: {e}")
-        errors.append(f"Validation error: {str(e)}")
-
-    is_valid = len(errors) == 0
+    is_valid, errors, warnings, resolved_manifest = validate_manifest_content(manifest)
 
     return ManifestValidationResult(
-        is_valid=is_valid, errors=errors, warnings=warnings, resolved_manifest=resolved_manifest
+        is_valid=is_valid,
+        errors=errors,
+        warnings=warnings,
+        resolved_manifest=resolved_manifest,
     )
 
 
 def execute_stream_test_read(  # noqa: PLR0914
-    manifest: Annotated[
-        str,
-        Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
-    ],
+    ctx: Context,
+    *,
     stream_name: Annotated[
         str,
         Field(description="Name of the stream to test"),
     ],
+    manifest: Annotated[
+        str | None,
+        Field(
+            description="The connector manifest. Can be raw a YAML string or path to YAML file. "
+            "If not provided, uses the session manifest."
+        ),
+    ] = None,
     config: Annotated[
         dict[str, Any] | str | None,
         Field(description="Connector configuration dictionary."),
     ] = None,
-    *,
     max_records: Annotated[
         int,
         Field(description="Maximum number of records to read", ge=1),
@@ -372,6 +317,17 @@ def execute_stream_test_read(  # noqa: PLR0914
     )
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})
+
+    if manifest is None:
+        manifest = get_session_manifest_content(ctx.session_id)
+        if manifest is None:
+            return StreamTestResult(
+                success=False,
+                message="No manifest provided and no session manifest found. "
+                "Either provide a manifest or use set_session_manifest_text() to save one.",
+                errors=["No manifest available"],
+            )
+        logger.info("Using session manifest for stream test")
 
     manifest_dict, _ = parse_manifest_input(manifest)
 
@@ -511,10 +467,15 @@ def _as_saved_report(
 
 
 def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too complex)
+    ctx: Context,
+    *,
     manifest: Annotated[
-        str,
-        Field(description="The connector manifest. Can be raw a YAML string or path to YAML file"),
-    ],
+        str | None,
+        Field(
+            description="The connector manifest. Can be raw a YAML string or path to YAML file. "
+            "If not provided, uses the session manifest."
+        ),
+    ] = None,
     config: Annotated[
         dict[str, Any] | None,
         Field(description="Connector configuration"),
@@ -526,7 +487,6 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
             "If not provided, tests all streams in the manifest (recommended)."
         ),
     ] = None,
-    *,
     max_records: Annotated[
         int,
         Field(description="Maximum number of records to read per stream", ge=1, le=50000),
@@ -555,6 +515,15 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     total_streams_successful = 0
     total_records_count = 0
     stream_results: dict[str, StreamSmokeTest] = {}
+
+    if manifest is None:
+        manifest = get_session_manifest_content(ctx.session_id)
+        if manifest is None:
+            return (
+                "ERROR: No manifest provided and no session manifest found. "
+                "Either provide a manifest or use set_session_manifest_text() to save one."
+            )
+        logger.info("Using session manifest for readiness test")
 
     manifest_dict, manifest_path = parse_manifest_input(manifest)
     spec = manifest_dict.get("spec")
@@ -603,8 +572,9 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
         try:
             result = execute_stream_test_read(
-                manifest=manifest,
+                ctx,
                 stream_name=stream_name,
+                manifest=manifest,
                 config=config,
                 max_records=max_records,
                 include_records_data=False,
@@ -772,13 +742,16 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
 
 def execute_dynamic_manifest_resolution_test(
+    ctx: Context,
+    *,
     manifest: Annotated[
-        str,
+        str | None,
         Field(
             description="The connector manifest with dynamic elements to resolve. "
-            "Can be raw YAML content or path to YAML file"
+            "Can be raw YAML content or path to YAML file. "
+            "If not provided, uses the session manifest."
         ),
-    ],
+    ] = None,
     config: Annotated[
         dict[str, Any] | None,
         Field(description="Optional connector configuration"),
@@ -802,37 +775,38 @@ def execute_dynamic_manifest_resolution_test(
     """
     logger.info("Getting resolved manifest")
 
-    try:
-        manifest_dict, _ = parse_manifest_input(manifest)
+    if manifest is None:
+        manifest = get_session_manifest_content(ctx.session_id)
+        if manifest is None:
+            return "Failed to resolve manifest"
+        logger.info("Using session manifest for dynamic resolution test")
 
-        if config is None:
-            config = {}
+    manifest_dict, _ = parse_manifest_input(manifest)
 
-        config_with_manifest = {
-            **config,
-            "__injected_declarative_manifest": manifest_dict,
-        }
+    if config is None:
+        config = {}
 
-        limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
+    config_with_manifest = {
+        **config,
+        "__injected_declarative_manifest": manifest_dict,
+    }
 
-        source = create_source(config_with_manifest, limits)
-        result = full_resolve_manifest(
-            source,
-            limits,
-        )
+    limits = TestLimits(max_records=10, max_pages_per_slice=1, max_slices=1)
 
-        if (
-            result.type.value == "RECORD"
-            and result.record is not None
-            and result.record.data is not None
-        ):
-            manifest_data = result.record.data.get("manifest", {})
-            if isinstance(manifest_data, dict):
-                return manifest_data
-            return {}
+    source = create_source(config_with_manifest, limits)
+    result = full_resolve_manifest(
+        source,
+        limits,
+    )
 
-        return "Failed to resolve manifest"
+    if (
+        result.type.value == "RECORD"
+        and result.record is not None
+        and result.record.data is not None
+    ):
+        manifest_data = result.record.data.get("manifest", {})
+        if isinstance(manifest_data, dict):
+            return manifest_data
+        return {}
 
-    except Exception as e:
-        logger.error(f"Error resolving manifest: {e}")
-        return "Failed to resolve manifest"
+    return "Failed to resolve manifest"
