@@ -243,9 +243,7 @@ def validate_manifest(
 
     is_valid, errors, warnings, resolved_manifest = validate_manifest_content(manifest)
 
-    checkpoint_type = (
-        CheckpointType.VALIDATION_PASS if is_valid else CheckpointType.VALIDATION_FAIL
-    )
+    checkpoint_type = CheckpointType.VALIDATION_PASS if is_valid else CheckpointType.VALIDATION_FAIL
     checkpoint_details: dict[str, Any] = {
         "error_count": len(errors),
         "warning_count": len(warnings),
