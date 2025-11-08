@@ -155,7 +155,7 @@ def replace_text_content(
         )
 
     # Perform replacement
-    if replace_all:
+    if replace_all_occurrences:
         new_content = existing_content.replace(find_text, replacement_text)
         success_msg = f"all {occurrence_count} occurrences"
     else:
