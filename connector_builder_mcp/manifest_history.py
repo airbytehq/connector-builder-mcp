@@ -141,11 +141,6 @@ class ManifestRevisionSummary(BaseModel):
     file_size_bytes: int
 
 
-class ManifestRevisionList(BaseModel):
-    """List of manifest revisions."""
-
-    total_revisions: int
-    revisions: list[ManifestRevisionSummary]
 
 
 class ManifestRevisionDiff(BaseModel):
@@ -171,7 +166,8 @@ def find_revision_by_ordinal(session_id: str, ordinal: int) -> RevisionId | None
     Returns:
         Full RevisionId triple, or None if not found
     """
-    history_dir = get_history_dir(session_id)
+    manifest_path = get_session_manifest_path(session_id)
+    history_dir = get_history_dir(manifest_path)
     revision_files = list(history_dir.glob(f"{ordinal}_*.yaml"))
 
     if not revision_files:
@@ -214,7 +210,8 @@ def find_revision_by_hash_prefix(
             f"Hash prefix must be at least {min_length} characters, got {len(hash_prefix)}"
         )
 
-    history_dir = get_history_dir(session_id)
+    manifest_path = get_session_manifest_path(session_id)
+    history_dir = get_history_dir(manifest_path)
     revision_files = list(history_dir.glob("*.yaml"))
 
     matches: list[RevisionId] = []
@@ -252,7 +249,8 @@ def find_revision_by_timestamp(session_id: str, timestamp_ns: int) -> RevisionId
     Returns:
         Full RevisionId triple, or None if not found
     """
-    history_dir = get_history_dir(session_id)
+    manifest_path = get_session_manifest_path(session_id)
+    history_dir = get_history_dir(manifest_path)
     revision_files = list(history_dir.glob(f"*_{timestamp_ns}_*.yaml"))
 
     if not revision_files:
@@ -285,11 +283,11 @@ def get_latest_revision(session_id: str) -> RevisionId | None:
     """
     revisions = list_manifest_revisions(session_id)
 
-    if revisions.total_revisions == 0:
+    if len(revisions) == 0:
         return None
 
     # Get the last revision (highest ordinal)
-    latest = revisions.revisions[-1]
+    latest = revisions[-1]
     return latest.revision_id
 
 
@@ -367,7 +365,8 @@ def save_manifest_revision(
     Returns:
         Full RevisionId triple: (ordinal, timestamp_ns, content_hash)
     """
-    history_dir = get_history_dir(session_id)
+    manifest_path = get_session_manifest_path(session_id)
+    history_dir = get_history_dir(manifest_path)
     ordinal = _get_next_ordinal(history_dir)
 
     # Get nanosecond-precision timestamp
@@ -423,7 +422,8 @@ def get_manifest_revision(
         return None
 
     ordinal, timestamp_ns, content_hash = revision_id
-    history_dir = get_history_dir(session_id)
+    manifest_path = get_session_manifest_path(session_id)
+    history_dir = get_history_dir(manifest_path)
 
     # Look for file with this revision ID
     revision_path = history_dir / f"{ordinal}_{timestamp_ns}_{content_hash}.yaml"
@@ -455,7 +455,7 @@ def get_manifest_revision(
     return ManifestRevision(metadata=metadata, content=content)
 
 
-def list_manifest_revisions(session_id: str) -> ManifestRevisionList:
+def list_manifest_revisions(session_id: str) -> list[ManifestRevisionSummary]:
     """List all revisions of the manifest for a session.
 
     Args:
@@ -464,7 +464,8 @@ def list_manifest_revisions(session_id: str) -> ManifestRevisionList:
     Returns:
         List of manifest revision summaries with full RevisionId tuples
     """
-    history_dir = get_history_dir(session_id)
+    manifest_path = get_session_manifest_path(session_id)
+    history_dir = get_history_dir(manifest_path)
     revision_files = sorted(history_dir.glob("*.yaml"), key=lambda p: p.stem)
 
     revisions: list[ManifestRevisionSummary] = []
@@ -562,7 +563,7 @@ def list_manifest_revisions(session_id: str) -> ManifestRevisionList:
 
     revisions.sort(key=lambda r: r.ordinal)
 
-    return ManifestRevisionList(total_revisions=len(revisions), revisions=revisions)
+    return revisions
 
 
 
@@ -622,14 +623,15 @@ def checkpoint_manifest_revision(
     """
     history = list_manifest_revisions(session_id)
 
-    if history.total_revisions == 0:
+    if len(history) == 0:
         logger.warning(f"No revisions exist for session {session_id[:8]}... - cannot checkpoint")
         return None
 
-    latest_revision = history.revisions[-1]
+    latest_revision = history[-1]
     ordinal, timestamp_ns, content_hash = latest_revision.revision_id
 
-    history_dir = get_history_dir(session_id)
+    manifest_path = get_session_manifest_path(session_id)
+    history_dir = get_history_dir(manifest_path)
 
     # New format: {ordinal}_{timestamp_ns}_{hash}.meta.json
     metadata_path = history_dir / f"{ordinal}_{timestamp_ns}_{content_hash}.meta.json"
@@ -659,7 +661,7 @@ def checkpoint_manifest_revision(
     idempotent=True,
     open_world=False,
 )
-def list_session_manifest_versions(ctx: Context) -> ManifestRevisionList:
+def list_session_manifest_versions(ctx: Context) -> list[ManifestRevisionSummary]:
     """List all versions of the manifest for the current session.
 
     Returns a list of manifest revisions with metadata including revision IDs,

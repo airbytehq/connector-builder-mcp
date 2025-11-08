@@ -10,8 +10,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from connector_builder_mcp.session_manifest import get_session_manifest_path
-
 
 if TYPE_CHECKING:
     from connector_builder_mcp.manifest_history import (
@@ -22,16 +20,15 @@ if TYPE_CHECKING:
     )
 
 
-def get_history_dir(session_id: str) -> Path:
-    """Get the history directory for a session, ensuring it exists.
+def get_history_dir(manifest_path: Path) -> Path:
+    """Get the history directory for a manifest, ensuring it exists.
 
     Args:
-        session_id: Session ID
+        manifest_path: Path to the manifest file
 
     Returns:
         Path to the history directory (guaranteed to exist)
     """
-    manifest_path = get_session_manifest_path(session_id)
     history_dir = manifest_path.parent / "history"
     history_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     return history_dir

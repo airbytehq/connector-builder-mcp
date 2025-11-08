@@ -25,7 +25,6 @@ from connector_builder_mcp.constants import (
     MCP_SERVER_NAME,
     SESSION_BASE_DIR,
 )
-from connector_builder_mcp.manifest_history import save_manifest_revision
 from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 
@@ -142,6 +141,8 @@ def set_session_manifest_content(
     Raises:
         Exception: If writing the file fails
     """
+    from connector_builder_mcp.manifest_history import save_manifest_revision
+
     manifest_path = get_session_manifest_path(session_id)
 
     manifest_path.write_text(manifest_yaml, encoding="utf-8")
