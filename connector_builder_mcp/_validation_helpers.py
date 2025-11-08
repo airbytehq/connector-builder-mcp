@@ -127,13 +127,21 @@ def _validate_stream_schemas(manifest_dict: dict[str, Any]) -> list[str]:
         if schema_errors:
             error_messages = []
             for error in schema_errors[:3]:  # Limit to first 3 errors
-                path = " -> ".join(str(p) for p in error.absolute_path) if error.absolute_path else "root"
+                path = (
+                    " -> ".join(str(p) for p in error.absolute_path)
+                    if error.absolute_path
+                    else "root"
+                )
                 error_messages.append(f"  - At '{path}': {error.message}")
 
             errors.append(
                 f"Stream '{stream_name}': Invalid JSON Schema definition.\n"
                 + "\n".join(error_messages)
-                + (f"\n  - ... and {len(schema_errors) - 3} more errors" if len(schema_errors) > 3 else "")
+                + (
+                    f"\n  - ... and {len(schema_errors) - 3} more errors"
+                    if len(schema_errors) > 3
+                    else ""
+                )
             )
 
     return errors
