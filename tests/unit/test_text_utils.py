@@ -38,7 +38,7 @@ def test_replace_all_text(
 
 
 @pytest.mark.parametrize(
-    "existing_content,find_text,replacement_text,replace_all,expected_content,expected_success_msg,expected_error",
+    "existing_content,find_text,replacement_text,replace_all_occurrences,expected_content,expected_success_msg,expected_error",
     [
         (
             "line1\nold_value\nline3\n",
@@ -49,7 +49,7 @@ def test_replace_all_text(
             "1 occurrence",
             None,
         ),
-        # Multiple occurrences, replace_all=True (success)
+        # Multiple occurrences, replace_all_occurrences=True (success)
         (
             "old\nold\nold\n",
             "old",
@@ -68,7 +68,7 @@ def test_replace_all_text(
             "",
             "Text to replace not found: not_found",
         ),
-        # Multiple occurrences, replace_all=False (error)
+        # Multiple occurrences, replace_all_occurrences=False (error)
         (
             "old\nold\nold\n",
             "old",
@@ -93,7 +93,7 @@ def test_replace_text_content(
     existing_content: str,
     find_text: str,
     replacement_text: str,
-    replace_all: bool,
+    replace_all_occurrences: bool,
     expected_content: str,
     expected_success_msg: str,
     expected_error: str | None,
@@ -103,7 +103,7 @@ def test_replace_text_content(
         existing_content=existing_content,
         find_text=find_text,
         replacement_text=replacement_text,
-        replace_all=replace_all,
+        replace_all_occurrences=replace_all_occurrences,
     )
 
     if expected_error:
