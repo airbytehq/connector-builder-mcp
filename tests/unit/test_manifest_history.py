@@ -4,6 +4,9 @@ import pytest
 
 from connector_builder_mcp.manifest_history import (
     CheckpointType,
+    ReadinessCheckpointDetails,
+    RestoreCheckpointDetails,
+    ValidationCheckpointDetails,
     checkpoint_manifest_version,
     diff_manifest_versions,
     diff_session_manifest_versions,
@@ -108,10 +111,22 @@ def test_save_and_get_versions(ctx, manifests, expected_versions):
 @pytest.mark.parametrize(
     "checkpoint_type,checkpoint_details",
     [
-        (CheckpointType.VALIDATION_PASS, {"error_count": 0, "warning_count": 0}),
-        (CheckpointType.VALIDATION_FAIL, {"error_count": 3, "warning_count": 1}),
-        (CheckpointType.READINESS_PASS, {"streams_tested": 2, "streams_successful": 2}),
-        (CheckpointType.READINESS_FAIL, {"streams_tested": 2, "streams_successful": 1}),
+        (
+            CheckpointType.VALIDATION_PASS,
+            ValidationCheckpointDetails(error_count=0, warning_count=0),
+        ),
+        (
+            CheckpointType.VALIDATION_FAIL,
+            ValidationCheckpointDetails(error_count=3, warning_count=1),
+        ),
+        (
+            CheckpointType.READINESS_PASS,
+            ReadinessCheckpointDetails(streams_tested=2, streams_successful=2, total_records=100),
+        ),
+        (
+            CheckpointType.READINESS_FAIL,
+            ReadinessCheckpointDetails(streams_tested=2, streams_successful=1, total_records=50),
+        ),
     ],
 )
 def test_checkpoint_updates_latest_version(ctx, checkpoint_type, checkpoint_details):
@@ -164,7 +179,9 @@ def test_restore_creates_single_version(ctx):
     restored_version = get_manifest_version(session_id, 3)
     assert restored_version is not None
     assert restored_version.content == VALID_MINIMAL_MANIFEST_V1
-    assert restored_version.metadata.checkpoint_details == {"restored_from_version": 1}
+    assert restored_version.metadata.checkpoint_details == RestoreCheckpointDetails(
+        restored_from_version=1
+    )
 
     current_content = get_session_manifest_content(session_id)
     assert current_content == VALID_MINIMAL_MANIFEST_V1

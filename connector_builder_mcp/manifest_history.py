@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastmcp import Context
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from connector_builder_mcp._text_utils import unified_diff_with_context
 from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool
@@ -36,6 +36,39 @@ class CheckpointType(str, Enum):
     READINESS_FAIL = "readiness_fail"
 
 
+class ValidationCheckpointDetails(BaseModel):
+    """Checkpoint details for manifest validation results."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    error_count: int
+    warning_count: int
+    errors: list[str] = Field(default_factory=list)
+
+
+class ReadinessCheckpointDetails(BaseModel):
+    """Checkpoint details for connector readiness test results."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    streams_tested: int
+    streams_successful: int
+    total_records: int
+
+
+class RestoreCheckpointDetails(BaseModel):
+    """Checkpoint details for manifest restore operations."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    restored_from_version: int
+
+
+CheckpointDetails = (
+    ValidationCheckpointDetails | ReadinessCheckpointDetails | RestoreCheckpointDetails
+)
+
+
 class ManifestVersionMetadata(BaseModel):
     """Metadata for a manifest version."""
 
@@ -43,7 +76,7 @@ class ManifestVersionMetadata(BaseModel):
     timestamp: float
     timestamp_iso: str
     checkpoint_type: CheckpointType = CheckpointType.NONE
-    checkpoint_details: dict[str, Any] | None = None
+    checkpoint_details: CheckpointDetails | None = None
     content_hash: str
     file_size_bytes: int
 
@@ -145,18 +178,9 @@ def _save_version_metadata(
     content_hash: str,
     file_size_bytes: int,
     checkpoint_type: CheckpointType = CheckpointType.NONE,
-    checkpoint_details: dict[str, Any] | None = None,
+    checkpoint_details: CheckpointDetails | None = None,
 ) -> Path:
     """Save version metadata to a JSON file.
-
-    Args:
-        history_dir: History directory path
-        version_number: Version number
-        timestamp: Unix timestamp
-        content_hash: Content hash
-        file_size_bytes: File size in bytes
-        checkpoint_type: Type of checkpoint
-        checkpoint_details: Additional checkpoint details
 
     Returns:
         Path to the metadata file
@@ -174,7 +198,9 @@ def _save_version_metadata(
     )
 
     metadata_path = history_dir / f"v{version_number}_{int(timestamp)}.meta.json"
-    metadata_path.write_text(json.dumps(metadata.model_dump(), indent=2), encoding="utf-8")
+    metadata_path.write_text(
+        json.dumps(metadata.model_dump(mode="json"), indent=2), encoding="utf-8"
+    )
 
     return metadata_path
 
@@ -183,15 +209,9 @@ def save_manifest_version(
     session_id: str,
     content: str,
     checkpoint_type: CheckpointType = CheckpointType.NONE,
-    checkpoint_details: dict[str, Any] | None = None,
+    checkpoint_details: CheckpointDetails | None = None,
 ) -> int:
     """Save a new version of the manifest.
-
-    Args:
-        session_id: Session ID
-        content: Manifest content
-        checkpoint_type: Type of checkpoint
-        checkpoint_details: Additional checkpoint details
 
     Returns:
         Version number of the saved version
@@ -323,13 +343,11 @@ def list_manifest_versions(session_id: str) -> ManifestHistoryList:
             if metadata.checkpoint_type != CheckpointType.NONE:
                 checkpoint_summary = metadata.checkpoint_type.value
                 if metadata.checkpoint_details:
-                    if "error_count" in metadata.checkpoint_details:
+                    if isinstance(metadata.checkpoint_details, ValidationCheckpointDetails):
+                        checkpoint_summary += f" ({metadata.checkpoint_details.error_count} errors)"
+                    elif isinstance(metadata.checkpoint_details, ReadinessCheckpointDetails):
                         checkpoint_summary += (
-                            f" ({metadata.checkpoint_details['error_count']} errors)"
-                        )
-                    elif "streams_tested" in metadata.checkpoint_details:
-                        checkpoint_summary += (
-                            f" ({metadata.checkpoint_details['streams_tested']} streams)"
+                            f" ({metadata.checkpoint_details.streams_tested} streams)"
                         )
 
             summary = ManifestVersionSummary(
@@ -392,17 +410,12 @@ def diff_manifest_versions(
 def checkpoint_manifest_version(
     session_id: str,
     checkpoint_type: CheckpointType,
-    checkpoint_details: dict[str, Any] | None = None,
+    checkpoint_details: CheckpointDetails | None = None,
 ) -> int | None:
     """Create a checkpoint for the most recent manifest version.
 
     This updates the metadata of the most recent version to mark it as a checkpoint.
     If no versions exist, returns None.
-
-    Args:
-        session_id: Session ID
-        checkpoint_type: Type of checkpoint
-        checkpoint_details: Additional checkpoint details
 
     Returns:
         Version number of the checkpointed version, or None if no versions exist
@@ -425,7 +438,9 @@ def checkpoint_manifest_version(
         metadata.checkpoint_type = checkpoint_type
         metadata.checkpoint_details = checkpoint_details
 
-        metadata_path.write_text(json.dumps(metadata.model_dump(), indent=2), encoding="utf-8")
+        metadata_path.write_text(
+            json.dumps(metadata.model_dump(mode="json"), indent=2), encoding="utf-8"
+        )
 
         logger.info(
             f"Updated checkpoint for version {latest_version.version_number} "
@@ -581,7 +596,7 @@ def restore_session_manifest_version(
         session_id=session_id,
         content=version.content,
         checkpoint_type=CheckpointType.NONE,
-        checkpoint_details={"restored_from_version": version_number},
+        checkpoint_details=RestoreCheckpointDetails(restored_from_version=version_number),
     )
 
     return (

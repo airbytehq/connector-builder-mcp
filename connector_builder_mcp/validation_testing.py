@@ -32,7 +32,12 @@ from connector_builder_mcp._util import (
     parse_manifest_input,
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
-from connector_builder_mcp.manifest_history import CheckpointType, checkpoint_manifest_version
+from connector_builder_mcp.manifest_history import (
+    CheckpointType,
+    ReadinessCheckpointDetails,
+    ValidationCheckpointDetails,
+    checkpoint_manifest_version,
+)
 from connector_builder_mcp.secrets import hydrate_config
 from connector_builder_mcp.session_manifest import get_session_manifest_content
 
@@ -244,12 +249,11 @@ def validate_manifest(
     is_valid, errors, warnings, resolved_manifest = validate_manifest_content(manifest)
 
     checkpoint_type = CheckpointType.VALIDATION_PASS if is_valid else CheckpointType.VALIDATION_FAIL
-    checkpoint_details: dict[str, Any] = {
-        "error_count": len(errors),
-        "warning_count": len(warnings),
-    }
-    if errors:
-        checkpoint_details["errors"] = errors[:5]
+    checkpoint_details = ValidationCheckpointDetails(
+        error_count=len(errors),
+        warning_count=len(warnings),
+        errors=errors[:5] if errors else [],
+    )
     checkpoint_manifest_version(
         session_id=ctx.session_id,
         checkpoint_type=checkpoint_type,
@@ -753,11 +757,11 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     checkpoint_type = (
         CheckpointType.READINESS_PASS if all_streams_passed else CheckpointType.READINESS_FAIL
     )
-    checkpoint_details: dict[str, Any] = {
-        "streams_tested": total_streams_tested,
-        "streams_successful": total_streams_successful,
-        "total_records": total_records_count,
-    }
+    checkpoint_details = ReadinessCheckpointDetails(
+        streams_tested=total_streams_tested,
+        streams_successful=total_streams_successful,
+        total_records=total_records_count,
+    )
     checkpoint_manifest_version(
         session_id=ctx.session_id,
         checkpoint_type=checkpoint_type,
