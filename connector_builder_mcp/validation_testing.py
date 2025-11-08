@@ -496,6 +496,7 @@ def execute_stream_test_read(  # noqa: PLR0914
     We do not attempt to sanitize record data, as it is expected to be user-defined.
     """
     success: bool = True
+    using_session_manifest = manifest is None
     include_records_data = as_bool(
         include_records_data,
         default=False,
@@ -511,7 +512,7 @@ def execute_stream_test_read(  # noqa: PLR0914
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})
 
-    if manifest is None:
+    if using_session_manifest:
         manifest = get_session_manifest_content(ctx.session_id)
         if manifest is None:
             return StreamTestResult(
@@ -633,7 +634,7 @@ def execute_stream_test_read(  # noqa: PLR0914
     has_schema_issues = len(schema_warnings) > 0
 
     schema_updated = False
-    if inferred_json_schema and (manifest is None):
+    if using_session_manifest and inferred_json_schema:
         streams = manifest_dict.get("streams", [])
         stream_config = next(
             (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
