@@ -337,7 +337,7 @@ spec:
     )
 
     assert isinstance(result, StreamTestResult)
-    assert result.inferred_schema is not None or result.records_read == 0
+    assert result.inferred_json_schema is not None or result.records_read == 0
 
     if result.records_read > 0:
         assert len(result.schema_warnings) > 0
@@ -363,11 +363,11 @@ def test_schema_validation_returns_inferred_schema(
     assert isinstance(result, StreamTestResult)
 
     if result.success and result.records_read > 0:
-        assert result.inferred_schema is not None
-        assert isinstance(result.inferred_schema, dict)
+        assert result.inferred_json_schema is not None
+        assert isinstance(result.inferred_json_schema, dict)
 
-        if "properties" in result.inferred_schema:
-            assert isinstance(result.inferred_schema["properties"], dict)
+        if "properties" in result.inferred_json_schema:
+            assert isinstance(result.inferred_json_schema["properties"], dict)
 
 
 def test_readiness_report_includes_schema_warnings(ctx) -> None:
@@ -459,7 +459,7 @@ spec:
     )
     assert isinstance(result_always, StreamTestResult)
     if result_always.records_read > 0:
-        assert result_always.inferred_schema is not None
+        assert result_always.inferred_json_schema is not None
 
     result_never = execute_stream_test_read(
         ctx,
@@ -470,7 +470,7 @@ spec:
         include_inferred_schema=False,
     )
     assert isinstance(result_never, StreamTestResult)
-    assert result_never.inferred_schema is None
+    assert result_never.inferred_json_schema is None
 
     result_default = execute_stream_test_read(
         ctx,
@@ -482,7 +482,7 @@ spec:
     )
     assert isinstance(result_default, StreamTestResult)
     if result_default.records_read > 0 and len(result_default.schema_warnings) > 0:
-        assert result_default.inferred_schema is not None
+        assert result_default.inferred_json_schema is not None
 
 
 def test_auto_update_schema_with_session_manifest(ctx) -> None:
@@ -535,8 +535,8 @@ spec:
 
     assert isinstance(result, StreamTestResult)
     if result.records_read > 0:
-        assert result.inferred_schema is not None or len(result.schema_warnings) > 0, (
-            "Expected either inferred_schema or schema_warnings when records were read"
+        assert result.inferred_json_schema is not None or len(result.schema_warnings) > 0, (
+            "Expected either inferred_json_schema or schema_warnings when records were read"
         )
 
         has_update_msg = any("Auto-updated schema" in warning for warning in result.schema_warnings)

@@ -41,6 +41,9 @@ from connector_builder_mcp.session_manifest import (
 
 logger = logging.getLogger(__name__)
 
+# CDK stream data field name for inferred JSON schema
+INFERRED_JSON_SCHEMA_KEY = "inferred_schema"
+
 
 class ManifestValidationResult(BaseModel):
     """Result of manifest validation."""
@@ -68,7 +71,7 @@ class StreamTestResult(BaseModel):
     raw_api_responses: list[dict[str, Any]] | None = Field(
         default=None, description="Raw request/response data and metadata from CDK"
     )
-    inferred_schema: dict[str, Any] | None = Field(
+    inferred_json_schema: dict[str, Any] | None = Field(
         default=None, description="JSON schema inferred from the observed records"
     )
     schema_warnings: list[str] = Field(
@@ -180,7 +183,7 @@ def _update_stream_schema_in_manifest(
 def _validate_schema_against_manifest(
     stream_name: str,
     manifest_dict: dict[str, Any],
-    inferred_schema: dict[str, Any] | None,
+    inferred_json_schema: dict[str, Any] | None,
     records_read: int,
 ) -> list[str]:
     """Validate inferred schema against manifest's declared schema.
@@ -188,7 +191,7 @@ def _validate_schema_against_manifest(
     Args:
         stream_name: Name of the stream being validated
         manifest_dict: The connector manifest dictionary
-        inferred_schema: Schema inferred from observed records
+        inferred_json_schema: Schema inferred from observed records
         records_read: Number of records that were read
 
     Returns:
@@ -230,8 +233,8 @@ def _validate_schema_against_manifest(
             )
         return warnings
 
-    if inferred_schema and manifest_schema:
-        inferred_properties = inferred_schema.get("properties", {})
+    if inferred_json_schema and manifest_schema:
+        inferred_properties = inferred_json_schema.get("properties", {})
         manifest_properties = manifest_schema.get("properties", {})
 
         missing_in_manifest = set(inferred_properties.keys()) - set(manifest_properties.keys())
@@ -508,7 +511,6 @@ def execute_stream_test_read(  # noqa: PLR0914
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})
 
-    using_session_manifest = manifest is None
     if manifest is None:
         manifest = get_session_manifest_content(ctx.session_id)
         if manifest is None:
@@ -618,20 +620,20 @@ def execute_stream_test_read(  # noqa: PLR0914
     # 2. Reading N records per stream during discover to build the schema
     # 3. Storing the inferred schema in the catalog's json_schema field
     # 4. Potentially caching schemas to avoid re-inference on every discover
-    inferred_schema = stream_data.get("inferred_schema")
+    inferred_json_schema = stream_data.get(INFERRED_JSON_SCHEMA_KEY)
 
     # Validate schema against manifest
     schema_warnings = _validate_schema_against_manifest(
         stream_name=stream_name,
         manifest_dict=manifest_dict,
-        inferred_schema=inferred_schema,
+        inferred_json_schema=inferred_json_schema,
         records_read=len(records_data),
     )
 
     has_schema_issues = len(schema_warnings) > 0
 
     schema_updated = False
-    if auto_update_schema is not None and inferred_schema and using_session_manifest:
+    if inferred_json_schema and (manifest is None):
         streams = manifest_dict.get("streams", [])
         stream_config = next(
             (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
@@ -641,9 +643,11 @@ def execute_stream_test_read(  # noqa: PLR0914
         should_update = False
         if stream_config:
             if not _uses_static_schema(stream_config):
-                schema_warnings.append(
-                    f"Cannot auto-update schema: Stream '{stream_name}' uses dynamic schema loader"
-                )
+                # Only add warning if user explicitly requested auto-update
+                if auto_update_schema is True:
+                    schema_warnings.append(
+                        f"Cannot auto-update schema: Stream '{stream_name}' uses dynamic schema loader"
+                    )
             else:
                 if auto_update_schema is True:
                     should_update = True
@@ -656,7 +660,7 @@ def execute_stream_test_read(  # noqa: PLR0914
                     current_manifest = get_session_manifest_content(session_id)
                     if current_manifest:
                         updated_manifest, update_error = _update_stream_schema_in_manifest(
-                            current_manifest, stream_name, inferred_schema
+                            current_manifest, stream_name, inferred_json_schema
                         )
                         if update_error:
                             schema_warnings.append(f"Failed to auto-update schema: {update_error}")
@@ -679,13 +683,13 @@ def execute_stream_test_read(  # noqa: PLR0914
 
     return_inferred_schema = None
     if include_inferred_schema is True:
-        return_inferred_schema = inferred_schema
+        return_inferred_schema = inferred_json_schema
     elif include_inferred_schema is False:
         return_inferred_schema = None
     else:
         # include_inferred_schema is None: include only if validation failed
         if has_schema_issues and not schema_updated:
-            return_inferred_schema = inferred_schema
+            return_inferred_schema = inferred_json_schema
 
     return StreamTestResult(
         success=success,
@@ -700,7 +704,7 @@ def execute_stream_test_read(  # noqa: PLR0914
         errors=error_msgs,
         logs=execution_logs,
         raw_api_responses=[stream_data] if include_raw_responses_data else None,
-        inferred_schema=return_inferred_schema,
+        inferred_json_schema=return_inferred_schema,
         schema_warnings=schema_warnings,
     )
 
@@ -853,6 +857,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                 include_record_stats=True,
                 include_raw_responses_data=False,
                 dotenv_file_uris=dotenv_file_uris,
+                auto_update_schema=False,  # Don't auto-update during readiness check
             )
 
             stream_duration = time.time() - stream_start_time
