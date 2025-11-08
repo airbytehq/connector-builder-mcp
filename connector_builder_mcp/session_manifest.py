@@ -6,8 +6,6 @@ allowing multiple concurrent sessions to work with different manifests without c
 
 import hashlib
 import logging
-import os
-import tempfile
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -25,10 +23,6 @@ from connector_builder_mcp._text_utils import (
 from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool, register_tools
 from connector_builder_mcp._validation_helpers import validate_manifest_content
 from connector_builder_mcp.constants import (
-    CONNECTOR_BUILDER_MCP_SESSION_DIR,
-    CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH,
-    CONNECTOR_BUILDER_MCP_SESSION_ROOT,
-    CONNECTOR_BUILDER_MCP_SESSIONS_DIR,
     MCP_SERVER_NAME,
     SESSION_BASE_DIR,
 )
@@ -50,115 +44,19 @@ class SetManifestContentsResult(BaseModel):
     error: str | None = None
 
 
-def _validate_absolute_path(path_str: str, var_name: str) -> Path:
-    """Validate that a path string is absolute and return as Path.
-
-    Args:
-        path_str: Path string to validate
-        var_name: Environment variable name (for error messages)
-
-    Returns:
-        Validated absolute Path
-
-    Raises:
-        ValueError: If path is not absolute
-    """
-    path = Path(path_str).expanduser()
-    if not path.is_absolute():
-        raise ValueError(
-            f"{var_name} must be an absolute path, got: {path_str}. "
-            f"Relative paths are not allowed for security reasons."
-        )
-    return path.resolve()
-
-
 def resolve_session_manifest_path(session_id: str) -> Path:
-    """Resolve the session manifest path with environment variable overrides.
+    """Resolve the session manifest path.
 
-    This function implements the precedence hierarchy for path overrides:
-    1. CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH (most specific)
-    2. CONNECTOR_BUILDER_MCP_SESSION_DIR
-    3. CONNECTOR_BUILDER_MCP_SESSION_ROOT
-    4. CONNECTOR_BUILDER_MCP_SESSIONS_DIR (legacy, deprecated)
-    5. Default: ~/.mcp-sessions/{session_id_hash}/manifest.yaml
+    This is a thin wrapper around get_session_dir() for compatibility.
+    Returns the manifest.yaml path within the session directory.
 
     Args:
         session_id: Session ID
 
     Returns:
         Path to the manifest file
-
-    Raises:
-        RuntimeError: If path overrides are used in remote mode
-        ValueError: If override paths are not absolute
     """
-    manifest_path_override = os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH)
-    if manifest_path_override:
-        logger.info(
-            f"Using manifest path from {CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH}: {manifest_path_override}"
-        )
-        if os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_DIR):
-            logger.warning(
-                f"{CONNECTOR_BUILDER_MCP_SESSION_DIR} is ignored because "
-                f"{CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH} is set"
-            )
-        if os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_ROOT):
-            logger.warning(
-                f"{CONNECTOR_BUILDER_MCP_SESSION_ROOT} is ignored because "
-                f"{CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH} is set"
-            )
-        if os.environ.get(CONNECTOR_BUILDER_MCP_SESSIONS_DIR):
-            logger.warning(
-                f"{CONNECTOR_BUILDER_MCP_SESSIONS_DIR} is ignored because "
-                f"{CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH} is set"
-            )
-        return _validate_absolute_path(
-            manifest_path_override, CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH
-        )
-
-    session_dir_override = os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_DIR)
-    if session_dir_override:
-        logger.info(
-            f"Using session directory from {CONNECTOR_BUILDER_MCP_SESSION_DIR}: {session_dir_override}"
-        )
-        if os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_ROOT):
-            logger.warning(
-                f"{CONNECTOR_BUILDER_MCP_SESSION_ROOT} is ignored because "
-                f"{CONNECTOR_BUILDER_MCP_SESSION_DIR} is set"
-            )
-        if os.environ.get(CONNECTOR_BUILDER_MCP_SESSIONS_DIR):
-            logger.warning(
-                f"{CONNECTOR_BUILDER_MCP_SESSIONS_DIR} is ignored because "
-                f"{CONNECTOR_BUILDER_MCP_SESSION_DIR} is set"
-            )
-        session_dir = _validate_absolute_path(
-            session_dir_override, CONNECTOR_BUILDER_MCP_SESSION_DIR
-        )
-        return session_dir / "manifest.yaml"
-
-    session_root_override = os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_ROOT)
-    if session_root_override:
-        logger.info(
-            f"Using session root from {CONNECTOR_BUILDER_MCP_SESSION_ROOT}: {session_root_override}"
-        )
-        if os.environ.get(CONNECTOR_BUILDER_MCP_SESSIONS_DIR):
-            logger.warning(
-                f"{CONNECTOR_BUILDER_MCP_SESSIONS_DIR} is ignored because "
-                f"{CONNECTOR_BUILDER_MCP_SESSION_ROOT} is set"
-            )
-        session_root = _validate_absolute_path(
-            session_root_override, CONNECTOR_BUILDER_MCP_SESSION_ROOT
-        )
-        sanitized_id = _sanitize_session_id(session_id)
-        return session_root / sanitized_id / "manifest.yaml"
-
-    sessions_dir_str = os.environ.get(
-        CONNECTOR_BUILDER_MCP_SESSIONS_DIR,
-        str(Path(tempfile.gettempdir()) / "connector-builder-mcp-sessions"),
-    )
-    sessions_dir = Path(sessions_dir_str).expanduser().resolve()
-    sanitized_id = _sanitize_session_id(session_id)
-    return sessions_dir / sanitized_id / "manifest.yaml"
+    return get_session_dir(session_id) / "manifest.yaml"
 
 
 def _sanitize_session_id(session_id: str) -> str:
@@ -199,18 +97,11 @@ def get_session_dir(session_id: str) -> Path:
 def get_session_manifest_path(session_id: str) -> Path:
     """Get the path to the session manifest file.
 
-    This function uses the centralized path resolver which respects
-    environment variable overrides with proper security checks.
-
     Args:
         session_id: Session ID
 
     Returns:
         Path to the manifest.yaml file for the session
-
-    Raises:
-        RuntimeError: If path overrides are used in remote mode
-        ValueError: If override paths are not absolute
     """
     manifest_path = resolve_session_manifest_path(session_id)
     manifest_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)

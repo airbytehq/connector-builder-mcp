@@ -197,35 +197,14 @@ For VS Code users with the MCP extension, use the included configuration in `.vs
 
 ## Environment Variables
 
-The Connector Builder MCP server supports several environment variables for configuration:
+The Connector Builder MCP server supports the following environment variable for configuration:
 
 ### Session Manifest Path Configuration
 
-These environment variables allow you to customize where session manifest files are stored. **Security Note:** These overrides are only allowed in STDIO mode and will cause the server to fail at startup if used in remote mode.
-
-Precedence (most specific to least specific):
-
-1. **`CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH`** - Exact path to the manifest file
-   - Example: `/path/to/my/manifest.yaml`
-   - Most specific override, takes precedence over all others
-
-2. **`CONNECTOR_BUILDER_MCP_SESSION_DIR`** - Session directory path
-   - Example: `/path/to/my/session`
-   - Manifest will be stored as `manifest.yaml` in this directory
-
-3. **`CONNECTOR_BUILDER_MCP_SESSION_ROOT`** - Root directory for all sessions
-   - Example: `/path/to/sessions`
-   - Session-specific subdirectories will be created based on session ID hash
-
-4. **`CONNECTOR_BUILDER_MCP_SESSIONS_DIR`** - Legacy session storage directory (deprecated)
-   - Use `CONNECTOR_BUILDER_MCP_SESSION_ROOT` instead
-   - Lowest precedence, maintained for backward compatibility
-
-5. **Default** - If no overrides are set: `~/.mcp-sessions/{session_id_hash}/manifest.yaml`
-
-All path overrides must be absolute paths. Relative paths will be rejected for security reasons.
-
-**Security Note:** Path overrides are only allowed when the server is running in STDIO mode. The transport mode is detected internally from the server entrypoint and cannot be overridden by users. When running in remote mode (SSE/HTTP), path overrides will cause the server to fail at startup for security reasons.
+- **`CONNECTOR_BUILDER_MCP_SESSIONS_DIR`** - Session storage directory
+  - Example: `/path/to/sessions`
+  - If set, session-specific subdirectories will be created based on session ID hash
+  - Default: `{temp_dir}/connector-builder-mcp-sessions/{session_id_hash}/manifest.yaml`
 
 ## Contributing and Testing Guides
 
