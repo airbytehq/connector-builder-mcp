@@ -33,7 +33,10 @@ from connector_builder_mcp._util import (
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
 from connector_builder_mcp.secrets import hydrate_config
-from connector_builder_mcp.session_manifest import get_session_manifest_content
+from connector_builder_mcp.session_manifest import (
+    get_session_manifest_content,
+    set_session_manifest_content,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -95,6 +98,83 @@ class MultiStreamSmokeTest(BaseModel):
     total_records_count: int
     duration_seconds: float
     stream_results: dict[str, StreamSmokeTest]
+
+
+def _uses_static_schema(stream_config: dict[str, Any]) -> bool:
+    """Check if a stream uses or can use static schema declaration.
+
+    Args:
+        stream_config: Stream configuration from manifest
+
+    Returns:
+        True if stream uses static schema or has no schema (can add static schema),
+        False if using dynamic schema loaders (JsonFileSchemaLoader, etc.)
+    """
+    if "schema_loader" in stream_config:
+        schema_loader = stream_config["schema_loader"]
+        if isinstance(schema_loader, dict):
+            loader_type = schema_loader.get("type", "")
+            return loader_type in ["InlineSchemaLoader", ""]
+        return False
+
+    return True
+
+
+def _update_stream_schema_in_manifest(
+    manifest_yaml: str,
+    stream_name: str,
+    new_schema: dict[str, Any],
+) -> tuple[str, str | None]:
+    """Update a stream's schema in the manifest YAML.
+
+    Args:
+        manifest_yaml: Current manifest YAML content
+        stream_name: Name of the stream to update
+        new_schema: New schema to set
+
+    Returns:
+        Tuple of (updated_yaml, error_message)
+    """
+    from io import StringIO
+
+    from ruamel.yaml import YAML
+
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    yaml.default_flow_style = False
+
+    try:
+        manifest_dict = yaml.load(manifest_yaml)
+    except Exception as e:
+        return manifest_yaml, f"Failed to parse manifest YAML: {e}"
+
+    streams = manifest_dict.get("streams", [])
+    stream_config = next(
+        (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
+        None,
+    )
+
+    if not stream_config:
+        return manifest_yaml, f"Stream '{stream_name}' not found in manifest"
+
+    if not _uses_static_schema(stream_config):
+        return (
+            manifest_yaml,
+            f"Stream '{stream_name}' uses dynamic schema loader, cannot auto-update",
+        )
+
+    if "schema_loader" in stream_config:
+        del stream_config["schema_loader"]
+
+    stream_config["schema"] = new_schema
+
+    try:
+        stream = StringIO()
+        yaml.dump(manifest_dict, stream)
+        updated_yaml = stream.getvalue()
+        return updated_yaml, None
+    except Exception as e:
+        return manifest_yaml, f"Failed to serialize updated manifest: {e}"
 
 
 def _validate_schema_against_manifest(
@@ -380,6 +460,25 @@ def execute_stream_test_read(  # noqa: PLR0914
             "If set to 'False', raw data is excluded UNLESS zero records are returned (in which case it's auto-enabled for debugging)."
         ),
     ] = None,
+    include_inferred_schema: Annotated[
+        bool | None,
+        Field(
+            description="Control whether to include inferred schema in the result. "
+            "None (default): Return only if records fail validation against manifest schema. "
+            "True: Always return inferred schema. "
+            "False: Never return inferred schema."
+        ),
+    ] = None,
+    auto_update_schema: Annotated[
+        bool | None,
+        Field(
+            description="Control automatic schema updates in session manifest. "
+            "None (default): Fix problems only (missing schema or validation failures). "
+            "True: Always replace with detected schema. "
+            "False: Never update, only report warnings. "
+            "Only works with static schema declarations (aborts if using dynamic schema loaders)."
+        ),
+    ] = None,
     dotenv_file_uris: Annotated[
         list[str] | str | None,
         Field(
@@ -409,6 +508,7 @@ def execute_stream_test_read(  # noqa: PLR0914
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})
 
+    using_session_manifest = manifest is None
     if manifest is None:
         manifest = get_session_manifest_content(ctx.session_id)
         if manifest is None:
@@ -528,6 +628,65 @@ def execute_stream_test_read(  # noqa: PLR0914
         records_read=len(records_data),
     )
 
+    has_schema_issues = len(schema_warnings) > 0
+
+    schema_updated = False
+    if auto_update_schema is not None and inferred_schema and using_session_manifest:
+        streams = manifest_dict.get("streams", [])
+        stream_config = next(
+            (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
+            None,
+        )
+
+        should_update = False
+        if stream_config:
+            if not _uses_static_schema(stream_config):
+                schema_warnings.append(
+                    f"Cannot auto-update schema: Stream '{stream_name}' uses dynamic schema loader"
+                )
+            else:
+                if auto_update_schema is True:
+                    should_update = True
+                elif auto_update_schema is None:
+                    should_update = has_schema_issues
+                # auto_update_schema is False: never update
+
+                if should_update:
+                    session_id = ctx.session_id
+                    current_manifest = get_session_manifest_content(session_id)
+                    if current_manifest:
+                        updated_manifest, update_error = _update_stream_schema_in_manifest(
+                            current_manifest, stream_name, inferred_schema
+                        )
+                        if update_error:
+                            schema_warnings.append(f"Failed to auto-update schema: {update_error}")
+                        else:
+                            try:
+                                set_session_manifest_content(updated_manifest, session_id)
+                                schema_updated = True
+                                schema_warnings = [
+                                    w
+                                    for w in schema_warnings
+                                    if not w.startswith("CRITICAL:")
+                                    and not w.startswith("WARNING:")
+                                ]
+                                schema_warnings.insert(
+                                    0,
+                                    f"✓ Auto-updated schema for stream '{stream_name}' in session manifest",
+                                )
+                            except Exception as e:
+                                schema_warnings.append(f"Failed to save updated manifest: {e}")
+
+    return_inferred_schema = None
+    if include_inferred_schema is True:
+        return_inferred_schema = inferred_schema
+    elif include_inferred_schema is False:
+        return_inferred_schema = None
+    else:
+        # include_inferred_schema is None: include only if validation failed
+        if has_schema_issues and not schema_updated:
+            return_inferred_schema = inferred_schema
+
     return StreamTestResult(
         success=success,
         message=(
@@ -541,7 +700,7 @@ def execute_stream_test_read(  # noqa: PLR0914
         errors=error_msgs,
         logs=execution_logs,
         raw_api_responses=[stream_data] if include_raw_responses_data else None,
-        inferred_schema=inferred_schema,
+        inferred_schema=return_inferred_schema,
         schema_warnings=schema_warnings,
     )
 

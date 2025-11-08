@@ -350,13 +350,14 @@ def test_schema_validation_returns_inferred_schema(
     ctx,
     rick_and_morty_manifest_yaml: str,
 ) -> None:
-    """Test that inferred schema is returned from stream test read."""
+    """Test that inferred schema is returned from stream test read when requested."""
     result = execute_stream_test_read(
         ctx,
         stream_name="characters",
         manifest=rick_and_morty_manifest_yaml,
         config={},
         max_records=5,
+        include_inferred_schema=True,
     )
 
     assert isinstance(result, StreamTestResult)
@@ -415,3 +416,203 @@ spec:
         and "0" not in report.split("Records Extracted")[1].split("\n")[0]
     ):
         assert "Schema:" in report or "schema" in report.lower()
+
+
+def test_include_inferred_schema_parameter(ctx) -> None:
+    """Test include_inferred_schema parameter controls schema inclusion."""
+    manifest_without_schema = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - type: DeclarativeStream
+    name: test_stream
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: https://rickandmortyapi.com/api
+        path: /character
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - results
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+    result_always = execute_stream_test_read(
+        ctx,
+        stream_name="test_stream",
+        manifest=manifest_without_schema,
+        config={},
+        max_records=5,
+        include_inferred_schema=True,
+    )
+    assert isinstance(result_always, StreamTestResult)
+    if result_always.records_read > 0:
+        assert result_always.inferred_schema is not None
+
+    result_never = execute_stream_test_read(
+        ctx,
+        stream_name="test_stream",
+        manifest=manifest_without_schema,
+        config={},
+        max_records=5,
+        include_inferred_schema=False,
+    )
+    assert isinstance(result_never, StreamTestResult)
+    assert result_never.inferred_schema is None
+
+    result_default = execute_stream_test_read(
+        ctx,
+        stream_name="test_stream",
+        manifest=manifest_without_schema,
+        config={},
+        max_records=5,
+        include_inferred_schema=None,
+    )
+    assert isinstance(result_default, StreamTestResult)
+    if result_default.records_read > 0 and len(result_default.schema_warnings) > 0:
+        assert result_default.inferred_schema is not None
+
+
+def test_auto_update_schema_with_session_manifest(ctx) -> None:
+    """Test auto_update_schema parameter updates session manifest."""
+    from connector_builder_mcp.session_manifest import (
+        get_session_manifest_content,
+        set_session_manifest_content,
+    )
+
+    manifest_without_schema = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - type: DeclarativeStream
+    name: test_stream
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: https://rickandmortyapi.com/api
+        path: /character
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - results
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+    session_id = ctx.session_id
+    set_session_manifest_content(manifest_without_schema, session_id)
+
+    result = execute_stream_test_read(
+        ctx,
+        stream_name="test_stream",
+        manifest=None,
+        config={},
+        max_records=5,
+        auto_update_schema=True,
+    )
+
+    assert isinstance(result, StreamTestResult)
+    if result.records_read > 0:
+        assert result.inferred_schema is not None or len(result.schema_warnings) > 0, (
+            "Expected either inferred_schema or schema_warnings when records were read"
+        )
+
+        has_update_msg = any("Auto-updated schema" in warning for warning in result.schema_warnings)
+        has_error_msg = any(
+            "Failed to auto-update" in warning or "Cannot auto-update" in warning
+            for warning in result.schema_warnings
+        )
+
+        assert has_update_msg or has_error_msg, (
+            f"Expected auto-update success or error message, got: {result.schema_warnings}"
+        )
+
+        if has_update_msg:
+            updated_manifest = get_session_manifest_content(session_id)
+            assert updated_manifest is not None
+            assert "schema:" in updated_manifest or "properties:" in updated_manifest
+
+
+def test_auto_update_schema_none_only_fixes_problems(ctx) -> None:
+    """Test auto_update_schema=None only updates when there are schema issues."""
+    from connector_builder_mcp.session_manifest import (
+        get_session_manifest_content,
+        set_session_manifest_content,
+    )
+
+    manifest_with_schema = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - type: DeclarativeStream
+    name: test_stream
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: https://rickandmortyapi.com/api
+        path: /character
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - results
+    schema:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+    session_id = ctx.session_id
+    set_session_manifest_content(manifest_with_schema, session_id)
+    original_manifest = get_session_manifest_content(session_id)
+
+    result = execute_stream_test_read(
+        ctx,
+        stream_name="test_stream",
+        manifest=None,
+        config={},
+        max_records=5,
+        auto_update_schema=None,
+    )
+
+    assert isinstance(result, StreamTestResult)
+
+    updated_manifest = get_session_manifest_content(session_id)
+    if result.records_read > 0 and len(result.schema_warnings) == 0:
+        assert updated_manifest == original_manifest
