@@ -4,6 +4,7 @@ This module contains helper functions used by manifest_history.py.
 It is kept separate to improve code organization and maintainability.
 """
 
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,8 +45,6 @@ def _compute_content_hash(content: str) -> str:
     Returns:
         Hex digest of SHA256 hash
     """
-    import hashlib
-
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
