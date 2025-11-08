@@ -10,8 +10,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from enum import Enum
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastmcp import Context
 from pydantic import BaseModel, ConfigDict, Field
@@ -486,7 +485,6 @@ def restore_session_manifest_version(
     Returns:
         Success message with version info, or error message if version not found
     """
-    from connector_builder_mcp.session_manifest import get_session_manifest_path
 
     session_id = ctx.session_id
     version = get_manifest_version(session_id, version_number)

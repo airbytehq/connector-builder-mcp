@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from connector_builder_mcp.session_manifest import get_session_manifest_path
 
+
 if TYPE_CHECKING:
     from connector_builder_mcp.manifest_history import (
         CheckpointDetails,
