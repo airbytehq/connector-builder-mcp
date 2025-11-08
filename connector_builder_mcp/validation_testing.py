@@ -65,6 +65,12 @@ class StreamTestResult(BaseModel):
     raw_api_responses: list[dict[str, Any]] | None = Field(
         default=None, description="Raw request/response data and metadata from CDK"
     )
+    inferred_schema: dict[str, Any] | None = Field(
+        default=None, description="JSON schema inferred from the observed records"
+    )
+    schema_warnings: list[str] = Field(
+        default_factory=list, description="Warnings about schema mismatches or missing schemas"
+    )
 
 
 class StreamSmokeTest(BaseModel):
@@ -77,6 +83,7 @@ class StreamSmokeTest(BaseModel):
     duration_seconds: float = 0.0
     error_message: str | None = None
     field_count_warnings: list[str] = []
+    schema_warnings: list[str] = []
 
 
 class MultiStreamSmokeTest(BaseModel):
@@ -88,6 +95,90 @@ class MultiStreamSmokeTest(BaseModel):
     total_records_count: int
     duration_seconds: float
     stream_results: dict[str, StreamSmokeTest]
+
+
+def _validate_schema_against_manifest(
+    stream_name: str,
+    manifest_dict: dict[str, Any],
+    inferred_schema: dict[str, Any] | None,
+    records_read: int,
+) -> list[str]:
+    """Validate inferred schema against manifest's declared schema.
+
+    Args:
+        stream_name: Name of the stream being validated
+        manifest_dict: The connector manifest dictionary
+        inferred_schema: Schema inferred from observed records
+        records_read: Number of records that were read
+
+    Returns:
+        List of warning messages about schema issues
+    """
+    warnings: list[str] = []
+
+    streams = manifest_dict.get("streams", [])
+    stream_config = next(
+        (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
+        None,
+    )
+
+    if not stream_config:
+        warnings.append(f"Stream '{stream_name}' not found in manifest")
+        return warnings
+
+    manifest_schema = (
+        stream_config.get("schema_loader", {}).get("schema")
+        if isinstance(stream_config.get("schema_loader"), dict)
+        else None
+    )
+
+    if not manifest_schema:
+        manifest_schema = stream_config.get("schema")
+
+    if not manifest_schema:
+        if records_read > 0:
+            warnings.append(
+                f"CRITICAL: Stream '{stream_name}' is missing a schema definition in the manifest. "
+                f"Records were successfully read ({records_read} records), but without a schema, "
+                f"the connector may not work correctly in production. "
+                f"Consider adding the inferred schema to the manifest."
+            )
+        else:
+            warnings.append(
+                f"WARNING: Stream '{stream_name}' is missing a schema definition in the manifest. "
+                f"No records were read, so schema inference was not possible."
+            )
+        return warnings
+
+    if inferred_schema and manifest_schema:
+        inferred_properties = inferred_schema.get("properties", {})
+        manifest_properties = manifest_schema.get("properties", {})
+
+        missing_in_manifest = set(inferred_properties.keys()) - set(manifest_properties.keys())
+        if missing_in_manifest:
+            warnings.append(
+                f"Schema mismatch: {len(missing_in_manifest)} field(s) found in records but not in manifest schema: "
+                f"{', '.join(sorted(list(missing_in_manifest)[:5]))}"
+                + (
+                    f" (and {len(missing_in_manifest) - 5} more)"
+                    if len(missing_in_manifest) > 5
+                    else ""
+                )
+            )
+
+        missing_in_records = set(manifest_properties.keys()) - set(inferred_properties.keys())
+        if missing_in_records:
+            warnings.append(
+                f"Schema mismatch: {len(missing_in_records)} field(s) defined in manifest schema but not found in records: "
+                f"{', '.join(sorted(list(missing_in_records)[:5]))}"
+                + (
+                    f" (and {len(missing_in_records) - 5} more)"
+                    if len(missing_in_records) > 5
+                    else ""
+                )
+            )
+
+    return warnings
 
 
 def _calculate_record_stats(
@@ -417,6 +508,26 @@ def execute_stream_test_read(  # noqa: PLR0914
     # Toggle to include_raw_responses=True if we had an error
     include_raw_responses_data = include_raw_responses_data or not success
 
+    # Extract inferred schema from stream_data (returned by CDK's TestReader)
+    # NOTE: The CDK's TestReader.run_test_read() automatically infers JSON schemas
+    # from observed records using SchemaInferrer. This inferred schema could be used
+    # in the future to support auto-schema detection in manifests, where the schema
+    # would be automatically generated during the discover operation instead of being
+    # manually declared in the manifest YAML. This would require:
+    # 1. A new manifest option to enable auto-schema mode (e.g., `auto_detect_schema: true`)
+    # 2. Reading N records per stream during discover to build the schema
+    # 3. Storing the inferred schema in the catalog's json_schema field
+    # 4. Potentially caching schemas to avoid re-inference on every discover
+    inferred_schema = stream_data.get("inferred_schema")
+
+    # Validate schema against manifest
+    schema_warnings = _validate_schema_against_manifest(
+        stream_name=stream_name,
+        manifest_dict=manifest_dict,
+        inferred_schema=inferred_schema,
+        records_read=len(records_data),
+    )
+
     return StreamTestResult(
         success=success,
         message=(
@@ -430,6 +541,8 @@ def execute_stream_test_read(  # noqa: PLR0914
         errors=error_msgs,
         logs=execution_logs,
         raw_api_responses=[stream_data] if include_raw_responses_data else None,
+        inferred_schema=inferred_schema,
+        schema_warnings=schema_warnings,
     )
 
 
@@ -621,6 +734,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                     duration_seconds=stream_duration,
                 )
                 smoke_test_result.field_count_warnings = field_count_warnings
+                smoke_test_result.schema_warnings = result.schema_warnings
                 stream_results[stream_name] = smoke_test_result
                 logger.info(f"✓ {stream_name}: {records_read} records in {stream_duration:.2f}s")
             else:
@@ -702,6 +816,11 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
             field_warnings = getattr(smoke_result, "field_count_warnings", [])
             if field_warnings:
                 warnings.append(f"⚠️ Field count issues: {'; '.join(field_warnings[:2])}")
+
+            schema_warnings = getattr(smoke_result, "schema_warnings", [])
+            if schema_warnings:
+                for schema_warning in schema_warnings[:2]:
+                    warnings.append(f"⚠️ Schema: {schema_warning}")
 
             report_lines.extend(
                 [

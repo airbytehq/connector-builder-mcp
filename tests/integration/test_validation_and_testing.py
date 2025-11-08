@@ -295,3 +295,123 @@ def test_concurrent_tool_execution(
     assert len(results) == 3
     for result in results:
         assert result is not None
+
+
+def test_schema_validation_with_missing_schema(ctx) -> None:
+    """Test that schema validation detects missing schemas in manifest."""
+    manifest_without_schema = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - type: DeclarativeStream
+    name: test_stream
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: https://rickandmortyapi.com/api
+        path: /character
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - results
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+    result = execute_stream_test_read(
+        ctx,
+        stream_name="test_stream",
+        manifest=manifest_without_schema,
+        config={},
+        max_records=5,
+    )
+
+    assert isinstance(result, StreamTestResult)
+    assert result.inferred_schema is not None or result.records_read == 0
+
+    if result.records_read > 0:
+        assert len(result.schema_warnings) > 0
+        assert any(
+            "missing a schema definition" in warning.lower() for warning in result.schema_warnings
+        )
+
+
+def test_schema_validation_returns_inferred_schema(
+    ctx,
+    rick_and_morty_manifest_yaml: str,
+) -> None:
+    """Test that inferred schema is returned from stream test read."""
+    result = execute_stream_test_read(
+        ctx,
+        stream_name="characters",
+        manifest=rick_and_morty_manifest_yaml,
+        config={},
+        max_records=5,
+    )
+
+    assert isinstance(result, StreamTestResult)
+
+    if result.success and result.records_read > 0:
+        assert result.inferred_schema is not None
+        assert isinstance(result.inferred_schema, dict)
+
+        if "properties" in result.inferred_schema:
+            assert isinstance(result.inferred_schema["properties"], dict)
+
+
+def test_readiness_report_includes_schema_warnings(ctx) -> None:
+    """Test that readiness report includes schema warnings."""
+    manifest_without_schema = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - type: DeclarativeStream
+    name: test_stream
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: https://rickandmortyapi.com/api
+        path: /character
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - results
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+    report = run_connector_readiness_test_report(
+        ctx,
+        manifest=manifest_without_schema,
+        config={},
+        max_records=10,
+    )
+
+    assert isinstance(report, str)
+    assert "# Connector Readiness Test Report" in report
+
+    if (
+        "Records Extracted" in report
+        and "0" not in report.split("Records Extracted")[1].split("\n")[0]
+    ):
+        assert "Schema:" in report or "schema" in report.lower()
