@@ -430,7 +430,7 @@ def test_schema_validation_returns_inferred_schema(
         manifest=rick_and_morty_manifest_yaml,
         config={},
         max_records=5,
-        include_inferred_schema=True,
+        include_inferred_json_schema=True,
     )
 
     assert isinstance(result, StreamTestResult)
@@ -469,14 +469,14 @@ def test_include_inferred_schema_parameter(
     ctx,
     manifest_without_schema: str,
 ) -> None:
-    """Test include_inferred_schema parameter controls schema inclusion."""
+    """Test include_inferred_json_schema parameter controls schema inclusion."""
     result_always = execute_stream_test_read(
         ctx,
         stream_name="test_stream",
         manifest=manifest_without_schema,
         config={},
         max_records=5,
-        include_inferred_schema=True,
+        include_inferred_json_schema=True,
     )
     assert isinstance(result_always, StreamTestResult)
     if result_always.records_read > 0:
@@ -488,7 +488,7 @@ def test_include_inferred_schema_parameter(
         manifest=manifest_without_schema,
         config={},
         max_records=5,
-        include_inferred_schema=False,
+        include_inferred_json_schema=False,
     )
     assert isinstance(result_never, StreamTestResult)
     assert result_never.inferred_json_schema is None
@@ -499,7 +499,7 @@ def test_include_inferred_schema_parameter(
         manifest=manifest_without_schema,
         config={},
         max_records=5,
-        include_inferred_schema=None,
+        include_inferred_json_schema=None,
     )
     assert isinstance(result_default, StreamTestResult)
     if result_default.records_read > 0 and len(result_default.schema_warnings) > 0:

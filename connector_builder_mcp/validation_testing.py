@@ -461,7 +461,7 @@ def execute_stream_test_read(  # noqa: PLR0914
             "If set to 'False', raw data is excluded UNLESS zero records are returned (in which case it's auto-enabled for debugging)."
         ),
     ] = None,
-    include_inferred_schema: Annotated[
+    include_inferred_json_schema: Annotated[
         bool | None,
         Field(
             description="Control whether to include inferred schema in the result. "
@@ -681,12 +681,12 @@ def execute_stream_test_read(  # noqa: PLR0914
                                 schema_warnings.append(f"Failed to save updated manifest: {e}")
 
     return_inferred_schema = None
-    if include_inferred_schema is True:
+    if include_inferred_json_schema is True:
         return_inferred_schema = inferred_json_schema
-    elif include_inferred_schema is False:
+    elif include_inferred_json_schema is False:
         return_inferred_schema = None
     else:
-        # include_inferred_schema is None: include only if validation failed
+        # include_inferred_json_schema is None: include only if validation failed
         if has_schema_issues and not schema_updated:
             return_inferred_schema = inferred_json_schema
 
