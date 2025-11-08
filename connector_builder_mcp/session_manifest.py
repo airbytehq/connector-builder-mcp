@@ -3,6 +3,7 @@
 This module provides session-isolated manifest file storage and management,
 allowing multiple concurrent sessions to work with different manifests without conflicts.
 """
+
 import hashlib
 import logging
 from functools import lru_cache

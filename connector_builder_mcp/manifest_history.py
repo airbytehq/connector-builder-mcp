@@ -315,7 +315,12 @@ def resolve_revision_ref(
     """
     # Full tuple - validate and return
     if isinstance(ref, tuple):
-        if len(ref) == 3 and isinstance(ref[0], int) and isinstance(ref[1], int) and isinstance(ref[2], str):
+        if (
+            len(ref) == 3
+            and isinstance(ref[0], int)
+            and isinstance(ref[1], int)
+            and isinstance(ref[2], str)
+        ):
             return ref
         raise ValueError(f"Invalid revision tuple: {ref}. Expected (int, int, str)")
 
@@ -497,7 +502,9 @@ def list_manifest_revisions(session_id: str) -> list[ManifestRevisionSummary]:
                         ordinal=ordinal,
                         timestamp_ns=timestamp_ns,
                         timestamp=timestamp,
-                        timestamp_iso=datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat(),
+                        timestamp_iso=datetime.fromtimestamp(
+                            timestamp, tz=timezone.utc
+                        ).isoformat(),
                         content_hash=content_hash,
                         checkpoint_type=CheckpointType.NONE,
                         checkpoint_details=None,

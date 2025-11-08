@@ -280,9 +280,13 @@ def create_connector_manifest_scaffold(
         error_details = "; ".join(validation_result.errors)
         return f"ERROR: Generated manifest failed validation: {error_details}"
 
-    manifest_path, revision_id = set_session_manifest_content(manifest_yaml, session_id=ctx.session_id)
+    manifest_path, revision_id = set_session_manifest_content(
+        manifest_yaml, session_id=ctx.session_id
+    )
     ordinal, _, content_hash = revision_id
-    logger.info(f"Saved generated manifest to session at: {manifest_path} (revision {ordinal}: {content_hash[:8]})")
+    logger.info(
+        f"Saved generated manifest to session at: {manifest_path} (revision {ordinal}: {content_hash[:8]})"
+    )
 
     success_message = SCAFFOLD_CREATION_SUCCESS_MESSAGE.format(MCP_SERVER_NAME=MCP_SERVER_NAME)
     return f"{success_message}\n\nCreated manifest revision {ordinal} ({content_hash[:8]})."
