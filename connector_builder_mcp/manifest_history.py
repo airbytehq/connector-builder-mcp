@@ -563,14 +563,10 @@ def restore_session_manifest_version(
     session manifest. A new version is automatically created to preserve the
     restore operation in history.
 
-    Args:
-        ctx: FastMCP context (automatically injected)
-        version_number: Version number to restore
-
     Returns:
         Success message with version info, or error message if version not found
     """
-    from connector_builder_mcp.session_manifest import set_session_manifest_content
+    from connector_builder_mcp.session_manifest import get_session_manifest_path
 
     session_id = ctx.session_id
     version = get_manifest_version(session_id, version_number)
@@ -578,7 +574,8 @@ def restore_session_manifest_version(
     if version is None:
         return f"ERROR: Version {version_number} not found for session '{session_id}'"
 
-    set_session_manifest_content(version.content, session_id, save_version=False)
+    manifest_path = get_session_manifest_path(session_id)
+    manifest_path.write_text(version.content, encoding="utf-8")
 
     new_version = save_manifest_version(
         session_id=session_id,

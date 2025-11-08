@@ -132,14 +132,8 @@ def get_session_manifest_content(session_id: str) -> str | None:
 def set_session_manifest_content(
     manifest_yaml: str,
     session_id: str,
-    save_version: bool = True,
 ) -> Path:
     """Set the content of the session manifest file.
-
-    Args:
-        manifest_yaml: YAML content to write
-        session_id: Session ID
-        save_version: Whether to save a version to history (default: True)
 
     Returns:
         Path to the written manifest file
@@ -147,18 +141,14 @@ def set_session_manifest_content(
     Raises:
         Exception: If writing the file fails
     """
+    from connector_builder_mcp.manifest_history import save_manifest_version
+
     manifest_path = get_session_manifest_path(session_id)
 
     manifest_path.write_text(manifest_yaml, encoding="utf-8")
     logger.info(f"Wrote session manifest to: {manifest_path}")
 
-    if save_version:
-        try:
-            from connector_builder_mcp.manifest_history import save_manifest_version
-
-            save_manifest_version(session_id=session_id, content=manifest_yaml)
-        except Exception as e:
-            logger.warning(f"Failed to save manifest version: {e}")
+    save_manifest_version(session_id=session_id, content=manifest_yaml)
 
     return manifest_path
 
