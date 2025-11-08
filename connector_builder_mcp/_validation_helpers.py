@@ -7,7 +7,7 @@ the validate_manifest tool and other tools that need validation feedback.
 import logging
 from typing import Any
 
-from jsonschema import ValidationError, validate
+from jsonschema import Draft7Validator, ValidationError, validate
 
 from airbyte_cdk.connector_builder.connector_builder_handler import (
     create_source,
@@ -72,6 +72,73 @@ def _format_validation_error(error: ValidationError) -> str:
     return f"Validation error at {path}: {message}"
 
 
+def _validate_stream_schemas(manifest_dict: dict[str, Any]) -> list[str]:
+    """Validate that all stream schemas are valid JSON Schema objects.
+
+    This is a workaround for https://github.com/airbytehq/airbyte-python-cdk/issues/832
+    The CDK's declarative component schema doesn't validate that inline stream schemas
+    are valid JSON Schemas, which can lead to cryptic errors at runtime.
+
+    Args:
+        manifest_dict: The manifest dictionary to validate
+
+    Returns:
+        List of validation error messages (empty if all schemas are valid)
+    """
+    errors: list[str] = []
+    validator = Draft7Validator(Draft7Validator.META_SCHEMA)
+
+    streams = manifest_dict.get("streams", [])
+    if not streams:
+        return errors
+
+    for i, stream in enumerate(streams):
+        if not isinstance(stream, dict):
+            continue
+
+        stream_name = stream.get("name", f"stream_{i}")
+
+        # Check for inline schema (direct schema field)
+        schema = stream.get("schema")
+
+        # Check for schema_loader with inline schema
+        if not schema and "schema_loader" in stream:
+            schema_loader = stream.get("schema_loader")
+            if isinstance(schema_loader, dict):
+                loader_type = schema_loader.get("type", "")
+                # Only validate InlineSchemaLoader schemas
+                if loader_type == "InlineSchemaLoader":
+                    schema = schema_loader.get("schema")
+
+        # Skip if no schema to validate (might be using dynamic schema loader)
+        if not schema:
+            continue
+
+        # Validate that schema is a dict
+        if not isinstance(schema, dict):
+            errors.append(
+                f"Stream '{stream_name}': Schema must be an object (dict), got {type(schema).__name__}. "
+                f"Invalid schemas can cause runtime errors."
+            )
+            continue
+
+        # Validate against JSON Schema meta-schema
+        schema_errors = list(validator.iter_errors(schema))
+        if schema_errors:
+            error_messages = []
+            for error in schema_errors[:3]:  # Limit to first 3 errors
+                path = " -> ".join(str(p) for p in error.absolute_path) if error.absolute_path else "root"
+                error_messages.append(f"  - At '{path}': {error.message}")
+
+            errors.append(
+                f"Stream '{stream_name}': Invalid JSON Schema definition.\n"
+                + "\n".join(error_messages)
+                + (f"\n  - ... and {len(schema_errors) - 3} more errors" if len(schema_errors) > 3 else "")
+            )
+
+    return errors
+
+
 def validate_manifest_content(
     manifest_text: str,
 ) -> tuple[bool, list[str], list[str], dict[str, Any] | None]:
@@ -101,6 +168,15 @@ def validate_manifest_content(
         errors.append(
             "Manifest missing required fields: version, type, check, and either streams or dynamic_streams"
         )
+        return (False, errors, warnings, resolved_manifest)
+
+    # Validate stream schemas BEFORE preprocessing
+    # Workaround for https://github.com/airbytehq/airbyte-python-cdk/issues/832
+    logger.info("Validating stream schemas against JSON Schema meta-schema")
+    stream_schema_errors = _validate_stream_schemas(manifest_dict)
+    if stream_schema_errors:
+        logger.error(f"Found {len(stream_schema_errors)} invalid stream schema(s)")
+        errors.extend(stream_schema_errors)
         return (False, errors, warnings, resolved_manifest)
 
     try:
