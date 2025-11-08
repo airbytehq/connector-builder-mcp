@@ -8,6 +8,10 @@ from typing import Any, cast
 import pytest
 import yaml
 
+from connector_builder_mcp.session_manifest import (
+    get_session_manifest_content,
+    set_session_manifest_content,
+)
 from connector_builder_mcp.validation_testing import (
     StreamTestResult,
     execute_dynamic_manifest_resolution_test,
@@ -17,8 +21,94 @@ from connector_builder_mcp.validation_testing import (
 )
 
 
+# Test manifest constants
+MALFORMED_MANIFEST_WITH_STRING_STREAMS = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - test_stream
+  - another_stream
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+MANIFEST_WITHOUT_SCHEMA = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - type: DeclarativeStream
+    name: test_stream
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: https://rickandmortyapi.com/api
+        path: /character
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - results
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+MANIFEST_WITH_SCHEMA = """
+version: 4.6.2
+type: DeclarativeSource
+check:
+  type: CheckStream
+  stream_names:
+    - test_stream
+streams:
+  - type: DeclarativeStream
+    name: test_stream
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url_base: https://rickandmortyapi.com/api
+        path: /character
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path:
+            - results
+    schema:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties: {}
+"""
+
+
 @pytest.fixture
-def rick_and_morty_manifest_yaml(resources_path: Path) -> str:
+def rick_and_morty_manifest_yaml(
+    resources_path: Path,
+) -> str:
     """Load the Rick and Morty API manifest for testing."""
     manifest_path: Path = resources_path / "rick_and_morty_manifest.yaml"
     return manifest_path.read_text(encoding="utf-8")
@@ -33,7 +123,9 @@ def rick_and_morty_manifest_dict(
 
 
 @pytest.fixture
-def simple_api_manifest_yaml(resources_path: Path) -> str:
+def simple_api_manifest_yaml(
+    resources_path: Path,
+) -> str:
     """Load the simple API manifest for testing."""
     manifest_path: Path = resources_path / "simple_api_manifest.yaml"
     return manifest_path.read_text(encoding="utf-8")
@@ -43,6 +135,24 @@ def simple_api_manifest_yaml(resources_path: Path) -> str:
 def invalid_manifest_yaml() -> str:
     """Invalid manifest for error testing."""
     return "invalid: manifest\nmissing: required_fields"
+
+
+@pytest.fixture
+def malformed_manifest_with_string_streams() -> str:
+    """Malformed manifest with streams as list of strings."""
+    return MALFORMED_MANIFEST_WITH_STRING_STREAMS
+
+
+@pytest.fixture
+def manifest_without_schema() -> str:
+    """Test manifest without schema definition."""
+    return MANIFEST_WITHOUT_SCHEMA
+
+
+@pytest.fixture
+def manifest_with_schema() -> str:
+    """Test manifest with schema definition."""
+    return MANIFEST_WITH_SCHEMA
 
 
 def test_validate_rick_and_morty_manifest(
@@ -178,7 +288,10 @@ def test_performance_multiple_tool_calls(
     assert duration < 20.0, f"Multiple tool calls took too long: {duration}s"
 
 
-def test_simple_api_manifest_workflow(ctx, simple_api_manifest_yaml) -> None:
+def test_simple_api_manifest_workflow(
+    ctx,
+    simple_api_manifest_yaml,
+) -> None:
     """Test workflow with simple API manifest."""
     validation_result = validate_manifest(ctx, manifest=simple_api_manifest_yaml)
     assert validation_result.is_valid
@@ -190,31 +303,17 @@ def test_simple_api_manifest_workflow(ctx, simple_api_manifest_yaml) -> None:
     assert "streams" in resolved_manifest
 
 
-def test_malformed_manifest_streams_validation(ctx) -> None:
+def test_malformed_manifest_streams_validation(
+    ctx,
+    malformed_manifest_with_string_streams: str,
+) -> None:
     """Test that malformed manifest with streams as list of strings raises clear error."""
-    malformed_manifest = """
-version: 4.6.2
-type: DeclarativeSource
-check:
-  type: CheckStream
-  stream_names:
-    - test_stream
-streams:
-  - test_stream
-  - another_stream
-spec:
-  type: Spec
-  connection_specification:
-    type: object
-    properties: {}
-"""
-
     with pytest.raises(
         ValueError,
         match=r"Invalid manifest structure.*streams.*must be a list of stream definition objects",
     ):
         run_connector_readiness_test_report(
-            ctx, manifest=malformed_manifest, config={}, max_records=5
+            ctx, manifest=malformed_manifest_with_string_streams, config={}, max_records=5
         )
 
 
@@ -297,37 +396,11 @@ def test_concurrent_tool_execution(
         assert result is not None
 
 
-def test_schema_validation_with_missing_schema(ctx) -> None:
+def test_schema_validation_with_missing_schema(
+    ctx,
+    manifest_without_schema: str,
+) -> None:
     """Test that schema validation detects missing schemas in manifest."""
-    manifest_without_schema = """
-version: 4.6.2
-type: DeclarativeSource
-check:
-  type: CheckStream
-  stream_names:
-    - test_stream
-streams:
-  - type: DeclarativeStream
-    name: test_stream
-    retriever:
-      type: SimpleRetriever
-      requester:
-        type: HttpRequester
-        url_base: https://rickandmortyapi.com/api
-        path: /character
-      record_selector:
-        type: RecordSelector
-        extractor:
-          type: DpathExtractor
-          field_path:
-            - results
-spec:
-  type: Spec
-  connection_specification:
-    type: object
-    properties: {}
-"""
-
     result = execute_stream_test_read(
         ctx,
         stream_name="test_stream",
@@ -370,37 +443,11 @@ def test_schema_validation_returns_inferred_schema(
             assert isinstance(result.inferred_json_schema["properties"], dict)
 
 
-def test_readiness_report_includes_schema_warnings(ctx) -> None:
+def test_readiness_report_includes_schema_warnings(
+    ctx,
+    manifest_without_schema: str,
+) -> None:
     """Test that readiness report includes schema warnings."""
-    manifest_without_schema = """
-version: 4.6.2
-type: DeclarativeSource
-check:
-  type: CheckStream
-  stream_names:
-    - test_stream
-streams:
-  - type: DeclarativeStream
-    name: test_stream
-    retriever:
-      type: SimpleRetriever
-      requester:
-        type: HttpRequester
-        url_base: https://rickandmortyapi.com/api
-        path: /character
-      record_selector:
-        type: RecordSelector
-        extractor:
-          type: DpathExtractor
-          field_path:
-            - results
-spec:
-  type: Spec
-  connection_specification:
-    type: object
-    properties: {}
-"""
-
     report = run_connector_readiness_test_report(
         ctx,
         manifest=manifest_without_schema,
@@ -418,37 +465,11 @@ spec:
         assert "Schema:" in report or "schema" in report.lower()
 
 
-def test_include_inferred_schema_parameter(ctx) -> None:
+def test_include_inferred_schema_parameter(
+    ctx,
+    manifest_without_schema: str,
+) -> None:
     """Test include_inferred_schema parameter controls schema inclusion."""
-    manifest_without_schema = """
-version: 4.6.2
-type: DeclarativeSource
-check:
-  type: CheckStream
-  stream_names:
-    - test_stream
-streams:
-  - type: DeclarativeStream
-    name: test_stream
-    retriever:
-      type: SimpleRetriever
-      requester:
-        type: HttpRequester
-        url_base: https://rickandmortyapi.com/api
-        path: /character
-      record_selector:
-        type: RecordSelector
-        extractor:
-          type: DpathExtractor
-          field_path:
-            - results
-spec:
-  type: Spec
-  connection_specification:
-    type: object
-    properties: {}
-"""
-
     result_always = execute_stream_test_read(
         ctx,
         stream_name="test_stream",
@@ -485,42 +506,11 @@ spec:
         assert result_default.inferred_json_schema is not None
 
 
-def test_auto_update_schema_with_session_manifest(ctx) -> None:
+def test_auto_update_schema_with_session_manifest(
+    ctx,
+    manifest_without_schema: str,
+) -> None:
     """Test auto_update_schema parameter updates session manifest."""
-    from connector_builder_mcp.session_manifest import (
-        get_session_manifest_content,
-        set_session_manifest_content,
-    )
-
-    manifest_without_schema = """
-version: 4.6.2
-type: DeclarativeSource
-check:
-  type: CheckStream
-  stream_names:
-    - test_stream
-streams:
-  - type: DeclarativeStream
-    name: test_stream
-    retriever:
-      type: SimpleRetriever
-      requester:
-        type: HttpRequester
-        url_base: https://rickandmortyapi.com/api
-        path: /character
-      record_selector:
-        type: RecordSelector
-        extractor:
-          type: DpathExtractor
-          field_path:
-            - results
-spec:
-  type: Spec
-  connection_specification:
-    type: object
-    properties: {}
-"""
-
     session_id = ctx.session_id
     set_session_manifest_content(manifest_without_schema, session_id)
 
@@ -555,49 +545,8 @@ spec:
             assert "schema:" in updated_manifest or "properties:" in updated_manifest
 
 
-def test_auto_update_schema_none_only_fixes_problems(ctx) -> None:
+def test_auto_update_schema_none_only_fixes_problems(ctx, manifest_with_schema: str) -> None:
     """Test auto_update_schema=None only updates when there are schema issues."""
-    from connector_builder_mcp.session_manifest import (
-        get_session_manifest_content,
-        set_session_manifest_content,
-    )
-
-    manifest_with_schema = """
-version: 4.6.2
-type: DeclarativeSource
-check:
-  type: CheckStream
-  stream_names:
-    - test_stream
-streams:
-  - type: DeclarativeStream
-    name: test_stream
-    retriever:
-      type: SimpleRetriever
-      requester:
-        type: HttpRequester
-        url_base: https://rickandmortyapi.com/api
-        path: /character
-      record_selector:
-        type: RecordSelector
-        extractor:
-          type: DpathExtractor
-          field_path:
-            - results
-    schema:
-      type: object
-      properties:
-        id:
-          type: integer
-        name:
-          type: string
-spec:
-  type: Spec
-  connection_specification:
-    type: object
-    properties: {}
-"""
-
     session_id = ctx.session_id
     set_session_manifest_content(manifest_with_schema, session_id)
     original_manifest = get_session_manifest_content(session_id)
