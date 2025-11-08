@@ -3,12 +3,14 @@
 import logging
 import pkgutil
 import time
+from io import StringIO
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from fastmcp import Context
 from jsonschema import ValidationError
 from pydantic import BaseModel, Field
+from ruamel.yaml import YAML
 
 from airbyte_cdk import ConfiguredAirbyteStream
 from airbyte_cdk.connector_builder.connector_builder_handler import (
@@ -39,10 +41,16 @@ from connector_builder_mcp.manifest_history import (
     checkpoint_manifest_version,
 )
 from connector_builder_mcp.secrets import hydrate_config
-from connector_builder_mcp.session_manifest import get_session_manifest_content
+from connector_builder_mcp.session_manifest import (
+    get_session_manifest_content,
+    set_session_manifest_content,
+)
 
 
 logger = logging.getLogger(__name__)
+
+# CDK stream data field name for inferred JSON schema
+INFERRED_JSON_SCHEMA_KEY = "inferred_schema"
 
 
 class ManifestValidationResult(BaseModel):
@@ -71,6 +79,12 @@ class StreamTestResult(BaseModel):
     raw_api_responses: list[dict[str, Any]] | None = Field(
         default=None, description="Raw request/response data and metadata from CDK"
     )
+    inferred_json_schema: dict[str, Any] | None = Field(
+        default=None, description="JSON schema inferred from the observed records"
+    )
+    schema_warnings: list[str] = Field(
+        default_factory=list, description="Warnings about schema mismatches or missing schemas"
+    )
 
 
 class StreamSmokeTest(BaseModel):
@@ -83,6 +97,7 @@ class StreamSmokeTest(BaseModel):
     duration_seconds: float = 0.0
     error_message: str | None = None
     field_count_warnings: list[str] = []
+    schema_warnings: list[str] = []
 
 
 class MultiStreamSmokeTest(BaseModel):
@@ -94,6 +109,257 @@ class MultiStreamSmokeTest(BaseModel):
     total_records_count: int
     duration_seconds: float
     stream_results: dict[str, StreamSmokeTest]
+
+
+def _uses_static_schema(stream_config: dict[str, Any]) -> bool:
+    """Check if a stream uses or can use static schema declaration.
+
+    Args:
+        stream_config: Stream configuration from manifest
+
+    Returns:
+        True if stream uses static schema or has no schema (can add static schema),
+        False if using dynamic schema loaders (JsonFileSchemaLoader, etc.)
+    """
+    if "schema_loader" in stream_config:
+        schema_loader = stream_config["schema_loader"]
+        if isinstance(schema_loader, dict):
+            loader_type = schema_loader.get("type", "")
+            return loader_type in ["InlineSchemaLoader", ""]
+        return False
+
+    return True
+
+
+def _update_stream_schema_in_manifest(
+    manifest_yaml: str,
+    stream_name: str,
+    new_schema: dict[str, Any],
+) -> tuple[str, str | None]:
+    """Update a stream's schema in the manifest YAML.
+
+    Args:
+        manifest_yaml: Current manifest YAML content
+        stream_name: Name of the stream to update
+        new_schema: New schema to set
+
+    Returns:
+        Tuple of (updated_yaml, error_message)
+    """
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    yaml.default_flow_style = False
+
+    try:
+        manifest_dict = yaml.load(manifest_yaml)
+    except Exception as e:
+        return manifest_yaml, f"Failed to parse manifest YAML: {e}"
+
+    streams = manifest_dict.get("streams", [])
+    stream_config = next(
+        (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
+        None,
+    )
+
+    if not stream_config:
+        return manifest_yaml, f"Stream '{stream_name}' not found in manifest"
+
+    if not _uses_static_schema(stream_config):
+        return (
+            manifest_yaml,
+            f"Stream '{stream_name}' uses dynamic schema loader, cannot auto-update",
+        )
+
+    if "schema_loader" in stream_config:
+        del stream_config["schema_loader"]
+
+    stream_config["schema"] = new_schema
+
+    try:
+        stream = StringIO()
+        yaml.dump(manifest_dict, stream)
+        updated_yaml = stream.getvalue()
+        return updated_yaml, None
+    except Exception as e:
+        return manifest_yaml, f"Failed to serialize updated manifest: {e}"
+
+
+def _should_update_schema(
+    auto_update_schema: bool | None,
+    has_schema_issues: bool,
+) -> bool:
+    """Determine if schema should be auto-updated based on settings and issues.
+
+    Args:
+        auto_update_schema: User preference for auto-update behavior
+        has_schema_issues: Whether validation found schema problems
+
+    Returns:
+        True if schema should be updated, False otherwise
+    """
+    if auto_update_schema is True:
+        return True
+    if auto_update_schema is None:
+        return has_schema_issues
+    # auto_update_schema is False
+    return False
+
+
+def _try_auto_update_session_schema(
+    ctx: Context,
+    stream_name: str,
+    manifest_dict: dict[str, Any],
+    inferred_json_schema: dict[str, Any],
+    auto_update_schema: bool | None,
+    has_schema_issues: bool,
+) -> tuple[bool, list[str]]:
+    """Attempt to auto-update schema in session manifest.
+
+    Args:
+        ctx: FastMCP context for session access
+        stream_name: Name of the stream to update
+        manifest_dict: Parsed manifest dictionary
+        inferred_json_schema: Schema inferred from records
+        auto_update_schema: User preference for auto-update
+        has_schema_issues: Whether validation found problems
+
+    Returns:
+        Tuple of (schema_updated, warnings) where schema_updated is True if
+        the schema was successfully updated, and warnings is a list of any
+        warning messages generated during the update attempt
+    """
+    warnings: list[str] = []
+
+    # Find the stream configuration
+    streams = manifest_dict.get("streams", [])
+    stream_config = next(
+        (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
+        None,
+    )
+
+    if not stream_config:
+        return False, warnings
+
+    # Check if stream uses dynamic schema loader
+    if not _uses_static_schema(stream_config):
+        # Only add warning if user explicitly requested auto-update
+        if auto_update_schema is True:
+            warnings.append(
+                f"Cannot auto-update schema: Stream '{stream_name}' uses dynamic schema loader"
+            )
+        return False, warnings
+
+    # Determine if we should update
+    if not _should_update_schema(auto_update_schema, has_schema_issues):
+        return False, warnings
+
+    # Attempt to update the schema
+    session_id = ctx.session_id
+    current_manifest = get_session_manifest_content(session_id)
+    if not current_manifest:
+        return False, warnings
+
+    updated_manifest, update_error = _update_stream_schema_in_manifest(
+        current_manifest, stream_name, inferred_json_schema
+    )
+
+    if update_error:
+        warnings.append(f"Failed to auto-update schema: {update_error}")
+        return False, warnings
+
+    # Try to save the updated manifest
+    try:
+        set_session_manifest_content(updated_manifest, session_id)
+        # Remove CRITICAL/WARNING prefixes since we fixed the problem
+        success_warning = f"✓ Auto-updated schema for stream '{stream_name}' in session manifest"
+        return True, [success_warning]
+    except Exception as e:
+        warnings.append(f"Failed to save updated manifest: {e}")
+        return False, warnings
+
+
+def _validate_schema_against_manifest(
+    stream_name: str,
+    manifest_dict: dict[str, Any],
+    inferred_json_schema: dict[str, Any] | None,
+    records_read: int,
+) -> list[str]:
+    """Validate inferred schema against manifest's declared schema.
+
+    Args:
+        stream_name: Name of the stream being validated
+        manifest_dict: The connector manifest dictionary
+        inferred_json_schema: Schema inferred from observed records
+        records_read: Number of records that were read
+
+    Returns:
+        List of warning messages about schema issues
+    """
+    warnings: list[str] = []
+
+    streams = manifest_dict.get("streams", [])
+    stream_config = next(
+        (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
+        None,
+    )
+
+    if not stream_config:
+        warnings.append(f"Stream '{stream_name}' not found in manifest")
+        return warnings
+
+    manifest_schema = (
+        stream_config.get("schema_loader", {}).get("schema")
+        if isinstance(stream_config.get("schema_loader"), dict)
+        else None
+    )
+
+    if not manifest_schema:
+        manifest_schema = stream_config.get("schema")
+
+    if not manifest_schema:
+        if records_read > 0:
+            warnings.append(
+                f"CRITICAL: Stream '{stream_name}' is missing a schema definition in the manifest. "
+                f"Records were successfully read ({records_read} records), but without a schema, "
+                f"the connector may not work correctly in production. "
+                f"Consider adding the inferred schema to the manifest."
+            )
+        else:
+            warnings.append(
+                f"WARNING: Stream '{stream_name}' is missing a schema definition in the manifest. "
+                f"No records were read, so schema inference was not possible."
+            )
+        return warnings
+
+    if inferred_json_schema and manifest_schema:
+        inferred_properties = inferred_json_schema.get("properties", {})
+        manifest_properties = manifest_schema.get("properties", {})
+
+        missing_in_manifest = set(inferred_properties.keys()) - set(manifest_properties.keys())
+        if missing_in_manifest:
+            warnings.append(
+                f"Schema mismatch: {len(missing_in_manifest)} field(s) found in records but not in manifest schema: "
+                f"{', '.join(sorted(list(missing_in_manifest)[:5]))}"
+                + (
+                    f" (and {len(missing_in_manifest) - 5} more)"
+                    if len(missing_in_manifest) > 5
+                    else ""
+                )
+            )
+
+        missing_in_records = set(manifest_properties.keys()) - set(inferred_properties.keys())
+        if missing_in_records:
+            warnings.append(
+                f"Schema mismatch: {len(missing_in_records)} field(s) defined in manifest schema but not found in records: "
+                f"{', '.join(sorted(list(missing_in_records)[:5]))}"
+                + (
+                    f" (and {len(missing_in_records) - 5} more)"
+                    if len(missing_in_records) > 5
+                    else ""
+                )
+            )
+
+    return warnings
 
 
 def _calculate_record_stats(
@@ -307,6 +573,25 @@ def execute_stream_test_read(  # noqa: PLR0914
             "If set to 'False', raw data is excluded UNLESS zero records are returned (in which case it's auto-enabled for debugging)."
         ),
     ] = None,
+    include_inferred_json_schema: Annotated[
+        bool | None,
+        Field(
+            description="Control whether to include inferred schema in the result. "
+            "None (default): Return only if records fail validation against manifest schema. "
+            "True: Always return inferred schema. "
+            "False: Never return inferred schema."
+        ),
+    ] = None,
+    auto_update_schema: Annotated[
+        bool | None,
+        Field(
+            description="Control automatic schema updates in session manifest. "
+            "None (default): Fix problems only (missing schema or validation failures). "
+            "True: Always replace with detected schema. "
+            "False: Never update, only report warnings. "
+            "Only works with static schema declarations (aborts if using dynamic schema loaders)."
+        ),
+    ] = None,
     dotenv_file_uris: Annotated[
         list[str] | str | None,
         Field(
@@ -321,6 +606,7 @@ def execute_stream_test_read(  # noqa: PLR0914
     We do not attempt to sanitize record data, as it is expected to be user-defined.
     """
     success: bool = True
+    using_session_manifest = manifest is None
     include_records_data = as_bool(
         include_records_data,
         default=False,
@@ -336,7 +622,7 @@ def execute_stream_test_read(  # noqa: PLR0914
     logger.info(f"Testing stream read for stream: {stream_name}")
     config = as_dict(config, default={})
 
-    if manifest is None:
+    if using_session_manifest:
         manifest = get_session_manifest_content(ctx.session_id)
         if manifest is None:
             return StreamTestResult(
@@ -347,6 +633,7 @@ def execute_stream_test_read(  # noqa: PLR0914
             )
         logger.info("Using session manifest for stream test")
 
+    assert manifest is not None  # Type narrowing for mypy
     manifest_dict, _ = parse_manifest_input(manifest)
 
     spec = manifest_dict.get("spec")
@@ -435,6 +722,61 @@ def execute_stream_test_read(  # noqa: PLR0914
     # Toggle to include_raw_responses=True if we had an error
     include_raw_responses_data = include_raw_responses_data or not success
 
+    # Extract inferred schema from stream_data (returned by CDK's TestReader)
+    # NOTE: The CDK's TestReader.run_test_read() automatically infers JSON schemas
+    # from observed records using SchemaInferrer. This inferred schema could be used
+    # in the future to support auto-schema detection in manifests, where the schema
+    # would be automatically generated during the discover operation instead of being
+    # manually declared in the manifest YAML. This would require:
+    # 1. A new manifest option to enable auto-schema mode (e.g., `auto_detect_schema: true`)
+    # 2. Reading N records per stream during discover to build the schema
+    # 3. Storing the inferred schema in the catalog's json_schema field
+    # 4. Potentially caching schemas to avoid re-inference on every discover
+    inferred_json_schema = stream_data.get(INFERRED_JSON_SCHEMA_KEY)
+
+    # Validate schema against manifest
+    schema_warnings = _validate_schema_against_manifest(
+        stream_name=stream_name,
+        manifest_dict=manifest_dict,
+        inferred_json_schema=inferred_json_schema,
+        records_read=len(records_data),
+    )
+
+    has_schema_issues = len(schema_warnings) > 0
+
+    # Attempt auto-update of schema in session manifest if applicable
+    schema_updated = False
+    if using_session_manifest and inferred_json_schema:
+        schema_updated, update_warnings = _try_auto_update_session_schema(
+            ctx,
+            stream_name,
+            manifest_dict,
+            inferred_json_schema,
+            auto_update_schema,
+            has_schema_issues,
+        )
+
+        # If schema was updated, remove CRITICAL/WARNING prefixes since problem is fixed
+        if schema_updated:
+            schema_warnings = [
+                w
+                for w in schema_warnings
+                if not w.startswith("CRITICAL:") and not w.startswith("WARNING:")
+            ]
+
+        # Add any new warnings from the update attempt
+        schema_warnings.extend(update_warnings)
+
+    return_inferred_schema = None
+    if include_inferred_json_schema is True:
+        return_inferred_schema = inferred_json_schema
+    elif include_inferred_json_schema is False:
+        return_inferred_schema = None
+    else:
+        # include_inferred_json_schema is None: include only if validation failed
+        if has_schema_issues and not schema_updated:
+            return_inferred_schema = inferred_json_schema
+
     return StreamTestResult(
         success=success,
         message=(
@@ -448,6 +790,8 @@ def execute_stream_test_read(  # noqa: PLR0914
         errors=error_msgs,
         logs=execution_logs,
         raw_api_responses=[stream_data] if include_raw_responses_data else None,
+        inferred_json_schema=return_inferred_schema,
+        schema_warnings=schema_warnings,
     )
 
 
@@ -599,6 +943,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                 include_record_stats=True,
                 include_raw_responses_data=False,
                 dotenv_file_uris=dotenv_file_uris,
+                auto_update_schema=False,  # Don't auto-update during readiness check
             )
 
             stream_duration = time.time() - stream_start_time
@@ -639,6 +984,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                     duration_seconds=stream_duration,
                 )
                 smoke_test_result.field_count_warnings = field_count_warnings
+                smoke_test_result.schema_warnings = result.schema_warnings
                 stream_results[stream_name] = smoke_test_result
                 logger.info(f"✓ {stream_name}: {records_read} records in {stream_duration:.2f}s")
             else:
@@ -720,6 +1066,11 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
             field_warnings = getattr(smoke_result, "field_count_warnings", [])
             if field_warnings:
                 warnings.append(f"⚠️ Field count issues: {'; '.join(field_warnings[:2])}")
+
+            schema_warnings = getattr(smoke_result, "schema_warnings", [])
+            if schema_warnings:
+                for schema_warning in schema_warnings[:2]:
+                    warnings.append(f"⚠️ Schema: {schema_warning}")
 
             report_lines.extend(
                 [
