@@ -38,23 +38,6 @@ from connector_builder_mcp.mcp_capabilities import mcp_resource
 logger = logging.getLogger(__name__)
 
 
-_TRANSPORT_MODE: str = "unknown"
-
-
-def set_transport_mode(mode: Literal["stdio", "remote"]) -> None:
-    """Set the transport mode for the server.
-
-    This should only be called by the server entrypoint (server.py) based on
-    which run method is being used (run_stdio_async vs run_sse/http).
-
-    Args:
-        mode: Transport mode - "stdio" for local STDIO, "remote" for SSE/HTTP
-    """
-    global _TRANSPORT_MODE
-    _TRANSPORT_MODE = mode
-    logger.info(f"Transport mode set to: {mode}")
-
-
 class SetManifestContentsResult(BaseModel):
     """Result of setting session manifest text."""
 
@@ -62,19 +45,6 @@ class SetManifestContentsResult(BaseModel):
     diff_summary: str | None = None
     validation_warnings: list[str] = []
     error: str | None = None
-
-
-def _is_remote_mode() -> bool:
-    """Check if the server is running in remote mode.
-
-    This checks the internal transport mode flag that is set by the server
-    entrypoint. It cannot be overridden by users via environment variables.
-
-    Returns:
-        True if remote mode is active or unknown (secure-by-default),
-        False only if explicitly set to STDIO mode
-    """
-    return _TRANSPORT_MODE != "stdio"
 
 
 def _validate_absolute_path(path_str: str, var_name: str) -> Path:
@@ -99,36 +69,6 @@ def _validate_absolute_path(path_str: str, var_name: str) -> Path:
     return path.resolve()
 
 
-def _check_path_overrides_security() -> None:
-    """Check if path overrides are set in remote mode and raise if so.
-
-    This function checks the internal transport mode (not user-controllable)
-    and rejects path overrides if running in remote mode or if mode is unknown.
-
-    Raises:
-        RuntimeError: If any path override is set while in remote mode
-    """
-    if not _is_remote_mode():
-        return
-
-    override_vars = [
-        CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH,
-        CONNECTOR_BUILDER_MCP_SESSION_DIR,
-        CONNECTOR_BUILDER_MCP_SESSION_ROOT,
-        CONNECTOR_BUILDER_MCP_SESSIONS_DIR,
-    ]
-
-    set_overrides = [var for var in override_vars if os.environ.get(var)]
-
-    if set_overrides:
-        mode_desc = "remote mode" if _TRANSPORT_MODE == "remote" else "unknown transport mode"
-        raise RuntimeError(
-            f"Path override environment variables are not allowed in {mode_desc} for security reasons. "
-            f"The following variables are set: {', '.join(set_overrides)}. "
-            f"Path overrides are only allowed when running in STDIO mode."
-        )
-
-
 def resolve_session_manifest_path(session_id: str) -> Path:
     """Resolve the session manifest path with environment variable overrides.
 
@@ -149,8 +89,6 @@ def resolve_session_manifest_path(session_id: str) -> Path:
         RuntimeError: If path overrides are used in remote mode
         ValueError: If override paths are not absolute
     """
-    _check_path_overrides_security()
-
     manifest_path_override = os.environ.get(CONNECTOR_BUILDER_MCP_SESSION_MANIFEST_PATH)
     if manifest_path_override:
         logger.info(
@@ -436,8 +374,11 @@ def set_session_manifest_text(
         # Write new content
         set_session_manifest_content(new_content, session_id=session_id)
 
-        _, errors, warnings, _ = validate_manifest_content(new_content)
-        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        if new_content.strip():
+            _, errors, warnings, _ = validate_manifest_content(new_content)
+            validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        else:
+            validation_warnings = ["WARNING: Manifest is empty"]
 
         return SetManifestContentsResult(
             message="Saved manifest",
@@ -476,8 +417,11 @@ def set_session_manifest_text(
         # Write new content
         set_session_manifest_content(new_content, session_id=session_id)
 
-        _, errors, warnings, _ = validate_manifest_content(new_content)
-        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        if new_content.strip():
+            _, errors, warnings, _ = validate_manifest_content(new_content)
+            validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        else:
+            validation_warnings = ["WARNING: Manifest is empty"]
 
         return SetManifestContentsResult(
             message="Saved manifest",
@@ -511,8 +455,11 @@ def set_session_manifest_text(
         # Write new content
         set_session_manifest_content(new_content, session_id=session_id)
 
-        _, errors, warnings, _ = validate_manifest_content(new_content)
-        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        if new_content.strip():
+            _, errors, warnings, _ = validate_manifest_content(new_content)
+            validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        else:
+            validation_warnings = ["WARNING: Manifest is empty"]
 
         return SetManifestContentsResult(
             message="Saved manifest",
@@ -547,8 +494,11 @@ def set_session_manifest_text(
         # Write new content
         set_session_manifest_content(new_content, session_id=session_id)
 
-        _, errors, warnings, _ = validate_manifest_content(new_content)
-        validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        if new_content.strip():
+            _, errors, warnings, _ = validate_manifest_content(new_content)
+            validation_warnings = [f"ERROR: {e}" for e in errors] + warnings
+        else:
+            validation_warnings = ["WARNING: Manifest is empty"]
 
         return SetManifestContentsResult(
             message=f"Saved manifest (replaced {success_msg})",

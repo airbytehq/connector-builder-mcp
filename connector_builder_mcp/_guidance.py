@@ -4,7 +4,6 @@
 This module provides constants, error definitions, and topic mappings for the Connector Builder MCP.
 """
 
-
 DOTENV_FILE_URI_DESCRIPTION = """
 Optional paths/URLs to local .env files or Privatebin.net URLs for secret
 hydration. Can be a single string, comma-separated string, or list of strings.

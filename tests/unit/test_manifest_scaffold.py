@@ -6,7 +6,10 @@ from connector_builder_mcp.manifest_scaffold import (
     AuthenticationType,
     create_connector_manifest_scaffold,
 )
-from connector_builder_mcp.session_manifest import set_session_manifest_content
+from connector_builder_mcp.session_manifest import (
+    get_session_manifest_content,
+    set_session_manifest_content,
+)
 from connector_builder_mcp.validation_testing import validate_manifest
 
 
@@ -23,7 +26,11 @@ def test_valid_basic_manifest(ctx) -> None:
 
     assert isinstance(result, str)
     assert not result.startswith("ERROR:")
-    assert "source-test-api" in result
+    assert "Manifest scaffold created successfully" in result
+
+    manifest_content = get_session_manifest_content(ctx.session_id)
+    assert manifest_content is not None
+    assert "source-test-api" in manifest_content
 
 
 def test_invalid_connector_name(ctx) -> None:
@@ -55,8 +62,12 @@ def test_api_key_authentication(ctx) -> None:
 
     assert isinstance(result, str)
     assert not result.startswith("ERROR:")
-    assert "ApiKeyAuthenticator" in result
-    assert "api_key" in result
+    assert "Manifest scaffold created successfully" in result
+
+    manifest_content = get_session_manifest_content(ctx.session_id)
+    assert manifest_content is not None
+    assert "ApiKeyAuthenticator" in manifest_content
+    assert "api_key" in manifest_content
 
 
 def test_pagination_configuration(ctx) -> None:
@@ -72,10 +83,14 @@ def test_pagination_configuration(ctx) -> None:
 
     assert isinstance(result, str)
     assert not result.startswith("ERROR:")
-    assert "NoPagination" in result
-    assert "# TODO: Uncomment and configure pagination when known" in result
-    assert "# paginator:" in result
-    assert "#   type: DefaultPaginator" in result
+    assert "Manifest scaffold created successfully" in result
+
+    manifest_content = get_session_manifest_content(ctx.session_id)
+    assert manifest_content is not None
+    assert "NoPagination" in manifest_content
+    assert "# TODO: Uncomment and configure pagination when known" in manifest_content
+    assert "# paginator:" in manifest_content
+    assert "#   type: DefaultPaginator" in manifest_content
 
 
 def test_todo_placeholders(ctx) -> None:
@@ -91,9 +106,13 @@ def test_todo_placeholders(ctx) -> None:
 
     assert isinstance(result, str)
     assert not result.startswith("ERROR:")
-    assert "TODO" in result
+    assert "Manifest scaffold created successfully" in result
 
-    manifest_lines = result.split("\n")
+    manifest_content = get_session_manifest_content(ctx.session_id)
+    assert manifest_content is not None
+    assert "TODO" in manifest_content
+
+    manifest_lines = manifest_content.split("\n")
     yaml_content = [line for line in manifest_lines if not line.strip().startswith("#")]
 
     manifest = yaml.safe_load("\n".join(yaml_content))
@@ -117,7 +136,12 @@ def test_all_generated_manifests_pass_validation(ctx) -> None:
         assert isinstance(result, str), f"Expected string, got {type(result)}"
         assert not result.startswith("ERROR:"), f"Failed with auth_type={auth_type}: {result}"
 
-        validation_result = validate_manifest(ctx, manifest=result)
+        manifest_content = get_session_manifest_content(ctx.session_id)
+        assert manifest_content is not None, (
+            f"No manifest found in session for auth_type={auth_type}"
+        )
+
+        validation_result = validate_manifest(ctx, manifest=manifest_content)
         assert validation_result.is_valid, (
             f"Direct validation failed with auth_type={auth_type}: {validation_result.errors}"
         )
@@ -136,7 +160,11 @@ def test_dynamic_schema_loader_included(ctx) -> None:
 
     assert isinstance(result, str)
     assert not result.startswith("ERROR:")
-    assert "TODO" in result
+    assert "Manifest scaffold created successfully" in result
+
+    manifest_content = get_session_manifest_content(ctx.session_id)
+    assert manifest_content is not None
+    assert "TODO" in manifest_content
 
 
 def test_incremental_sync_todo_comments(ctx) -> None:
@@ -152,6 +180,10 @@ def test_incremental_sync_todo_comments(ctx) -> None:
 
     assert isinstance(result, str)
     assert not result.startswith("ERROR:")
-    assert "DatetimeBasedCursor" in result
-    assert "cursor_field" in result
-    assert "# TODO: Uncomment and configure incremental sync" in result
+    assert "Manifest scaffold created successfully" in result
+
+    manifest_content = get_session_manifest_content(ctx.session_id)
+    assert manifest_content is not None
+    assert "DatetimeBasedCursor" in manifest_content
+    assert "cursor_field" in manifest_content
+    assert "# TODO: Uncomment and configure incremental sync" in manifest_content
