@@ -374,7 +374,7 @@ def set_session_manifest_text(
             existing_content=existing_content,
             find_text=replace_text,
             replacement_text=new_text,
-            replace_all=replace_all_occurrences,
+            replace_all_occurrences=replace_all_occurrences,
         )
 
         if error:
