@@ -178,6 +178,100 @@ def _update_stream_schema_in_manifest(
         return manifest_yaml, f"Failed to serialize updated manifest: {e}"
 
 
+def _should_update_schema(
+    auto_update_schema: bool | None,
+    has_schema_issues: bool,
+) -> bool:
+    """Determine if schema should be auto-updated based on settings and issues.
+
+    Args:
+        auto_update_schema: User preference for auto-update behavior
+        has_schema_issues: Whether validation found schema problems
+
+    Returns:
+        True if schema should be updated, False otherwise
+    """
+    if auto_update_schema is True:
+        return True
+    if auto_update_schema is None:
+        return has_schema_issues
+    # auto_update_schema is False
+    return False
+
+
+def _try_auto_update_session_schema(
+    ctx: Context,
+    stream_name: str,
+    manifest_dict: dict[str, Any],
+    inferred_json_schema: dict[str, Any],
+    auto_update_schema: bool | None,
+    has_schema_issues: bool,
+) -> tuple[bool, list[str]]:
+    """Attempt to auto-update schema in session manifest.
+
+    Args:
+        ctx: FastMCP context for session access
+        stream_name: Name of the stream to update
+        manifest_dict: Parsed manifest dictionary
+        inferred_json_schema: Schema inferred from records
+        auto_update_schema: User preference for auto-update
+        has_schema_issues: Whether validation found problems
+
+    Returns:
+        Tuple of (schema_updated, warnings) where schema_updated is True if
+        the schema was successfully updated, and warnings is a list of any
+        warning messages generated during the update attempt
+    """
+    warnings: list[str] = []
+
+    # Find the stream configuration
+    streams = manifest_dict.get("streams", [])
+    stream_config = next(
+        (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
+        None,
+    )
+
+    if not stream_config:
+        return False, warnings
+
+    # Check if stream uses dynamic schema loader
+    if not _uses_static_schema(stream_config):
+        # Only add warning if user explicitly requested auto-update
+        if auto_update_schema is True:
+            warnings.append(
+                f"Cannot auto-update schema: Stream '{stream_name}' uses dynamic schema loader"
+            )
+        return False, warnings
+
+    # Determine if we should update
+    if not _should_update_schema(auto_update_schema, has_schema_issues):
+        return False, warnings
+
+    # Attempt to update the schema
+    session_id = ctx.session_id
+    current_manifest = get_session_manifest_content(session_id)
+    if not current_manifest:
+        return False, warnings
+
+    updated_manifest, update_error = _update_stream_schema_in_manifest(
+        current_manifest, stream_name, inferred_json_schema
+    )
+
+    if update_error:
+        warnings.append(f"Failed to auto-update schema: {update_error}")
+        return False, warnings
+
+    # Try to save the updated manifest
+    try:
+        set_session_manifest_content(updated_manifest, session_id)
+        # Remove CRITICAL/WARNING prefixes since we fixed the problem
+        success_warning = f"✓ Auto-updated schema for stream '{stream_name}' in session manifest"
+        return True, [success_warning]
+    except Exception as e:
+        warnings.append(f"Failed to save updated manifest: {e}")
+        return False, warnings
+
+
 def _validate_schema_against_manifest(
     stream_name: str,
     manifest_dict: dict[str, Any],
@@ -631,54 +725,28 @@ def execute_stream_test_read(  # noqa: PLR0914
 
     has_schema_issues = len(schema_warnings) > 0
 
+    # Attempt auto-update of schema in session manifest if applicable
     schema_updated = False
     if using_session_manifest and inferred_json_schema:
-        streams = manifest_dict.get("streams", [])
-        stream_config = next(
-            (s for s in streams if isinstance(s, dict) and s.get("name") == stream_name),
-            None,
+        schema_updated, update_warnings = _try_auto_update_session_schema(
+            ctx,
+            stream_name,
+            manifest_dict,
+            inferred_json_schema,
+            auto_update_schema,
+            has_schema_issues,
         )
 
-        should_update = False
-        if stream_config:
-            if not _uses_static_schema(stream_config):
-                # Only add warning if user explicitly requested auto-update
-                if auto_update_schema is True:
-                    schema_warnings.append(
-                        f"Cannot auto-update schema: Stream '{stream_name}' uses dynamic schema loader"
-                    )
-            else:
-                if auto_update_schema is True:
-                    should_update = True
-                elif auto_update_schema is None:
-                    should_update = has_schema_issues
-                # auto_update_schema is False: never update
+        # If schema was updated, remove CRITICAL/WARNING prefixes since problem is fixed
+        if schema_updated:
+            schema_warnings = [
+                w
+                for w in schema_warnings
+                if not w.startswith("CRITICAL:") and not w.startswith("WARNING:")
+            ]
 
-                if should_update:
-                    session_id = ctx.session_id
-                    current_manifest = get_session_manifest_content(session_id)
-                    if current_manifest:
-                        updated_manifest, update_error = _update_stream_schema_in_manifest(
-                            current_manifest, stream_name, inferred_json_schema
-                        )
-                        if update_error:
-                            schema_warnings.append(f"Failed to auto-update schema: {update_error}")
-                        else:
-                            try:
-                                set_session_manifest_content(updated_manifest, session_id)
-                                schema_updated = True
-                                schema_warnings = [
-                                    w
-                                    for w in schema_warnings
-                                    if not w.startswith("CRITICAL:")
-                                    and not w.startswith("WARNING:")
-                                ]
-                                schema_warnings.insert(
-                                    0,
-                                    f"✓ Auto-updated schema for stream '{stream_name}' in session manifest",
-                                )
-                            except Exception as e:
-                                schema_warnings.append(f"Failed to save updated manifest: {e}")
+        # Add any new warnings from the update attempt
+        schema_warnings.extend(update_warnings)
 
     return_inferred_schema = None
     if include_inferred_json_schema is True:
