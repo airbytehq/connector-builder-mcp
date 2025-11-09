@@ -38,6 +38,11 @@ def _get_version_info() -> dict[str, str | None]:
         fastmcp_version = None
 
     try:
+        cdk_version = md.version("airbyte-cdk")
+    except md.PackageNotFoundError:
+        cdk_version = None
+
+    try:
         git_sha = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True,
@@ -55,6 +60,7 @@ def _get_version_info() -> dict[str, str | None]:
         "version": version,
         "git_sha": git_sha,
         "fastmcp_version": fastmcp_version,
+        "cdk_version": cdk_version,
     }
 
 
