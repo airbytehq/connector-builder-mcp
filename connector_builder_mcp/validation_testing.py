@@ -7,6 +7,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
+import yaml
 from fastmcp import Context
 from jsonschema import ValidationError
 from pydantic import BaseModel, Field
@@ -429,8 +430,6 @@ def _get_declarative_component_schema() -> dict[str, Any]:
         )
         if schema_text is None:
             raise FileNotFoundError("Could not load declarative component schema")
-
-        import yaml
 
         schema_data = yaml.safe_load(schema_text.decode("utf-8"))
         if isinstance(schema_data, dict):

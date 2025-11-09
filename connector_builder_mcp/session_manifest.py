@@ -4,15 +4,14 @@ This module provides session-isolated manifest file storage and management,
 allowing multiple concurrent sessions to work with different manifests without conflicts.
 """
 
-import hashlib
 import logging
-from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
+from connector_builder_mcp._paths import get_session_manifest_path
 from connector_builder_mcp._text_utils import (
     insert_text_lines,
     replace_all_text,
@@ -22,10 +21,8 @@ from connector_builder_mcp._text_utils import (
 )
 from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool, register_tools
 from connector_builder_mcp._validation_helpers import validate_manifest_content
-from connector_builder_mcp.constants import (
-    MCP_SERVER_NAME,
-    SESSION_BASE_DIR,
-)
+from connector_builder_mcp.constants import MCP_SERVER_NAME
+from connector_builder_mcp.manifest_history import save_manifest_revision
 from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 
@@ -40,70 +37,6 @@ class SetManifestContentsResult(BaseModel):
     diff_summary: str | None = None
     validation_warnings: list[str] = []
     error: str | None = None
-
-
-def resolve_session_manifest_path(session_id: str) -> Path:
-    """Resolve the session manifest path.
-
-    This is a thin wrapper around get_session_dir() for compatibility.
-    Returns the manifest.yaml path within the session directory.
-
-    Args:
-        session_id: Session ID
-
-    Returns:
-        Path to the manifest file
-    """
-    return get_session_dir(session_id) / "manifest.yaml"
-
-
-def _sanitize_session_id(session_id: str) -> str:
-    """Sanitize session ID to ensure it's filesystem-safe.
-
-    Args:
-        session_id: Raw session ID
-
-    Returns:
-        Filesystem-safe session ID (hashed)
-    """
-    return hashlib.sha256(session_id.encode()).hexdigest()
-
-
-@lru_cache(maxsize=256)
-def get_session_dir(session_id: str) -> Path:
-    """Get the directory path for a session, ensuring it exists.
-
-    DEPRECATED: This function uses the legacy SESSION_BASE_DIR constant.
-    New code should use resolve_session_manifest_path() which respects
-    environment variable overrides.
-
-    This function is LRU cached to avoid repeated filesystem operations.
-    The directory is created if it doesn't exist.
-
-    Args:
-        session_id: Session ID
-
-    Returns:
-        Path to the session directory (guaranteed to exist)
-    """
-    sanitized_id = _sanitize_session_id(session_id)
-    session_dir = SESSION_BASE_DIR / sanitized_id
-    session_dir.mkdir(parents=True, exist_ok=True)
-    return session_dir
-
-
-def get_session_manifest_path(session_id: str) -> Path:
-    """Get the path to the session manifest file.
-
-    Args:
-        session_id: Session ID
-
-    Returns:
-        Path to the manifest.yaml file for the session
-    """
-    manifest_path = resolve_session_manifest_path(session_id)
-    manifest_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    return manifest_path
 
 
 def get_session_manifest_content(session_id: str) -> str | None:
@@ -142,8 +75,6 @@ def set_session_manifest_content(
     Raises:
         Exception: If writing the file fails
     """
-    from connector_builder_mcp.manifest_history import save_manifest_revision
-
     manifest_path = get_session_manifest_path(session_id)
 
     manifest_path.write_text(manifest_yaml, encoding="utf-8")

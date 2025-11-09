@@ -29,9 +29,9 @@ from connector_builder_mcp._manifest_history_utils import (
     _save_revision_metadata,
     get_history_dir,
 )
+from connector_builder_mcp._paths import get_session_manifest_path
 from connector_builder_mcp._text_utils import unified_diff_with_context
 from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool
-from connector_builder_mcp.session_manifest import get_session_manifest_path
 
 
 # Type aliases for revision identification
