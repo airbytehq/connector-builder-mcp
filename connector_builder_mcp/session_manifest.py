@@ -19,10 +19,10 @@ from connector_builder_mcp._text_utils import (
     replace_text_lines,
     unified_diff_with_context,
 )
-from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool, register_tools
 from connector_builder_mcp._validation_helpers import validate_manifest_content
 from connector_builder_mcp.constants import MCP_SERVER_NAME
 from connector_builder_mcp.manifest_history import save_manifest_revision
+from connector_builder_mcp.mcp._tool_utils import ToolDomain, mcp_tool, register_tools
 from connector_builder_mcp.mcp_capabilities import mcp_resource
 
 

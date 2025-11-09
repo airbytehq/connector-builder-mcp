@@ -31,7 +31,7 @@ from connector_builder_mcp._manifest_history_utils import (
 )
 from connector_builder_mcp._paths import get_session_manifest_path
 from connector_builder_mcp._text_utils import unified_diff_with_context
-from connector_builder_mcp._tool_utils import ToolDomain, mcp_tool
+from connector_builder_mcp.mcp._tool_utils import ToolDomain, mcp_tool
 
 
 # Type aliases for revision identification
