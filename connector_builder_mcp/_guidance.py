@@ -123,6 +123,10 @@ TOPIC_MAPPING: dict[str, tuple[str, str]] = {
         "https://raw.githubusercontent.com/airbytehq/airbyte/refs/heads/devin/1754521580-stream-templates-docs/docs/platform/connector-development/config-based/understanding-the-yaml-file/dynamic-streams.md",
         "Dynamic stream configuration in YAML manifests",
     ),
+    "parameters": (
+        "docs/platform/connector-development/config-based/advanced-topics/parameters.md",
+        "Parameter propagation and inheritance in declarative manifests",
+    ),
 }
 """Curated topics mapping with relative paths and descriptions."""
 
