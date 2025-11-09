@@ -13,7 +13,7 @@ from fastmcp import FastMCP
 from connector_builder_mcp.constants import MCP_SERVER_NAME
 from connector_builder_mcp.mcp_capabilities import (
     mcp_resource,
-    register_deferred_resources,
+    register_resources,
 )
 
 
@@ -80,4 +80,4 @@ def register_resources(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_deferred_resources(app)
+    register_resources(app)

@@ -2,7 +2,7 @@
 
 import yaml
 
-from connector_builder_mcp.manifest_scaffold import (
+from connector_builder_mcp._manifest_scaffold_utils import (
     AuthenticationType,
     create_connector_manifest_scaffold,
 )

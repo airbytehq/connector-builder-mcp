@@ -228,7 +228,7 @@ Rules:
 - If manifest validation fails, review the errors and relevant documentation
   and then attempt to resolve the errors.
 - For reading manifest content, prefer using the 'session_manifest_yaml_contents'
-  MCP resource instead of the get_session_manifest tool for better performance
+  MCP resource instead of the get_session_manifest_text tool for better performance
   and caching. The resource URI format is '{server_name}://session/manifest'
   where server_name matches your MCP configuration.
 
@@ -377,7 +377,7 @@ The manifest has been saved to your session and is ready to use.
 **To view the manifest:**
 - **Preferred**: Use the MCP resource `session_manifest_yaml_contents`
   (URI: '{MCP_SERVER_NAME}://session/manifest').
-- **Fallback**: Use the `get_session_manifest` tool if your client does not
+- **Fallback**: Use the `get_session_manifest_text` tool if your client does not
   support MCP resources.
 
 **Next steps:**

@@ -8,16 +8,12 @@ fully control the connector development workflow including testing and PR creati
 """
 
 from connector_builder_mcp import (
-    connector_builder,
-    manifest_scaffold,
     server,
-    validation_testing,
+    mcp,
 )
 
 
 __all__ = [
     "server",
-    "connector_builder",
-    "manifest_scaffold",
-    "validation_testing",
+    "mcp",
 ]
