@@ -1,13 +1,11 @@
 """Unit tests for validation helper functions."""
 
-import pytest
-
+import connector_builder_mcp._validation_helpers as vh
 from connector_builder_mcp._validation_helpers import validate_manifest_content
 
 
 def test_schema_load_failure_is_fatal(monkeypatch):
     """Test that schema loading failures result in fatal validation errors."""
-    import connector_builder_mcp._validation_helpers as vh
 
     def boom():
         raise ValueError("Schema file not found")
@@ -41,15 +39,11 @@ spec:
 
 def test_schema_validation_unexpected_error_is_fatal(monkeypatch):
     """Test that unexpected errors during validation result in fatal errors."""
-    import connector_builder_mcp._validation_helpers as vh
-    from jsonschema import validate
-
-    original_validate = validate
 
     def boom_validate(instance, schema):
         raise RuntimeError("Unexpected validation error")
 
-    monkeypatch.setattr("connector_builder_mcp._validation_helpers.validate", boom_validate)
+    monkeypatch.setattr(vh, "validate", boom_validate)
 
     # Use a minimal valid manifest
     manifest_yaml = """
