@@ -155,11 +155,6 @@ def register_connector_builder_tools(app: FastMCP) -> None:
     app.tool(run_connector_readiness_test_report)
     app.tool(execute_dynamic_manifest_resolution_test)
 
-    app.tool(create_connector_manifest_scaffold)
-    app.tool(list_session_manifest_versions)
-    app.tool(get_session_manifest_version)
-    app.tool(diff_session_manifest_versions)
-    app.tool(restore_session_manifest_version)
     register_session_manifest_tools(app)
 
     register_secrets_tools(app)
