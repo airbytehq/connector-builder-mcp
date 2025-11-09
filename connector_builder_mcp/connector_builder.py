@@ -127,21 +127,21 @@ def register_connector_builder_tools(app: FastMCP) -> None:
         get_connector_builder_docs,
         get_manifest_yaml_json_schema,
     )
-    from connector_builder_mcp.mcp.manifest_checks import validate_manifest
-    from connector_builder_mcp.mcp.manifest_edits import (
-        create_connector_manifest_scaffold,
-        diff_session_manifest_versions,
-        get_session_manifest_version,
-        list_session_manifest_versions,
-        register_session_manifest_tools,
-        restore_session_manifest_version,
-    )
-    from connector_builder_mcp.mcp.manifest_tests import (
+    from connector_builder_mcp.validation_testing import (
         execute_dynamic_manifest_resolution_test,
         execute_stream_test_read,
         run_connector_readiness_test_report,
+        validate_manifest,
     )
-    from connector_builder_mcp.mcp.secrets_config import register_secrets_tools
+    from connector_builder_mcp.manifest_scaffold import create_connector_manifest_scaffold
+    from connector_builder_mcp.manifest_history import (
+        diff_session_manifest_versions,
+        get_session_manifest_version,
+        list_session_manifest_versions,
+        restore_session_manifest_version,
+    )
+    from connector_builder_mcp.session_manifest import register_session_manifest_tools
+    from connector_builder_mcp.secrets import register_secrets_tools
 
     app.tool(get_manifest_yaml_json_schema)
     app.tool(get_connector_builder_checklist)
