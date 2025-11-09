@@ -41,8 +41,8 @@ def _get_declarative_component_schema() -> dict[str, Any]:
     from typing import cast
 
     schema_text = pkgutil.get_data(
-        "airbyte_cdk.sources.declarative.parsers",
-        "schemas/declarative_component_schema.yaml",
+        "airbyte_cdk.sources.declarative",
+        "declarative_component_schema.yaml",
     )
     if schema_text is None:
         raise ValueError("Could not load declarative component schema")
