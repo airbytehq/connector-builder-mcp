@@ -41,11 +41,11 @@ from connector_builder_mcp.manifest_history import (
     ValidationCheckpointDetails,
     checkpoint_manifest_revision,
 )
-from connector_builder_mcp.secrets import hydrate_config
-from connector_builder_mcp.session_manifest import (
+from connector_builder_mcp.mcp.session_manifest import (
     get_session_manifest_content,
     set_session_manifest_content,
 )
+from connector_builder_mcp.secrets import hydrate_config
 
 
 logger = logging.getLogger(__name__)
