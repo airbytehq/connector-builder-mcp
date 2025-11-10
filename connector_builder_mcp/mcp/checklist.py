@@ -1,9 +1,10 @@
 """Checklist tools for tracking connector development progress.
 
 This module provides MCP tools for managing a task checklist during connector development.
-The checklist tracks three types of tasks:
+The checklist tracks four types of tasks:
 - Connector Tasks: General connector setup and configuration
 - Stream Tasks: Stream-specific implementation work
+- Acceptance Test Tasks: Acceptance testing and validation
 - Finalization Tasks: Final validation and cleanup
 """
 
@@ -34,13 +35,16 @@ class TaskTypeEnum(str, Enum):
 
     CONNECTOR = "connector"
     STREAM = "stream"
+    ACCEPTANCE_TEST = "acceptance_test"
     FINALIZATION = "finalization"
 
 
 class Task(BaseModel):
     """Base task model with common fields."""
 
-    task_type: TaskTypeEnum = Field(description="Type of task (connector, stream, or finalization)")
+    task_type: TaskTypeEnum = Field(
+        description="Type of task (connector, stream, acceptance_test, or finalization)"
+    )
     id: str = Field(description="Unique identifier for the task")
     task_name: str = Field(description="Short name/title of the task")
     description: str | None = Field(
@@ -67,6 +71,12 @@ class StreamTask(Task):
     stream_name: str = Field(description="Name of the stream this task relates to")
 
 
+class AcceptanceTestTask(Task):
+    """Acceptance test task for testing and validation."""
+
+    task_type: TaskTypeEnum = TaskTypeEnum.ACCEPTANCE_TEST
+
+
 class FinalizationTask(Task):
     """Finalization task for post-stream work."""
 
@@ -84,6 +94,10 @@ class TaskList(BaseModel):
         default_factory=list,
         description="List of stream tasks",
     )
+    acceptance_test_tasks: list[AcceptanceTestTask] = Field(
+        default_factory=list,
+        description="List of acceptance test tasks",
+    )
     finalization_tasks: list[FinalizationTask] = Field(
         default_factory=list,
         description="List of finalization tasks",
@@ -95,6 +109,7 @@ class TaskList(BaseModel):
         result: list[Task] = []
         result.extend(self.basic_connector_tasks)
         result.extend(self.stream_tasks)
+        result.extend(self.acceptance_test_tasks)
         result.extend(self.finalization_tasks)
         return result
 
@@ -143,6 +158,7 @@ class TaskList(BaseModel):
                 ),
             ],
             stream_tasks=[],
+            acceptance_test_tasks=[],
             finalization_tasks=[
                 FinalizationTask(
                     id="readiness-pass-1",
@@ -171,6 +187,7 @@ def list_tasks() -> dict:
         Dictionary containing:
         - connector_tasks: List of general connector tasks
         - stream_tasks: List of stream-specific tasks
+        - acceptance_test_tasks: List of acceptance test tasks
         - finalization_tasks: List of finalization tasks
         - summary: Task status summary (total, not_started, in_progress, completed, blocked)
     """
@@ -178,6 +195,7 @@ def list_tasks() -> dict:
     return {
         "connector_tasks": [task.model_dump() for task in _checklist.basic_connector_tasks],
         "stream_tasks": [task.model_dump() for task in _checklist.stream_tasks],
+        "acceptance_test_tasks": [task.model_dump() for task in _checklist.acceptance_test_tasks],
         "finalization_tasks": [task.model_dump() for task in _checklist.finalization_tasks],
         "summary": _checklist.get_summary(),
     }
@@ -322,6 +340,52 @@ def insert_stream_task(
 @mcp_tool(
     domain=ToolDomain.GUIDANCE,
 )
+def add_acceptance_test_task(
+    task_id: Annotated[str, Field(description="Unique identifier for the task")],
+    task_name: Annotated[str, Field(description="Short name/title of the task")],
+    description: Annotated[
+        str | None,
+        Field(description="Optional longer description with additional context/instructions"),
+    ] = None,
+) -> dict:
+    """Add a new acceptance test task to the end of the acceptance test tasks list."""
+    logger.info(f"Adding acceptance test task: {task_id}")
+    task = AcceptanceTestTask(
+        id=task_id,
+        task_name=task_name,
+        description=description,
+    )
+    _checklist.acceptance_test_tasks.append(task)
+    return task.model_dump()
+
+
+@mcp_tool(
+    domain=ToolDomain.GUIDANCE,
+)
+def insert_acceptance_test_task(
+    position: Annotated[int, Field(description="Position to insert the task (0-indexed)")],
+    task_id: Annotated[str, Field(description="Unique identifier for the task")],
+    task_name: Annotated[str, Field(description="Short name/title of the task")],
+    description: Annotated[
+        str | None,
+        Field(description="Optional longer description with additional context/instructions"),
+    ] = None,
+) -> dict:
+    """Insert a new acceptance test task at a specific position."""
+    logger.info(f"Inserting acceptance test task at position {position}: {task_id}")
+    task = AcceptanceTestTask(
+        id=task_id,
+        task_name=task_name,
+        description=description,
+    )
+    position = max(0, min(position, len(_checklist.acceptance_test_tasks)))
+    _checklist.acceptance_test_tasks.insert(position, task)
+    return task.model_dump()
+
+
+@mcp_tool(
+    domain=ToolDomain.GUIDANCE,
+)
 def add_finalization_task(
     task_id: Annotated[str, Field(description="Unique identifier for the task")],
     task_name: Annotated[str, Field(description="Short name/title of the task")],
@@ -449,6 +513,8 @@ def remove_task(
         _checklist.basic_connector_tasks.remove(task)
     elif isinstance(task, StreamTask):
         _checklist.stream_tasks.remove(task)
+    elif isinstance(task, AcceptanceTestTask):
+        _checklist.acceptance_test_tasks.remove(task)
     elif isinstance(task, FinalizationTask):
         _checklist.finalization_tasks.remove(task)
 
