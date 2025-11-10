@@ -59,6 +59,7 @@ def _get_version_info() -> dict[str, str | None]:
     uri=f"{MCP_SERVER_NAME}://version",
     description="Version information for the Connector Builder MCP server",
     mime_type="application/json",
+    domain=ToolDomain.SERVER_INFO,
 )
 def mcp_server_info() -> dict[str, str | None]:
     """Resource that returns information for the MCP server.

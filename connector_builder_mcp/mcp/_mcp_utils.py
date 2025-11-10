@@ -168,6 +168,7 @@ def mcp_resource(
     uri: str,
     description: str,
     mime_type: str,
+    domain: ToolDomain | str | None = None,
 ):
     """Decorator for deferred MCP resource registration.
 
@@ -175,6 +176,7 @@ def mcp_resource(
         uri: Unique URI for the resource
         description: Human-readable description of the resource
         mime_type: MIME type of the resource content
+        domain: Optional domain for filtering (e.g., ToolDomain.SERVER_INFO)
 
     Returns:
         Decorator function that registers the resource
@@ -184,9 +186,15 @@ def mcp_resource(
     """
 
     def decorator(func: Callable[..., Any]):
-        _REGISTERED_RESOURCES.append(
-            (func, {"uri": uri, "description": description, "mime_type": mime_type})
-        )
+        domain_str = domain.value if isinstance(domain, ToolDomain) else domain
+        annotations = {
+            "uri": uri,
+            "description": description,
+            "mime_type": mime_type,
+        }
+        if domain_str is not None:
+            annotations["domain"] = domain_str
+        _REGISTERED_RESOURCES.append((func, annotations))
         return func
 
     return decorator
