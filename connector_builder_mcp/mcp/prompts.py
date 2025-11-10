@@ -31,20 +31,34 @@ from connector_builder_mcp.mcp._mcp_utils import (
 def new_connector_prompt(
     api_name: Annotated[
         str | None,
-        Field(description="Optional API name (defaults to JSONPlaceholder)"),
+        Field(
+            description="Optional API name (defaults to JSONPlaceholder)",
+            default=None,
+        ),
     ] = None,
     dotenv_path: Annotated[
         str | None,
-        Field(description="Optional path to .env file for secrets"),
+        Field(
+            description="Optional path to .env file for secrets",
+            default=None,
+        ),
+    ] = None,
+    additional_requirements: Annotated[
+        str | None,
+        Field(
+            description="Optional additional requirements for the connector",
+            default=None,
+        ),
     ] = None,
     creative_mode: Annotated[
-        bool,
+        bool | None,
         Field(
             description=(
                 "By default, we discourage creative workarounds because those increase "
                 "the agent's likelihood of making mistakes. "
-                "You can enable this setting if you know what you are doing."
-            )
+                "You can enable this setting if you know what you are doing.",
+            ),
+            default=False,
         ),
     ] = False,
 ) -> list[dict[str, str]]:
@@ -53,9 +67,14 @@ def new_connector_prompt(
     Returns:
         List of message dictionaries for the prompt
     """
+    if not api_name:
+        api_name, dotenv_path = "JSONPlaceholder", "n/a"
+
+    creative_mode = creative_mode if creative_mode is not None else False
     base_content = CONNECTOR_BUILD_PROMPT.format(
-        api_name=api_name or "JSONPlaceholder",
+        api_name=api_name,
         dotenv_path=dotenv_path or "(none - search for API docs to determine if needed)",
+        additional_requirements=additional_requirements or "(none)",
     )
     content = base_content + (CREATIVE_MODE_NOTE if creative_mode else NON_CREATIVE_MODE_NOTE)
     return [{"role": "user", "content": content}]
