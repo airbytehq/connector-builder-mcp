@@ -26,6 +26,13 @@ from connector_builder_mcp._text_utils import (
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
 from connector_builder_mcp.constants import MCP_SERVER_NAME
+from connector_builder_mcp.mcp._mcp_utils import (
+    ToolDomain,
+    mcp_resource,
+    mcp_tool,
+    register_resources,
+    register_tools,
+)
 from connector_builder_mcp.mcp.manifest_history import (
     CheckpointType,
     ManifestRevisionSummary,
@@ -34,13 +41,6 @@ from connector_builder_mcp.mcp.manifest_history import (
     get_manifest_revision,
     list_manifest_revisions,
     save_manifest_revision,
-)
-from connector_builder_mcp.mcp._mcp_utils import (
-    ToolDomain,
-    mcp_resource,
-    mcp_tool,
-    register_resources,
-    register_tools,
 )
 
 

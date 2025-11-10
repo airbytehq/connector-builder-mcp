@@ -585,13 +585,19 @@ def diff_manifest_revisions(
     session_id: Annotated[str, Field(description="Session ID")],
     from_revision: Annotated[
         RevisionRef,
-        Field(description="Source revision reference (ordinal, hash prefix, timestamp, or 'latest')"),
+        Field(
+            description="Source revision reference (ordinal, hash prefix, timestamp, or 'latest')"
+        ),
     ],
     to_revision: Annotated[
         RevisionRef,
-        Field(description="Target revision reference (ordinal, hash prefix, timestamp, or 'latest')"),
+        Field(
+            description="Target revision reference (ordinal, hash prefix, timestamp, or 'latest')"
+        ),
     ],
-    context_lines: Annotated[int, Field(description="Number of context lines to include in diff")] = 3,
+    context_lines: Annotated[
+        int, Field(description="Number of context lines to include in diff")
+    ] = 3,
 ) -> ManifestRevisionDiff | None:
     """Generate a diff between two manifest revisions.
 
@@ -676,7 +682,6 @@ def checkpoint_manifest_revision(
     return latest_revision.revision_id
 
 
-
 def register_manifest_history_tools(app: FastMCP) -> None:
     """Register manifest history tools with the FastMCP app.
 
@@ -684,4 +689,3 @@ def register_manifest_history_tools(app: FastMCP) -> None:
         app: FastMCP application instance
     """
     register_tools(app, domain=ToolDomain.MANIFEST_EDITS)
-

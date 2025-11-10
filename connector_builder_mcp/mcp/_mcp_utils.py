@@ -216,13 +216,13 @@ def _register_mcp_callables(
         register_fn: Function to call for each registration
     """
     domain_str = domain.value if isinstance(domain, ToolDomain) else domain
-    
+
     filtered_callables = [
         (func, ann) for func, ann in resource_list if ann.get("domain") == domain_str
     ]
 
-    for callable_fn, annotations in filtered_callables:
-        register_fn(app, callable_fn, annotations)
+    for callable_fn, callable_annotations in filtered_callables:
+        register_fn(app, callable_fn, callable_annotations)
 
 
 def register_tools(
