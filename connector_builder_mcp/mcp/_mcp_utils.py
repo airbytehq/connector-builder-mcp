@@ -73,6 +73,9 @@ class ToolDomain(str, Enum):
     SERVER_INFO = "server_info"
     """Server information and version resources"""
 
+    PROMPTS = "prompts"
+    """Prompt templates for common workflows"""
+
 
 _REGISTERED_TOOLS: list[tuple[Callable[..., Any], dict[str, Any]]] = []
 _REGISTERED_RESOURCES: list[tuple[Callable[..., Any], dict[str, Any]]] = []
@@ -146,12 +149,14 @@ def mcp_tool(
 def mcp_prompt(
     name: str,
     description: str,
+    domain: ToolDomain | str | None = None,
 ):
     """Decorator for deferred MCP prompt registration.
 
     Args:
         name: Unique name for the prompt
         description: Human-readable description of the prompt
+        domain: Optional domain for filtering (e.g., ToolDomain.PROMPTS)
 
     Returns:
         Decorator function that registers the prompt
@@ -161,7 +166,14 @@ def mcp_prompt(
     """
 
     def decorator(func: Callable[..., list[dict[str, str]]]):
-        _REGISTERED_PROMPTS.append((func, {"name": name, "description": description}))
+        domain_str = domain.value if isinstance(domain, ToolDomain) else domain
+        annotations = {
+            "name": name,
+            "description": description,
+        }
+        if domain_str is not None:
+            annotations["domain"] = domain_str
+        _REGISTERED_PROMPTS.append((func, annotations))
         return func
 
     return decorator

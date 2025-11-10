@@ -22,9 +22,9 @@ from connector_builder_mcp.mcp._mcp_utils import mcp_tool, register_tools
 
 logger = logging.getLogger(__name__)
 
-_MANIFEST_SCHEMA_URL = "https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/refs/heads/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
 _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
+_MANIFEST_SCHEMA_URL = "https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/refs/heads/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
 _HTTP_OK = 200
 
 
@@ -106,6 +106,98 @@ def _get_topic_specific_docs(topic: str) -> str:
             f"Unable to fetch detailed documentation for topic '{topic}' "
             f"using path '{topic_path}' and full URL '{full_url}'."
             f"\n\nError: {e!s}"
+        )
+
+
+
+def _is_manifest_only_connector(connector_name: str) -> bool:
+    """Check if a connector is manifest-only by querying the registry.
+
+    Args:
+        connector_name: Name of the connector (e.g., 'source-faker')
+
+    Returns:
+        True if the connector is manifest-only, False otherwise or on error
+    """
+    try:
+        response = requests.get(_REGISTRY_URL, timeout=30)
+        response.raise_for_status()
+        registry_data = response.json()
+
+        for connector_list in [
+            registry_data.get("sources", []),
+            registry_data.get("destinations", []),
+        ]:
+            for connector in connector_list:
+                docker_repo = connector.get("dockerRepository", "")
+                repo_connector_name = docker_repo.replace("airbyte/", "")
+
+                if repo_connector_name == connector_name:
+                    language = connector.get("language")
+                    tags = connector.get("tags", [])
+
+                    return (
+                        language == _MANIFEST_ONLY_LANGUAGE
+                        or f"language:{_MANIFEST_ONLY_LANGUAGE}" in tags
+                    )
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch registry data for {connector_name}: {e}")
+        return False
+    else:
+        # No exception and no match found.
+        logger.info(f"Connector {connector_name} was not found in the registry.")
+        return False
+
+
+@mcp_tool(
+    domain="guidance",
+)
+def get_connector_manifest(
+    connector_name: Annotated[
+        str,
+        Field(description="Name of the connector (e.g., 'source-stripe')"),
+    ],
+    version: Annotated[
+        str,
+        Field(
+            description="Version of the connector manifest to retrieve. If not provided, defaults to 'latest'"
+        ),
+    ] = "latest",
+) -> str:
+    """Get an existing raw connector manifest YAML from connectors.airbyte.com.
+
+    Args:
+        connector_name: Name of the existing connector (e.g., 'source-stripe')
+        version: Version of the connector manifest to retrieve (defaults to 'latest')
+
+    Returns:
+        Raw YAML content of the connector manifest
+    """
+    logger.info(f"Getting connector manifest for {connector_name} version {version}")
+
+    cleaned_version = version.removeprefix("v")
+    is_manifest_only = _is_manifest_only_connector(connector_name)
+
+    logger.info(
+        f"Connector {connector_name} is {'manifest-only' if is_manifest_only else 'not manifest-only'}."
+    )
+    if not is_manifest_only:
+        return "ERROR: This connector is not manifest-only."
+
+    manifest_url = f"https://connectors.airbyte.com/metadata/airbyte/{connector_name}/{cleaned_version}/manifest.yaml"
+
+    try:
+        response = requests.get(manifest_url, timeout=30)
+        response.raise_for_status()
+
+        return response.text
+
+    except Exception as e:
+        logger.error(f"Error fetching connector manifest for {connector_name}: {e}")
+        return (
+            f"# Error fetching manifest for connector '{connector_name}' version "
+            f"'{version}' from {manifest_url}\n\nError: {str(e)}"
         )
 
 
@@ -202,97 +294,6 @@ def find_connectors_by_class_name(class_names: str) -> list[str]:
             result_connectors = result_connectors.intersection(connectors_with_class)
 
     return sorted(result_connectors) if result_connectors else []
-
-
-def _is_manifest_only_connector(connector_name: str) -> bool:
-    """Check if a connector is manifest-only by querying the registry.
-
-    Args:
-        connector_name: Name of the connector (e.g., 'source-faker')
-
-    Returns:
-        True if the connector is manifest-only, False otherwise or on error
-    """
-    try:
-        response = requests.get(_REGISTRY_URL, timeout=30)
-        response.raise_for_status()
-        registry_data = response.json()
-
-        for connector_list in [
-            registry_data.get("sources", []),
-            registry_data.get("destinations", []),
-        ]:
-            for connector in connector_list:
-                docker_repo = connector.get("dockerRepository", "")
-                repo_connector_name = docker_repo.replace("airbyte/", "")
-
-                if repo_connector_name == connector_name:
-                    language = connector.get("language")
-                    tags = connector.get("tags", [])
-
-                    return (
-                        language == _MANIFEST_ONLY_LANGUAGE
-                        or f"language:{_MANIFEST_ONLY_LANGUAGE}" in tags
-                    )
-
-    except Exception as e:
-        logger.warning(f"Failed to fetch registry data for {connector_name}: {e}")
-        return False
-    else:
-        # No exception and no match found.
-        logger.info(f"Connector {connector_name} was not found in the registry.")
-        return False
-
-
-@mcp_tool(
-    domain="guidance",
-)
-def get_connector_manifest(
-    connector_name: Annotated[
-        str,
-        Field(description="Name of the connector (e.g., 'source-stripe')"),
-    ],
-    version: Annotated[
-        str,
-        Field(
-            description="Version of the connector manifest to retrieve. If not provided, defaults to 'latest'"
-        ),
-    ] = "latest",
-) -> str:
-    """Get an existing raw connector manifest YAML from connectors.airbyte.com.
-
-    Args:
-        connector_name: Name of the existing connector (e.g., 'source-stripe')
-        version: Version of the connector manifest to retrieve (defaults to 'latest')
-
-    Returns:
-        Raw YAML content of the connector manifest
-    """
-    logger.info(f"Getting connector manifest for {connector_name} version {version}")
-
-    cleaned_version = version.removeprefix("v")
-    is_manifest_only = _is_manifest_only_connector(connector_name)
-
-    logger.info(
-        f"Connector {connector_name} is {'manifest-only' if is_manifest_only else 'not manifest-only'}."
-    )
-    if not is_manifest_only:
-        return "ERROR: This connector is not manifest-only."
-
-    manifest_url = f"https://connectors.airbyte.com/metadata/airbyte/{connector_name}/{cleaned_version}/manifest.yaml"
-
-    try:
-        response = requests.get(manifest_url, timeout=30)
-        response.raise_for_status()
-
-        return response.text
-
-    except Exception as e:
-        logger.error(f"Error fetching connector manifest for {connector_name}: {e}")
-        return (
-            f"# Error fetching manifest for connector '{connector_name}' version "
-            f"'{version}' from {manifest_url}\n\nError: {str(e)}"
-        )
 
 
 def register_guidance_tools(
