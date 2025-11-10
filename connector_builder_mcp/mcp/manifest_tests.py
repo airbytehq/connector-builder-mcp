@@ -31,6 +31,11 @@ from airbyte_cdk.models import (
     SyncMode,
 )
 
+from connector_builder_mcp._manifest_history_utils import (
+    CheckpointType,
+    ReadinessCheckpointDetails,
+    ValidationCheckpointDetails,
+)
 from connector_builder_mcp._util import (
     as_bool,
     as_dict,
@@ -39,11 +44,6 @@ from connector_builder_mcp._util import (
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
 from connector_builder_mcp.mcp._mcp_utils import register_mcp_tools
-from connector_builder_mcp._manifest_history_utils import (
-    CheckpointType,
-    ReadinessCheckpointDetails,
-    ValidationCheckpointDetails,
-)
 from connector_builder_mcp.mcp.manifest_edits import (
     get_session_manifest_content,
     set_session_manifest_content,

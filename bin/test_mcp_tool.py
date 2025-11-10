@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import Client
+
 from connector_builder_mcp.server import app
 
 

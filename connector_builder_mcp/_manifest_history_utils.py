@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
 RevisionId = tuple[int, int, str]  # (ordinal, timestamp_ns, content_hash)
 
 if TYPE_CHECKING:

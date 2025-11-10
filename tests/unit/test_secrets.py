@@ -14,12 +14,12 @@ from connector_builder_mcp.mcp.secrets_config import (
     _cast_value_to_type,
     _get_schema_for_path,
     _load_secrets,
+    _validate_secrets_uris,
     hydrate_config,
     list_dotenv_secrets,
     populate_dotenv_missing_secrets_stubs,
 )
 
-from connector_builder_mcp.mcp.secrets_config import _validate_secrets_uris
 
 @pytest.fixture
 def dummy_dotenv_file_expected_dict() -> dict[str, str | dict[str, str]]:

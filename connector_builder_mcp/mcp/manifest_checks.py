@@ -11,7 +11,7 @@ from fastmcp import Context
 from pydantic import Field
 
 from connector_builder_mcp._validation_helpers import validate_manifest_content
-from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 from connector_builder_mcp.mcp.manifest_edits import get_session_manifest_content
 from connector_builder_mcp.mcp.manifest_history import (
     CheckpointType,
@@ -19,7 +19,6 @@ from connector_builder_mcp.mcp.manifest_history import (
     _checkpoint_manifest_revision,
 )
 from connector_builder_mcp.mcp.manifest_tests import ManifestValidationResult
-from connector_builder_mcp.mcp._mcp_utils import register_mcp_tools
 
 
 logger = logging.getLogger(__name__)

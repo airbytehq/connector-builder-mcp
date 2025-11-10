@@ -16,11 +16,10 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Annotated
 
 from fastmcp import Context, FastMCP
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from connector_builder_mcp._manifest_history_utils import (
     CheckpointDetails,
