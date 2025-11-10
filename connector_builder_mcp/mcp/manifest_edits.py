@@ -611,10 +611,9 @@ def register_manifest_edit_tools(app: FastMCP) -> None:
 
 
 def register_session_manifest_tools(app: FastMCP) -> None:
-    """Register session manifest tools with the FastMCP app.
+    """Register session manifest resources with the FastMCP app.
 
     Args:
         app: FastMCP application instance
     """
-    register_tools(app, ToolDomain.MANIFEST_EDITS)
-    register_resources(app)
+    register_resources(app, domain=ToolDomain.MANIFEST_EDITS)
