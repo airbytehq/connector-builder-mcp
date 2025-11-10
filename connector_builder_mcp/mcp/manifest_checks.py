@@ -88,4 +88,15 @@ def validate_manifest(
     )
 
 
-__all__ = ["validate_manifest"]
+def register_manifest_check_tools(app) -> None:
+    """Register manifest check tools with the FastMCP app.
+
+    Args:
+        app: FastMCP application instance
+    """
+    from connector_builder_mcp.mcp._mcp_utils import register_tools
+
+    register_tools(app, domain=ToolDomain.MANIFEST_CHECKS)
+
+
+__all__ = ["validate_manifest", "register_manifest_check_tools"]
