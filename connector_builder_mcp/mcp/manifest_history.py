@@ -31,7 +31,7 @@ from connector_builder_mcp._manifest_history_utils import (
 )
 from connector_builder_mcp._paths import get_session_manifest_path
 from connector_builder_mcp._text_utils import unified_diff_with_context
-from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_tools
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 
 
 # Type aliases for revision identification
@@ -842,4 +842,4 @@ def register_manifest_history_tools(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_tools(app, domain=ToolDomain.MANIFEST_HISTORY)
+    register_mcp_tools(app, domain=ToolDomain.MANIFEST_HISTORY)

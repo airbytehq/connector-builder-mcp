@@ -17,9 +17,7 @@ from connector_builder_mcp._guidance import (
 from connector_builder_mcp.mcp._mcp_utils import (
     ToolDomain,
     mcp_prompt,
-)
-from connector_builder_mcp.mcp._mcp_utils import (
-    register_prompts as register_deferred_prompts,
+    register_deferred_prompts,
 )
 
 
@@ -91,4 +89,4 @@ def register_prompts(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_deferred_prompts(app, domain=ToolDomain.PROMPTS)
+    register_mcp_prompts(app, domain=ToolDomain.PROMPTS)

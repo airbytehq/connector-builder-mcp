@@ -38,7 +38,7 @@ from connector_builder_mcp._util import (
     parse_manifest_input,
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
-from connector_builder_mcp.mcp._mcp_utils import register_tools
+from connector_builder_mcp.mcp._mcp_utils import register_mcp_tools
 from connector_builder_mcp.mcp.manifest_edits import (
     get_session_manifest_content,
     set_session_manifest_content,
@@ -1205,4 +1205,4 @@ def register_manifest_test_tools(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_tools(app, domain="manifest_tests")
+    register_mcp_tools(app, domain=ToolDomain.MANIFEST_TESTS)

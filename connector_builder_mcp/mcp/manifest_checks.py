@@ -19,7 +19,7 @@ from connector_builder_mcp.mcp.manifest_history import (
     _checkpoint_manifest_revision,
 )
 from connector_builder_mcp.mcp.manifest_tests import ManifestValidationResult
-from connector_builder_mcp.mcp._mcp_utils import register_tools
+from connector_builder_mcp.mcp._mcp_utils import register_mcp_tools
 
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,4 @@ def register_manifest_check_tools(app) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_tools(app, domain=ToolDomain.MANIFEST_CHECKS)
-
-
-__all__ = ["validate_manifest", "register_manifest_check_tools"]
+    register_mcp_tools(app, domain=ToolDomain.MANIFEST_CHECKS)

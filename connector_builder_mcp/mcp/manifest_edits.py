@@ -30,8 +30,8 @@ from connector_builder_mcp.mcp._mcp_utils import (
     ToolDomain,
     mcp_resource,
     mcp_tool,
-    register_resources,
-    register_tools,
+    register_mcp_resources,
+    register_mcp_tools,
 )
 from connector_builder_mcp.mcp.manifest_history import (
     _save_manifest_revision,
@@ -449,13 +449,5 @@ def register_manifest_edit_tools(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_tools(app, ToolDomain.MANIFEST_EDITS)
-
-
-def register_session_manifest_tools(app: FastMCP) -> None:
-    """Register session manifest resources with the FastMCP app.
-
-    Args:
-        app: FastMCP application instance
-    """
-    register_resources(app, domain=ToolDomain.MANIFEST_EDITS)
+    register_mcp_tools(app, ToolDomain.MANIFEST_EDITS)
+    register_mcp_resources(app, domain=ToolDomain.MANIFEST_EDITS)

@@ -11,7 +11,7 @@ from functools import lru_cache
 from fastmcp import FastMCP
 
 from connector_builder_mcp.constants import MCP_SERVER_NAME
-from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_resource, register_resources
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_resource, register_mcp_resources
 
 
 @lru_cache(maxsize=1)
@@ -84,4 +84,4 @@ def register_connector_builder_resources(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_resources(app, domain=ToolDomain.SERVER_INFO)
+    register_mcp_resources(app, domain=ToolDomain.SERVER_INFO)

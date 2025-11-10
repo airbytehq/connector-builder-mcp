@@ -17,7 +17,7 @@ from connector_builder_mcp._guidance import (
     CONNECTOR_BUILDER_CHECKLIST,
     TOPIC_MAPPING,
 )
-from connector_builder_mcp.mcp._mcp_utils import mcp_tool, register_tools
+from connector_builder_mcp.mcp._mcp_utils import mcp_tool, register_mcp_tools, ToolDomain
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ _HTTP_OK = 200
 
 
 @mcp_tool(
-    domain="guidance",
+    domain=ToolDomain.GUIDANCE,
 )
 def get_connector_builder_checklist() -> str:
     """Get the comprehensive development checklist for building declarative source connectors.
@@ -45,7 +45,7 @@ def get_connector_builder_checklist() -> str:
 
 
 @mcp_tool(
-    domain="guidance",
+    domain=ToolDomain.GUIDANCE,
 )
 def get_connector_builder_docs(
     topic: Annotated[
@@ -150,7 +150,7 @@ def _is_manifest_only_connector(connector_name: str) -> bool:
 
 
 @mcp_tool(
-    domain="guidance",
+    domain=ToolDomain.GUIDANCE,
 )
 def get_connector_manifest(
     connector_name: Annotated[
@@ -230,7 +230,7 @@ def _get_manifest_yaml_json_schema() -> str:
 
 
 @mcp_tool(
-    domain="guidance",
+    domain=ToolDomain.GUIDANCE,
 )
 def find_connectors_by_class_name(class_names: str) -> list[str]:
     """Find connectors that use ALL specified class names/components.
@@ -299,4 +299,4 @@ def register_guidance_tools(
     app: FastMCP,
 ):
     """Register guidance tools in the MCP server."""
-    register_tools(app, domain="guidance")
+    register_mcp_tools(app, domain=ToolDomain.GUIDANCE)

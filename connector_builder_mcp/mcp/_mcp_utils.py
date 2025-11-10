@@ -240,7 +240,7 @@ def _register_mcp_callables(
         register_fn(app, callable_fn, callable_annotations)
 
 
-def register_tools(
+def register_mcp_tools(
     app: FastMCP,
     domain: ToolDomain | str,
 ) -> None:  # noqa: ANN401
@@ -276,7 +276,7 @@ def register_tools(
     )
 
 
-def register_prompts(
+def register_mcp_prompts(
     app: FastMCP,
     domain: ToolDomain | str,
 ) -> None:  # noqa: ANN401
@@ -305,7 +305,7 @@ def register_prompts(
     )
 
 
-def register_resources(
+def register_mcp_resources(
     app: FastMCP,
     domain: ToolDomain | str,
 ) -> None:  # noqa: ANN401
