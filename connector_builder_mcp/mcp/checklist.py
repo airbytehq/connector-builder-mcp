@@ -8,7 +8,7 @@ The checklist tracks three types of tasks:
 """
 
 import logging
-from enum import StrEnum
+from enum import Enum
 from typing import Annotated
 
 from fastmcp import FastMCP
@@ -20,7 +20,7 @@ from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_
 logger = logging.getLogger(__name__)
 
 
-class TaskStatusEnum(StrEnum):
+class TaskStatusEnum(str, Enum):
     """Status of a task in the task list."""
 
     NOT_STARTED = "not_started"
@@ -29,7 +29,7 @@ class TaskStatusEnum(StrEnum):
     BLOCKED = "blocked"
 
 
-class TaskTypeEnum(StrEnum):
+class TaskTypeEnum(str, Enum):
     """Types of tasks in the task list."""
 
     CONNECTOR = "connector"
@@ -40,17 +40,14 @@ class TaskTypeEnum(StrEnum):
 class Task(BaseModel):
     """Base task model with common fields."""
 
-    task_type: str = Field(description="Type of task (connector, stream, or finalization)")
+    task_type: TaskTypeEnum = Field(description="Type of task (connector, stream, or finalization)")
     id: str = Field(description="Unique identifier for the task")
     task_name: str = Field(description="Short name/title of the task")
     description: str | None = Field(
         default=None,
         description="Optional longer description with additional context/instructions",
     )
-    status: TaskStatusEnum = Field(
-        default=TaskStatusEnum.NOT_STARTED,
-        description="Current status of the task",
-    )
+    status: TaskStatusEnum = TaskStatusEnum.NOT_STARTED
     status_detail: str | None = Field(
         default=None,
         description="Details about the task status. Can be set when marking task as completed, blocked, or in progress to provide context.",
@@ -95,7 +92,11 @@ class TaskList(BaseModel):
     @property
     def tasks(self) -> list[Task]:
         """Get all tasks combined from all task lists."""
-        return self.basic_connector_tasks + self.stream_tasks + self.finalization_tasks
+        result: list[Task] = []
+        result.extend(self.basic_connector_tasks)
+        result.extend(self.stream_tasks)
+        result.extend(self.finalization_tasks)
+        return result
 
     def get_task_by_id(self, task_id: str) -> Task | None:
         """Get a task by its ID."""
