@@ -78,7 +78,7 @@ def mcp_server_info() -> dict[str, str | None]:
     return _get_version_info()
 
 
-def register_connector_builder_resources(app: FastMCP) -> None:
+def register_server_info_resources(app: FastMCP) -> None:
     """Register connector builder resources with the FastMCP app.
 
     Args:

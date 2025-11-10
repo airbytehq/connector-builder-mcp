@@ -21,7 +21,7 @@ from connector_builder_mcp.mcp.manifest_history import register_manifest_history
 from connector_builder_mcp.mcp.manifest_tests import register_manifest_test_tools
 from connector_builder_mcp.mcp.prompts import register_mcp_prompts
 from connector_builder_mcp.mcp.secrets_config import register_secrets_tools
-from connector_builder_mcp.mcp.server_info import register_connector_builder_resources
+from connector_builder_mcp.mcp.server_info import register_server_info_resources
 
 
 initialize_logging()
@@ -51,7 +51,7 @@ def register_server_assets(app: FastMCP) -> None:
     register_secrets_tools(app)
     register_manifest_history_tools(app)
     register_mcp_prompts(app)
-    register_connector_builder_resources(app)
+    register_server_info_resources(app)
 
 
 register_server_assets(app)
