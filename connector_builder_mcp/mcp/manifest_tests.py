@@ -38,7 +38,7 @@ from connector_builder_mcp._util import (
     parse_manifest_input,
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
-from connector_builder_mcp.manifest_history import (
+from connector_builder_mcp.mcp.manifest_history import (
     CheckpointType,
     ReadinessCheckpointDetails,
     ValidationCheckpointDetails,

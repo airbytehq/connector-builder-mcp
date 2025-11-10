@@ -11,7 +11,7 @@ from fastmcp import Context
 from pydantic import Field
 
 from connector_builder_mcp._validation_helpers import validate_manifest_content
-from connector_builder_mcp.manifest_history import (
+from connector_builder_mcp.mcp.manifest_history import (
     CheckpointType,
     ValidationCheckpointDetails,
     checkpoint_manifest_revision,

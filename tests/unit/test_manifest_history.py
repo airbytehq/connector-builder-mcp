@@ -2,7 +2,7 @@
 
 import pytest
 
-from connector_builder_mcp.manifest_history import (
+from connector_builder_mcp.mcp.manifest_history import (
     CheckpointType,
     ReadinessCheckpointDetails,
     RestoreCheckpointDetails,

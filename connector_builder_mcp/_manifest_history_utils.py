@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from connector_builder_mcp.manifest_history import (
+    from connector_builder_mcp.mcp.manifest_history import (
         CheckpointDetails,
         CheckpointType,
         ManifestRevisionMetadata,

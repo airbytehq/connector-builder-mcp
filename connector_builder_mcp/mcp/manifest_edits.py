@@ -26,7 +26,7 @@ from connector_builder_mcp._text_utils import (
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
 from connector_builder_mcp.constants import MCP_SERVER_NAME
-from connector_builder_mcp.manifest_history import (
+from connector_builder_mcp.mcp.manifest_history import (
     CheckpointType,
     ManifestRevisionSummary,
     RestoreCheckpointDetails,
