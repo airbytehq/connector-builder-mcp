@@ -109,7 +109,6 @@ def _get_topic_specific_docs(topic: str) -> str:
         )
 
 
-
 def _is_manifest_only_connector(connector_name: str) -> bool:
     """Check if a connector is manifest-only by querying the registry.
 

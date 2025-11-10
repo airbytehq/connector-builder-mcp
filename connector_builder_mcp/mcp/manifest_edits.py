@@ -292,8 +292,6 @@ def get_session_manifest_text(ctx: Context) -> str:
     return content
 
 
-
-
 @mcp_tool(
     ToolDomain.MANIFEST_EDITS,
     read_only=False,
