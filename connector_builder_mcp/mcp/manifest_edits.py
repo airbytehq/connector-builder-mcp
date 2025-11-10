@@ -189,15 +189,9 @@ def set_session_manifest_text(
 
     if mode == "insert_lines":
         if insert_at_line_number is None:
-            return SetManifestContentsResult(
-                message="",
-                error="mode='insert_lines' requires insert_at_line_number parameter",
-            )
+            return "ERROR: mode='insert_lines' requires insert_at_line_number parameter"
         if new_text is None:
-            return SetManifestContentsResult(
-                message="",
-                error="mode='insert_lines' requires new_text parameter",
-            )
+            return "ERROR: mode='insert_lines' requires new_text parameter"
 
         new_content, error = insert_text_lines(
             existing_content=existing_content,
