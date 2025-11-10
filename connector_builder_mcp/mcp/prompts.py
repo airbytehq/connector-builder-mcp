@@ -26,6 +26,7 @@ from connector_builder_mcp.mcp._mcp_utils import (
 @mcp_prompt(
     name="build_connector_from_scratch",
     description="Step-by-step playbook to build a declarative connector from scratch",
+    domain=ToolDomain.PROMPTS,
 )
 def build_connector_from_scratch(
     api_name: Annotated[
@@ -56,6 +57,7 @@ def build_connector_from_scratch(
 @mcp_prompt(
     name="add_stream_to_connector",
     description="Playbook to add a new stream to an existing connector",
+    domain=ToolDomain.PROMPTS,
 )
 def add_stream_to_connector(
     stream_name: Annotated[
@@ -89,4 +91,4 @@ def register_prompts(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_deferred_prompts(app, domain=ToolDomain.GUIDANCE)
+    register_deferred_prompts(app, domain=ToolDomain.PROMPTS)
