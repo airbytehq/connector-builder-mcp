@@ -2,7 +2,6 @@
 
 This module contains tools for testing connectors by actually running them.
 """
-"""Validation and testing tools for Airbyte connector manifests."""
 
 import logging
 import pkgutil
@@ -12,7 +11,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 import yaml
-from fastmcp import Context
+from fastmcp import Context, FastMCP
 from jsonschema import ValidationError
 from pydantic import BaseModel, Field
 from ruamel.yaml import YAML
@@ -45,11 +44,12 @@ from connector_builder_mcp.manifest_history import (
     ValidationCheckpointDetails,
     checkpoint_manifest_revision,
 )
-from connector_builder_mcp.secrets import hydrate_config
-from connector_builder_mcp.session_manifest import (
+from connector_builder_mcp.mcp._mcp_utils import register_tools
+from connector_builder_mcp.mcp.manifest_edits import (
     get_session_manifest_content,
     set_session_manifest_content,
 )
+from connector_builder_mcp.secrets import hydrate_config
 
 
 logger = logging.getLogger(__name__)
@@ -1199,5 +1199,10 @@ def execute_dynamic_manifest_resolution_test(
     return "Failed to resolve manifest"
 
 
-def register_manifest_test_tools(app: MCPServer) -> None:
-    register_tools(app, domain="guidance")
+def register_manifest_test_tools(app: FastMCP) -> None:
+    """Register manifest test tools with the FastMCP app.
+
+    Args:
+        app: FastMCP application instance
+    """
+    register_tools(app, domain="manifest_tests")

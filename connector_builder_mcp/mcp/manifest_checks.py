@@ -16,9 +16,9 @@ from connector_builder_mcp.manifest_history import (
     ValidationCheckpointDetails,
     checkpoint_manifest_revision,
 )
-from connector_builder_mcp.mcp._tool_utils import ToolDomain, mcp_tool
-from connector_builder_mcp.session_manifest import get_session_manifest_content
-from connector_builder_mcp.validation_testing import ManifestValidationResult
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool
+from connector_builder_mcp.mcp.manifest_edits import get_session_manifest_content
+from connector_builder_mcp.mcp.manifest_tests import ManifestValidationResult
 
 
 logger = logging.getLogger(__name__)

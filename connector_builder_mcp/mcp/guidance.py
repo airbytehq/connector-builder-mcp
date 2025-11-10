@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Annotated
 
 import requests
+from fastmcp import FastMCP
 from pydantic import Field
 
 from connector_builder_mcp._guidance import (
@@ -17,11 +18,13 @@ from connector_builder_mcp._guidance import (
     TOPIC_MAPPING,
 )
 from connector_builder_mcp.mcp._mcp_utils import mcp_tool, register_tools
-from fastmcp import FastMCP
+
 
 logger = logging.getLogger(__name__)
 
 _MANIFEST_SCHEMA_URL = "https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/refs/heads/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
+_REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry.json"
+_MANIFEST_ONLY_LANGUAGE = "manifest-only"
 _HTTP_OK = 200
 
 
@@ -201,7 +204,6 @@ def find_connectors_by_class_name(class_names: str) -> list[str]:
     return sorted(result_connectors) if result_connectors else []
 
 
-
 def _is_manifest_only_connector(connector_name: str) -> bool:
     """Check if a connector is manifest-only by querying the registry.
 
@@ -293,6 +295,8 @@ def get_connector_manifest(
         )
 
 
-def register_guidance_tools(app: FastMCP,):
+def register_guidance_tools(
+    app: FastMCP,
+):
     """Register guidance tools in the MCP server."""
     register_tools(app, domain="guidance")

@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar
+
+from fastmcp import FastMCP
 
 from connector_builder_mcp._annotations import (
     DESTRUCTIVE_HINT,
@@ -19,9 +22,6 @@ from connector_builder_mcp._annotations import (
     READ_ONLY_HINT,
 )
 from connector_builder_mcp.constants import REQUIRE_SESSION_MANIFEST_IN_TOOL_CALLS
-from dataclasses import dataclass
-
-from fastmcp import FastMCP
 
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -73,7 +73,6 @@ _REGISTERED_RESOURCES: list[tuple[Callable[..., Any], dict[str, Any]]] = []
 _REGISTERED_PROMPTS: list[tuple[Callable[..., Any], dict[str, Any]]] = []
 # PROMPT_REGISTRY: dict[str, PromptDef] = {}
 # RESOURCE_REGISTRY: dict[str, ResourceDef] = {}
-
 
 
 def should_register_tool(annotations: dict[str, Any]) -> bool:
@@ -156,9 +155,7 @@ def mcp_prompt(
     """
 
     def decorator(func: Callable[..., list[dict[str, str]]]):
-        if name in PROMPT_REGISTRY:
-            raise ValueError(f"Duplicate prompt name: {name}")
-        PROMPT_REGISTRY[name] = PromptDef(name, description, func)
+        _REGISTERED_PROMPTS.append((func, {"name": name, "description": description}))
         return func
 
     return decorator
@@ -184,9 +181,9 @@ def mcp_resource(
     """
 
     def decorator(func: Callable[..., Any]):
-        if uri in RESOURCE_REGISTRY:
-            raise ValueError(f"Duplicate resource URI: {uri}")
-        RESOURCE_REGISTRY[uri] = ResourceDef(uri, description, mime_type, func)
+        _REGISTERED_RESOURCES.append(
+            (func, {"uri": uri, "description": description, "mime_type": mime_type})
+        )
         return func
 
     return decorator
@@ -206,7 +203,9 @@ def _register_mcp_callables(
         domain: The domain to register tools for (e.g., ToolDomain.SESSION, "session")
     """
     domain_str = domain.value if isinstance(domain, ToolDomain) else domain
-    registered_tools = [(func, ann) for func, ann in _REGISTERED_TOOLS if ann.get("domain") == domain_str]
+    registered_tools = [
+        (func, ann) for func, ann in _REGISTERED_TOOLS if ann.get("domain") == domain_str
+    ]
 
     for func, tool_annotations in registered_tools:
         if should_register_tool(tool_annotations):
@@ -241,6 +240,7 @@ def register_tools(
         app: The FastMCP app instance
         domain: The domain to register for (e.g., ToolDomain.SESSION, "session")
     """
+
     def _register_fn(
         app: FastMCP,
         callable_fn: Callable,
@@ -253,8 +253,8 @@ def register_tools(
             exclude_args = excluded if excluded else None
 
         app.tool(
-            func,
-            annotations=tool_annotations,
+            callable_fn,
+            annotations=annotations,
             exclude_args=exclude_args,
         )
 
@@ -264,7 +264,6 @@ def register_tools(
         resource_list=_REGISTERED_TOOLS,
         register_fn=_register_fn,
     )
-
 
 
 def register_prompts(
@@ -277,15 +276,15 @@ def register_prompts(
         app: The FastMCP app instance
         domain: The domain to register for (e.g., ToolDomain.SESSION, "session")
     """
+
     def _register_fn(
         app: FastMCP,
         callable_fn: Callable,
         annotations: dict[str, Any],
     ):
-        _ = annotations
         app.prompt(
-            name=callable_fn.name,
-            description=callable_fn.description,
+            name=annotations["name"],
+            description=annotations["description"],
         )(callable_fn)
 
     _register_mcp_callables(
@@ -306,6 +305,7 @@ def register_resources(
         app: The FastMCP app instance
         domain: The domain to register for (e.g., ToolDomain.SESSION, "session")
     """
+
     def _register_fn(
         app: FastMCP,
         callable_fn: Callable,
@@ -313,10 +313,10 @@ def register_resources(
     ):
         _ = annotations
         app.resource(
-            defn.uri
-            description=defn.description,
-            mime_type=defn.mime_type,
-        )(defn.func)
+            annotations["uri"],
+            description=annotations["description"],
+            mime_type=annotations["mime_type"],
+        )(callable_fn)
 
     _register_mcp_callables(
         app=app,

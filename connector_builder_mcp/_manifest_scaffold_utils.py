@@ -1,20 +1,7 @@
 """Manifest scaffold generation tools for Airbyte connectors."""
 
 import logging
-import re
 from enum import Enum
-from typing import Annotated
-
-from fastmcp import Context
-from pydantic import Field
-
-from connector_builder_mcp._guidance import SCAFFOLD_CREATION_SUCCESS_MESSAGE
-from connector_builder_mcp.constants import MCP_SERVER_NAME
-from connector_builder_mcp.session_manifest import (
-    get_session_manifest_content,
-    set_session_manifest_content,
-)
-from connector_builder_mcp.validation_testing import validate_manifest
 
 
 logger = logging.getLogger(__name__)

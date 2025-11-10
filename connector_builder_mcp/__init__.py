@@ -8,8 +8,8 @@ fully control the connector development workflow including testing and PR creati
 """
 
 from connector_builder_mcp import (
-    server,
     mcp,
+    server,
 )
 
 

@@ -42,7 +42,7 @@ def get_session_dir(session_id: str) -> Path:
     """
     sanitized_id = _sanitize_session_id(session_id)
     session_dir = SESSION_BASE_DIR / sanitized_id
-    session_dir.mkdir(parents=True, exist_ok=True)
+    session_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     return session_dir
 
 
