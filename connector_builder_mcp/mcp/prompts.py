@@ -17,6 +17,7 @@ from connector_builder_mcp._guidance import (
 from connector_builder_mcp.mcp._mcp_utils import (
     ToolDomain,
     mcp_prompt,
+    register_mcp_prompts,
 )
 
 

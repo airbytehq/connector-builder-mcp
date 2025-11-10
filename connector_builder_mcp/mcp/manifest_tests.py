@@ -37,6 +37,7 @@ from connector_builder_mcp._manifest_history_utils import (
     ValidationCheckpointDetails,
 )
 from connector_builder_mcp._util import (
+    ToolDomain,
     as_bool,
     as_dict,
     filter_config_secrets,
