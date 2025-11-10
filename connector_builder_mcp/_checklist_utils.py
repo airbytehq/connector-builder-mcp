@@ -134,13 +134,9 @@ class TaskList(BaseModel):
             _task_from_dict(task) for task in data.get("special_requirements", [])
         ]
 
-        acceptance_tests = [
-            _task_from_dict(task) for task in data.get("acceptance_tests", [])
-        ]
+        acceptance_tests = [_task_from_dict(task) for task in data.get("acceptance_tests", [])]
 
-        finalization_tasks = [
-            _task_from_dict(task) for task in data.get("finalization_tasks", [])
-        ]
+        finalization_tasks = [_task_from_dict(task) for task in data.get("finalization_tasks", [])]
 
         return cls(
             basic_connector_tasks=basic_connector_tasks,
@@ -174,7 +170,12 @@ def load_session_checklist(session_id: str) -> TaskList:
             logger.warning("Migrating old stream_tasks list format to dict format")
             data["stream_tasks"] = {}
 
-        for task_list_key in ["basic_connector_tasks", "special_requirements", "acceptance_tests", "finalization_tasks"]:
+        for task_list_key in [
+            "basic_connector_tasks",
+            "special_requirements",
+            "acceptance_tests",
+            "finalization_tasks",
+        ]:
             if task_list_key in data:
                 for task in data[task_list_key]:
                     task.pop("task_type", None)
