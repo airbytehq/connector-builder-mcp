@@ -7,15 +7,15 @@ from connector_builder_mcp.mcp.manifest_history import (
     ReadinessCheckpointDetails,
     RestoreCheckpointDetails,
     ValidationCheckpointDetails,
-    checkpoint_manifest_revision,
-    diff_manifest_revisions,
+    _checkpoint_manifest_revision,
+    _diff_manifest_revisions,
+    _get_manifest_revision,
+    _list_manifest_revisions,
+    _save_manifest_revision,
     diff_session_manifest_versions,
-    get_manifest_revision,
     get_session_manifest_version,
-    list_manifest_revisions,
     list_session_manifest_versions,
     restore_session_manifest_version,
-    save_manifest_revision,
 )
 from connector_builder_mcp.session_manifest import (
     get_session_manifest_content,
@@ -95,15 +95,15 @@ def test_save_and_get_versions(ctx, manifests, expected_versions):
     session_id = ctx.session_id
 
     for i, manifest in enumerate(manifests, 1):
-        revision_id = save_manifest_revision(session_id=session_id, content=manifest)
+        revision_id = _save_manifest_revision(session_id=session_id, content=manifest)
         ordinal, _, _ = revision_id
         assert ordinal == i
 
-    history = list_manifest_revisions(session_id)
+    history = _list_manifest_revisions(session_id)
     assert len(history) == expected_versions
 
     for i in range(1, expected_versions + 1):
-        revision = get_manifest_revision(session_id, i)
+        revision = _get_manifest_revision(session_id, i)
         assert revision is not None
         assert revision.content == manifests[i - 1]
         assert revision.metadata.ordinal == i
@@ -134,9 +134,9 @@ def test_checkpoint_updates_latest_version(ctx, checkpoint_type, checkpoint_deta
     """Test that checkpointing updates the most recent revision's metadata."""
     session_id = ctx.session_id
 
-    save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V1)
+    _save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V1)
 
-    checkpoint_revision_id = checkpoint_manifest_revision(
+    checkpoint_revision_id = _checkpoint_manifest_revision(
         session_id=session_id,
         checkpoint_type=checkpoint_type,
         checkpoint_details=checkpoint_details,
@@ -145,7 +145,7 @@ def test_checkpoint_updates_latest_version(ctx, checkpoint_type, checkpoint_deta
     ordinal, _, _ = checkpoint_revision_id
     assert ordinal == 1
 
-    revision = get_manifest_revision(session_id, 1)
+    revision = _get_manifest_revision(session_id, 1)
     assert revision is not None
     assert revision.metadata.checkpoint_type == checkpoint_type
     assert revision.metadata.checkpoint_details == checkpoint_details
@@ -155,10 +155,10 @@ def test_diff_versions_shows_changes(ctx):
     """Test that diff shows changes between revisions."""
     session_id = ctx.session_id
 
-    save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V1)
-    save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V2)
+    _save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V1)
+    _save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V2)
 
-    diff_result = diff_manifest_revisions(session_id, 1, 2)
+    diff_result = _diff_manifest_revisions(session_id, 1, 2)
 
     assert diff_result is not None
     assert "posts" in diff_result.diff
@@ -170,15 +170,17 @@ def test_restore_creates_single_version(ctx):
     """Test that restoring a revision creates exactly one new revision."""
     session_id = ctx.session_id
 
-    revision_id_1 = save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V1)
+    revision_id_1 = _save_manifest_revision(
+        session_id=session_id, content=VALID_MINIMAL_MANIFEST_V1
+    )
     set_session_manifest_text(ctx, mode="replace_all", new_text=VALID_MINIMAL_MANIFEST_V2)
 
     restore_session_manifest_version(ctx, version_number=1)
 
-    history = list_manifest_revisions(session_id)
+    history = _list_manifest_revisions(session_id)
     assert len(history) == 3
 
-    restored_revision = get_manifest_revision(session_id, 3)
+    restored_revision = _get_manifest_revision(session_id, 3)
     assert restored_revision is not None
     assert restored_revision.content == VALID_MINIMAL_MANIFEST_V1
     assert isinstance(restored_revision.metadata.checkpoint_details, RestoreCheckpointDetails)
@@ -193,8 +195,8 @@ def test_mcp_tools_smoke(ctx):
     """Smoke test covering list/get/diff/restore MCP tools in one flow."""
     session_id = ctx.session_id
 
-    save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V1)
-    save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V2)
+    _save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V1)
+    _save_manifest_revision(session_id=session_id, content=VALID_MINIMAL_MANIFEST_V2)
 
     history = list_session_manifest_versions(ctx)
     assert len(history) == 2

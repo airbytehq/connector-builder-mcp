@@ -34,13 +34,7 @@ from connector_builder_mcp.mcp._mcp_utils import (
     register_tools,
 )
 from connector_builder_mcp.mcp.manifest_history import (
-    CheckpointType,
-    ManifestRevisionSummary,
-    RestoreCheckpointDetails,
-    diff_manifest_revisions,
-    get_manifest_revision,
-    list_manifest_revisions,
-    save_manifest_revision,
+    _save_manifest_revision,
 )
 
 
@@ -298,162 +292,6 @@ def get_session_manifest_text(ctx: Context) -> str:
     return content
 
 
-@mcp_tool(
-    ToolDomain.MANIFEST_EDITS,
-    read_only=True,
-    idempotent=True,
-    open_world=False,
-)
-def list_session_manifest_versions(ctx: Context) -> list[ManifestRevisionSummary]:
-    """List all versions of the manifest for the current session.
-
-    Returns a list of manifest revisions with metadata including revision IDs,
-    ordinals, timestamps, checkpoint types, and content hashes. Revisions are
-    sorted by ordinal (oldest to newest).
-
-    Args:
-        ctx: FastMCP context (automatically injected)
-
-    Returns:
-        List of manifest revision summaries
-    """
-    session_id = ctx.session_id
-    return list_manifest_revisions(session_id)
-
-
-@mcp_tool(
-    ToolDomain.MANIFEST_EDITS,
-    read_only=True,
-    idempotent=True,
-    open_world=False,
-)
-def get_session_manifest_version(
-    ctx: Context,
-    *,
-    version_number: Annotated[
-        int,
-        Field(description="Version number to retrieve (1-indexed)", ge=1),
-    ],
-) -> str:
-    """Get a specific version of the manifest from history.
-
-    Retrieves the full manifest content for a specific revision by ordinal.
-    Use list_session_manifest_versions to see available revisions.
-
-    Args:
-        ctx: FastMCP context (automatically injected)
-        version_number: Ordinal number to retrieve (1-indexed)
-
-    Returns:
-        Manifest YAML content for the specified revision, or error message if not found
-    """
-    session_id = ctx.session_id
-    revision = get_manifest_revision(session_id, version_number)
-
-    if revision is None:
-        return f"ERROR: Revision {version_number} not found for session '{session_id}'"
-
-    return revision.content
-
-
-@mcp_tool(
-    ToolDomain.MANIFEST_EDITS,
-    read_only=True,
-    idempotent=True,
-    open_world=False,
-)
-def diff_session_manifest_versions(
-    ctx: Context,
-    *,
-    from_version: Annotated[
-        int,
-        Field(description="Source version number for comparison", ge=1),
-    ],
-    to_version: Annotated[
-        int,
-        Field(description="Target version number for comparison", ge=1),
-    ],
-    context_lines: Annotated[
-        int,
-        Field(description="Number of context lines to include in diff", ge=0, le=10),
-    ] = 3,
-) -> str:
-    """Generate a diff between two manifest revisions.
-
-    Compares two revisions of the manifest and returns a unified diff showing
-    the changes between them. Use list_session_manifest_versions to see
-    available revisions.
-
-    Args:
-        ctx: FastMCP context (automatically injected)
-        from_version: Source ordinal number
-        to_version: Target ordinal number
-        context_lines: Number of context lines to include (default: 3)
-
-    Returns:
-        Unified diff between the two revisions, or error message if revisions not found
-    """
-    session_id = ctx.session_id
-    diff_result = diff_manifest_revisions(session_id, from_version, to_version, context_lines)
-
-    if diff_result is None:
-        return (
-            f"ERROR: Could not generate diff. One or both revisions not found "
-            f"(from: {from_version}, to: {to_version})"
-        )
-
-    return diff_result.diff
-
-
-@mcp_tool(
-    ToolDomain.MANIFEST_EDITS,
-    read_only=False,
-    destructive=False,
-    idempotent=False,
-    open_world=False,
-)
-def restore_session_manifest_version(
-    ctx: Context,
-    *,
-    version_number: Annotated[
-        int,
-        Field(description="Version number to restore (1-indexed)", ge=1),
-    ],
-) -> str:
-    """Restore a previous revision of the manifest as the current manifest.
-
-    This retrieves a specific revision from history and sets it as the current
-    session manifest. A new revision is automatically created to preserve the
-    restore operation in history.
-
-    Returns:
-        Success message with revision info, or error message if revision not found
-    """
-
-    session_id = ctx.session_id
-    revision = get_manifest_revision(session_id, version_number)
-
-    if revision is None:
-        return f"ERROR: Revision {version_number} not found for session '{session_id}'"
-
-    manifest_path = get_session_manifest_path(session_id)
-    manifest_path.write_text(revision.content, encoding="utf-8")
-
-    new_revision_id = save_manifest_revision(
-        session_id=session_id,
-        content=revision.content,
-        checkpoint_type=CheckpointType.NONE,
-        checkpoint_details=RestoreCheckpointDetails(
-            restored_from_revision=revision.metadata.revision_id,
-            restored_from_ordinal=version_number,
-        ),
-    )
-
-    new_ordinal, _, new_hash = new_revision_id
-    return (
-        f"Successfully restored revision {version_number} as current manifest. "
-        f"New revision {new_ordinal} ({new_hash[:8]}) created to record this restore operation."
-    )
 
 
 @mcp_tool(
@@ -604,7 +442,7 @@ def set_session_manifest_content(
     manifest_path.write_text(manifest_yaml, encoding="utf-8")
     logger.info(f"Wrote session manifest to: {manifest_path}")
 
-    revision_id = save_manifest_revision(session_id=session_id, content=manifest_yaml)
+    revision_id = _save_manifest_revision(session_id=session_id, content=manifest_yaml)
 
     return manifest_path, revision_id
 

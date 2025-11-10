@@ -16,7 +16,7 @@ from connector_builder_mcp.mcp.manifest_edits import get_session_manifest_conten
 from connector_builder_mcp.mcp.manifest_history import (
     CheckpointType,
     ValidationCheckpointDetails,
-    checkpoint_manifest_revision,
+    _checkpoint_manifest_revision,
 )
 from connector_builder_mcp.mcp.manifest_tests import ManifestValidationResult
 
@@ -74,7 +74,7 @@ def validate_manifest(
         warning_count=len(warnings),
         errors=errors[:5] if errors else [],
     )
-    checkpoint_manifest_revision(
+    _checkpoint_manifest_revision(
         session_id=ctx.session_id,
         checkpoint_type=checkpoint_type,
         checkpoint_details=checkpoint_details,

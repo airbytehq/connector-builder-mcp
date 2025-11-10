@@ -64,6 +64,9 @@ class ToolDomain(str, Enum):
     MANIFEST_EDITS = "manifest_edits"
     """Tools to create, edit, or clear the manifest (set_session_manifest_text, get_session_manifest_text, create_connector_manifest_scaffold)"""
 
+    MANIFEST_HISTORY = "manifest_history"
+    """Tools to view or manage manifest revision history (list_manifest_revisions, get_manifest_revision)."""
+
     SECRETS_CONFIG = "secrets_config"
     """Tools to view, edit, inspect, or set secrets"""
 
