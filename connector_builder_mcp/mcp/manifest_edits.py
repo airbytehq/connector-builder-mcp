@@ -47,16 +47,6 @@ from connector_builder_mcp.mcp._mcp_utils import (
 logger = logging.getLogger(__name__)
 
 
-class SetManifestContentsResult(BaseModel):
-    """Result of setting session manifest text."""
-
-    message: str
-    revision_id: tuple[int, int, str] | None = None  # (ordinal, timestamp_ns, content_hash)
-    diff_summary: str | None = None
-    validation_warnings: list[str] = []
-    error: str | None = None
-
-
 @mcp_tool(
     ToolDomain.MANIFEST_EDITS,
     read_only=False,
@@ -101,7 +91,7 @@ def set_session_manifest_text(
             description="Replace all occurrences of text (for replace_text mode). If False, will fail if text appears multiple times."
         ),
     ] = False,
-) -> SetManifestContentsResult:
+) -> str:
     """Save or edit a connector manifest in the current session.
 
     This tool supports four modes (line numbering is 1-indexed):
@@ -133,10 +123,7 @@ def set_session_manifest_text(
 
     if mode == "replace_all":
         if new_text is None:
-            return SetManifestContentsResult(
-                message="",
-                error="mode='replace_all' requires new_text parameter",
-            )
+            return "ERROR: mode='replace_all' requires new_text parameter"
 
         old_content = get_session_manifest_content(session_id) or ""
         new_content, diff_summary = replace_all_text(
@@ -153,27 +140,22 @@ def set_session_manifest_text(
         else:
             validation_warnings = ["WARNING: Manifest is empty"]
 
-        return SetManifestContentsResult(
-            message="Saved manifest",
-            revision_id=revision_id,
-            diff_summary=diff_summary,
-            validation_warnings=validation_warnings,
-        )
+        ordinal, _, content_hash = revision_id
+        result = f"Saved manifest (revision {ordinal}: {content_hash[:8]})"
+        if diff_summary:
+            result += f"\n\n{diff_summary}"
+        if validation_warnings:
+            result += f"\n\nValidation warnings:\n" + "\n".join(f"- {w}" for w in validation_warnings)
+        return result
 
     # Get existing content for other modes
     existing_content = get_session_manifest_content(session_id) or ""
 
     if mode == "replace_lines":
         if replace_lines is None:
-            return SetManifestContentsResult(
-                message="",
-                error="mode='replace_lines' requires replace_lines=(start,end) tuple",
-            )
+            return "ERROR: mode='replace_lines' requires replace_lines=(start,end) tuple"
         if new_text is None:
-            return SetManifestContentsResult(
-                message="",
-                error="mode='replace_lines' requires new_text parameter",
-            )
+            return "ERROR: mode='replace_lines' requires new_text parameter"
 
         start_line, end_line = replace_lines
         new_content, error = replace_text_lines(
@@ -184,7 +166,7 @@ def set_session_manifest_text(
         )
 
         if error:
-            return SetManifestContentsResult(message="", error=error)
+            return f"ERROR: {error}"
 
         diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
 
@@ -197,12 +179,13 @@ def set_session_manifest_text(
         else:
             validation_warnings = ["WARNING: Manifest is empty"]
 
-        return SetManifestContentsResult(
-            message="Saved manifest",
-            revision_id=revision_id,
-            diff_summary=diff_summary,
-            validation_warnings=validation_warnings,
-        )
+        ordinal, _, content_hash = revision_id
+        result = f"Saved manifest (revision {ordinal}: {content_hash[:8]})"
+        if diff_summary:
+            result += f"\n\n{diff_summary}"
+        if validation_warnings:
+            result += f"\n\nValidation warnings:\n" + "\n".join(f"- {w}" for w in validation_warnings)
+        return result
 
     if mode == "insert_lines":
         if insert_at_line_number is None:
@@ -223,7 +206,7 @@ def set_session_manifest_text(
         )
 
         if error:
-            return SetManifestContentsResult(message="", error=error)
+            return f"ERROR: {error}"
 
         diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
 
@@ -236,12 +219,13 @@ def set_session_manifest_text(
         else:
             validation_warnings = ["WARNING: Manifest is empty"]
 
-        return SetManifestContentsResult(
-            message="Saved manifest",
-            revision_id=revision_id,
-            diff_summary=diff_summary,
-            validation_warnings=validation_warnings,
-        )
+        ordinal, _, content_hash = revision_id
+        result = f"Saved manifest (revision {ordinal}: {content_hash[:8]})"
+        if diff_summary:
+            result += f"\n\n{diff_summary}"
+        if validation_warnings:
+            result += f"\n\nValidation warnings:\n" + "\n".join(f"- {w}" for w in validation_warnings)
+        return result
 
     if mode == "replace_text":
         if replace_text is None:
@@ -263,7 +247,7 @@ def set_session_manifest_text(
         )
 
         if error:
-            return SetManifestContentsResult(message="", error=error)
+            return f"ERROR: {error}"
 
         diff_summary = unified_diff_with_context(existing_content, new_content, context=2)
 
