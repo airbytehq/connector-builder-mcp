@@ -11,82 +11,74 @@ basic_connector_tasks:
   - id: locate-api-docs
     name: Locate API documentation
     description: 📝 Locate API reference docs using online search.
-  
-  - id: identify-auth-methods
-    name: Identify authentication methods
-    description: >
-      📝 Identify required authentication methods. If multiple auth methods
-      are available, decide which to build first.
-  
-  - id: check-advanced-features
-    name: Check advanced features
-    description: >
-      If the user or the API itself appear to require advanced features,
-      check the docs tool to understand how those features might be
-      implemented before you start.
-  
-  - id: enumerate-streams
-    name: Enumerate streams
+
+  - id: enumerate-available-streams
+    name: Enumerate available streams
     description: >
       📝 **Enumerate all available streams first**: Before beginning work on
       any stream, research the API documentation to identify and list ALL
       available streams/endpoints. Share this complete list with your user
       (or the message thread) so they can provide guidance on priorities or
       exclusions.
-  
-  - id: request-dotenv-file
-    name: Request .env file
-    description: >
-      If you do need secrets for authentication, and if user is able to
-      create a .env file for you, ask them to provide you a path to the file.
-  
-  - id: populate-secrets
-    name: Populate secrets
-    description: >
-      Use your tools to populate required variables to your dotenv file, then
-      let the user enter them, then use your tools to verify they are set.
-      (You will pass the dotenv file to other tools.)
-  
-  - id: secrets-security
-    name: Follow secrets handling policy
-    description: '**Important**: Secrets should not be sent directly to or through the LLM.'
-  
-  - id: confirm-stream-list
-    name: Confirm stream list
-    description: >
-      📝 After enumerating streams, ask the user to confirm the list before
-      you start. They can: (1) optionally suggest what the 'first stream'
-      should be, or (2) inform you about specific streams they'd like you to
-      ignore.
 
-# Stream tasks are added dynamically per stream
+  - id: identify-auth-requirements
+    name: Identify authentication requirements
+    description: >
+      📝 Identify supported authentication methods. If multiple auth methods
+      are available, decide which to build first.
+
+  - id: understand-special-requirements
+    name: Understand special requirements
+    description: >
+      If the user or the API itself appear to require advanced features,
+      check the docs tool to understand how those features might be
+      implemented before you start. Document special requirements in the
+      'special requirements' tasks section.
+
+  - id: confirm-secrets-and-connection-details
+    name: Confirm secrets and connection details
+    description: >
+      If you need secrets and/or connection information, you will need to
+      gather those from the user. This is a no-op if the user has already
+      provided you a dotenv with all necessary values, or if the connector does
+      not require secrets.
+
+      Do not proceed until you have all necessary secrets and connection
+      details.
+
+      **Important**: Secrets should not be sent directly to or through the LLM.
+
 stream_tasks: {}
 
 # Special requirements are added by agents as needed
 special_requirements: []
 
 # Acceptance tests tasks
-acceptance_tests: []
+acceptance_tests:
+  - id: connector-readiness-check
+    name: Run connector readiness check tool and audit results
+    description: >
+      Run connector readiness check tool and audit results of all streams.
 
 # Finalization tasks
 finalization_tasks:
   - id: individual-tests
     name: Run individual tests
     description: All streams pass individual tests.
-  
+
   - id: smoke-test-validation
     name: Validate smoke test results
     description: Smoke test extracts expected total records.
-  
+
   - id: verify-counts
     name: Verify counts
     description: No record counts are suspicious multiples.
-  
+
   - id: validate-schema
     name: Validate schema
     description: >
       Use validate manifest tool to confirm JSON schema is correct.
-  
+
   - id: complete-documentation
     name: Complete documentation
     description: Documentation is complete.
