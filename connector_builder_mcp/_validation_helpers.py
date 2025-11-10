@@ -40,8 +40,8 @@ def _get_declarative_component_schema() -> dict[str, Any]:
         The JSON schema for declarative components
     """
     schema_text = pkgutil.get_data(
-        "airbyte_cdk.sources.declarative.parsers",
-        "schemas/declarative_component_schema.yaml",
+        "airbyte_cdk.sources.declarative",
+        "declarative_component_schema.yaml",
     )
     if schema_text is None:
         raise ValueError("Could not load declarative component schema")
@@ -214,6 +214,16 @@ def validate_manifest_content(
 
     try:
         schema = _get_declarative_component_schema()
+    except Exception as e:
+        error_msg = (
+            f"Fatal: Could not load declarative component schema for JSON validation: {e}. "
+            "Ensure a compatible airbyte-cdk version is installed."
+        )
+        logger.error(error_msg)
+        errors.append(error_msg)
+        return (False, errors, warnings, resolved_manifest)
+
+    try:
         validate(manifest_dict, schema)
         logger.info("JSON schema validation passed")
     except ValidationError as schema_error:
@@ -221,8 +231,11 @@ def validate_manifest_content(
         logger.error(f"JSON schema validation failed: {detailed_error}")
         errors.append(detailed_error)
         return (False, errors, warnings, resolved_manifest)
-    except Exception as schema_load_error:
-        logger.warning(f"Could not load schema for pre-validation: {schema_load_error}")
+    except Exception as e:
+        error_msg = f"Fatal: Unexpected error during JSON schema validation: {e}"
+        logger.error(error_msg)
+        errors.append(error_msg)
+        return (False, errors, warnings, resolved_manifest)
 
     config_with_manifest = {"__injected_declarative_manifest": manifest_dict}
 
