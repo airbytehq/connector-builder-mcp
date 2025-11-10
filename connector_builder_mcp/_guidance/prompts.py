@@ -32,7 +32,7 @@ def _load_checklist_from_yaml() -> str:
     with open(_CHECKLIST_YAML_PATH, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    lines = [f"# {data['title']}", ""]
+    lines = ["# Connector Builder Development Checklist", ""]
     lines.append("Use this checklist to guide you through the process of building a declarative")
     lines.append("(yaml) source connector using the Connector Builder MCP Server.")
     lines.append("")
@@ -90,18 +90,6 @@ def _load_checklist_from_yaml() -> str:
         for task in data["finalization_tasks"]:
             task_name = task.get("name", task["id"])
             lines.append(f"- [ ] **{task_name}**: {task['description']}")
-        lines.append("")
-
-    if "rules" in data:
-        lines.append("## Rules")
-        for rule in data["rules"]:
-            lines.append(f"- {rule}")
-        lines.append("")
-
-    if "guidance" in data:
-        lines.append("## Guidance")
-        for guide in data["guidance"]:
-            lines.append(f"- {guide}")
         lines.append("")
 
     return "\n".join(lines)

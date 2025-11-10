@@ -6,8 +6,6 @@
 # Steps marked with "📝" have outputs which should be shared with your user,
 # or in a log file if no user is available.
 
-title: Connector Builder Development Checklist
-
 # Task lists matching TaskList model properties
 basic_connector_tasks:
   - id: locate-api-docs
@@ -92,15 +90,3 @@ finalization_tasks:
   - id: complete-documentation
     name: Complete documentation
     description: Documentation is complete.
-
-rules:
-  - Custom Python components are not supported (for security reasons).
-  - All MCP tools support receiving .env file path - please pass it without parsing secrets yourself.
-  - Call connector builder docs tool for specific component topics as needed.
-  - YAML anchors are not supported, although other means are available, such as ref pointers.
-  - The connector spec should be included in the manifest, not as a separate file.
-  - If manifest validation fails, review the errors and relevant documentation and then attempt to resolve the errors.
-  - For reading manifest content, prefer using the 'session_manifest_yaml_contents' MCP resource instead of the get_session_manifest_text tool for better performance and caching. The resource URI format is '<MCP_SERVER_NAME>://session/manifest' where server_name matches your MCP configuration.
-
-guidance:
-  - For detailed guidance on specific components, use the connector builder docs tool. If called with no inputs, it will provide you an index of all available topics.
