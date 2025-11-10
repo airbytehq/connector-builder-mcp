@@ -1,20 +1,25 @@
 """Checklist tools for tracking connector development progress.
 
 This module provides MCP tools for managing a task checklist during connector development.
-The checklist tracks four types of tasks:
+The checklist tracks five types of tasks:
 - Connector Tasks: General connector setup and configuration
 - Stream Tasks: Stream-specific implementation work
-- Acceptance Test Tasks: Acceptance testing and validation
+- Special Requirements: Custom requirements specific to the connector
+- Acceptance Tests: Acceptance testing and validation
 - Finalization Tasks: Final validation and cleanup
+
+The checklist is session-scoped and persists to disk automatically.
 """
 
+import json
 import logging
 from enum import Enum
 from typing import Annotated
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
+from connector_builder_mcp._paths import get_session_checklist_path
 from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 
 
@@ -35,7 +40,8 @@ class TaskTypeEnum(str, Enum):
 
     CONNECTOR = "connector"
     STREAM = "stream"
-    ACCEPTANCE_TEST = "acceptance_test"
+    SPECIAL_REQUIREMENTS = "special_requirements"
+    ACCEPTANCE_TESTS = "acceptance_tests"
     FINALIZATION = "finalization"
 
 
@@ -43,7 +49,7 @@ class Task(BaseModel):
     """Base task model with common fields."""
 
     task_type: TaskTypeEnum = Field(
-        description="Type of task (connector, stream, acceptance_test, or finalization)"
+        description="Type of task (connector, stream, special_requirements, acceptance_tests, or finalization)"
     )
     id: str = Field(description="Unique identifier for the task")
     task_name: str = Field(description="Short name/title of the task")
@@ -71,10 +77,16 @@ class StreamTask(Task):
     stream_name: str = Field(description="Name of the stream this task relates to")
 
 
-class AcceptanceTestTask(Task):
-    """Acceptance test task for testing and validation."""
+class SpecialRequirementTask(Task):
+    """Special requirement task for custom connector-specific requirements."""
 
-    task_type: TaskTypeEnum = TaskTypeEnum.ACCEPTANCE_TEST
+    task_type: TaskTypeEnum = TaskTypeEnum.SPECIAL_REQUIREMENTS
+
+
+class AcceptanceTestsTask(Task):
+    """Acceptance tests task for testing and validation."""
+
+    task_type: TaskTypeEnum = TaskTypeEnum.ACCEPTANCE_TESTS
 
 
 class FinalizationTask(Task):
@@ -94,7 +106,11 @@ class TaskList(BaseModel):
         default_factory=list,
         description="List of stream tasks",
     )
-    acceptance_test_tasks: list[AcceptanceTestTask] = Field(
+    special_requirements: list[SpecialRequirementTask] = Field(
+        default_factory=list,
+        description="List of special requirement tasks",
+    )
+    acceptance_tests: list[AcceptanceTestsTask] = Field(
         default_factory=list,
         description="List of acceptance test tasks",
     )
@@ -109,7 +125,8 @@ class TaskList(BaseModel):
         result: list[Task] = []
         result.extend(self.basic_connector_tasks)
         result.extend(self.stream_tasks)
-        result.extend(self.acceptance_test_tasks)
+        result.extend(self.special_requirements)
+        result.extend(self.acceptance_tests)
         result.extend(self.finalization_tasks)
         return result
 
@@ -158,7 +175,8 @@ class TaskList(BaseModel):
                 ),
             ],
             stream_tasks=[],
-            acceptance_test_tasks=[],
+            special_requirements=[],
+            acceptance_tests=[],
             finalization_tasks=[
                 FinalizationTask(
                     id="readiness-pass-1",
@@ -174,284 +192,93 @@ class TaskList(BaseModel):
         )
 
 
-_checklist = TaskList.new_connector_build_task_list()
+def load_session_checklist(session_id: str) -> TaskList:
+    """Load the checklist from the session directory.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        TaskList loaded from disk, or default task list if file doesn't exist
+    """
+    checklist_path = get_session_checklist_path(session_id)
+
+    if not checklist_path.exists():
+        logger.debug(f"Session checklist does not exist at: {checklist_path}, returning default")
+        return TaskList.new_connector_build_task_list()
+
+    try:
+        content = checklist_path.read_text(encoding="utf-8")
+        data = json.loads(content)
+        checklist = TaskList.model_validate(data)
+        logger.info(f"Loaded session checklist from: {checklist_path}")
+        return checklist
+    except Exception as e:
+        logger.error(f"Error loading session checklist from {checklist_path}: {e}")
+        logger.info("Returning default task list")
+        return TaskList.new_connector_build_task_list()
+
+
+def save_session_checklist(session_id: str, checklist: TaskList) -> None:
+    """Save the checklist to the session directory.
+
+    Args:
+        session_id: Session ID
+        checklist: TaskList to save
+    """
+    checklist_path = get_session_checklist_path(session_id)
+
+    # Ensure parent directory exists
+    checklist_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+    # Write to temp file then replace for atomic write
+    temp_path = checklist_path.with_suffix(".tmp")
+    try:
+        content = json.dumps(checklist.model_dump(), indent=2, ensure_ascii=False)
+        temp_path.write_text(content, encoding="utf-8")
+        temp_path.replace(checklist_path)
+        logger.info(f"Saved session checklist to: {checklist_path}")
+    except Exception as e:
+        logger.error(f"Error saving session checklist to {checklist_path}: {e}")
+        if temp_path.exists():
+            temp_path.unlink()
+        raise
 
 
 @mcp_tool(
-    domain=ToolDomain.GUIDANCE,
+    domain=ToolDomain.CHECKLIST,
+    read_only=True,
+    idempotent=True,
 )
-def list_tasks() -> dict:
+def list_tasks(ctx: Context) -> dict:
     """List all tasks in the checklist grouped by type.
 
     Returns:
         Dictionary containing:
         - connector_tasks: List of general connector tasks
         - stream_tasks: List of stream-specific tasks
-        - acceptance_test_tasks: List of acceptance test tasks
+        - special_requirements: List of special requirement tasks
+        - acceptance_tests: List of acceptance test tasks
         - finalization_tasks: List of finalization tasks
         - summary: Task status summary (total, not_started, in_progress, completed, blocked)
     """
     logger.info("Listing all tasks in checklist")
+    checklist = load_session_checklist(ctx.session_id)
     return {
-        "connector_tasks": [task.model_dump() for task in _checklist.basic_connector_tasks],
-        "stream_tasks": [task.model_dump() for task in _checklist.stream_tasks],
-        "acceptance_test_tasks": [task.model_dump() for task in _checklist.acceptance_test_tasks],
-        "finalization_tasks": [task.model_dump() for task in _checklist.finalization_tasks],
-        "summary": _checklist.get_summary(),
+        "connector_tasks": [task.model_dump() for task in checklist.basic_connector_tasks],
+        "stream_tasks": [task.model_dump() for task in checklist.stream_tasks],
+        "special_requirements": [task.model_dump() for task in checklist.special_requirements],
+        "acceptance_tests": [task.model_dump() for task in checklist.acceptance_tests],
+        "finalization_tasks": [task.model_dump() for task in checklist.finalization_tasks],
+        "summary": checklist.get_summary(),
     }
 
 
 @mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def add_connector_task(
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-    task_name: Annotated[str, Field(description="Short name/title of the task")],
-    description: Annotated[
-        str | None,
-        Field(description="Optional longer description with additional context/instructions"),
-    ] = None,
-) -> dict:
-    """Add a new connector task to the end of the connector tasks list.
-
-    Args:
-        task_id: Unique identifier for the task
-        task_name: Short name/title of the task
-        description: Optional longer description
-
-    Returns:
-        The created task as a dictionary
-    """
-    logger.info(f"Adding connector task: {task_id}")
-    task = ConnectorTask(
-        id=task_id,
-        task_name=task_name,
-        description=description,
-    )
-    _checklist.basic_connector_tasks.append(task)
-    return task.model_dump()
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def insert_connector_task(
-    position: Annotated[int, Field(description="Position to insert the task (0-indexed)")],
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-    task_name: Annotated[str, Field(description="Short name/title of the task")],
-    description: Annotated[
-        str | None,
-        Field(description="Optional longer description with additional context/instructions"),
-    ] = None,
-) -> dict:
-    """Insert a new connector task at a specific position.
-
-    Args:
-        position: Position to insert the task (0-indexed)
-        task_id: Unique identifier for the task
-        task_name: Short name/title of the task
-        description: Optional longer description
-
-    Returns:
-        The created task as a dictionary
-    """
-    logger.info(f"Inserting connector task at position {position}: {task_id}")
-    task = ConnectorTask(
-        id=task_id,
-        task_name=task_name,
-        description=description,
-    )
-    position = max(0, min(position, len(_checklist.basic_connector_tasks)))
-    _checklist.basic_connector_tasks.insert(position, task)
-    return task.model_dump()
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def add_stream_task(
-    stream_name: Annotated[str, Field(description="Name of the stream this task relates to")],
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-    task_name: Annotated[str, Field(description="Short name/title of the task")],
-    description: Annotated[
-        str | None,
-        Field(description="Optional longer description with additional context/instructions"),
-    ] = None,
-) -> dict:
-    """Add a new stream task to the end of the stream tasks list.
-
-    Args:
-        stream_name: Name of the stream this task relates to
-        task_id: Unique identifier for the task
-        task_name: Short name/title of the task
-        description: Optional longer description
-
-    Returns:
-        The created task as a dictionary
-    """
-    logger.info(f"Adding stream task for {stream_name}: {task_id}")
-    task = StreamTask(
-        id=task_id,
-        stream_name=stream_name,
-        task_name=task_name,
-        description=description,
-    )
-    _checklist.stream_tasks.append(task)
-    return task.model_dump()
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def insert_stream_task(
-    position: Annotated[int, Field(description="Position to insert the task (0-indexed)")],
-    stream_name: Annotated[str, Field(description="Name of the stream this task relates to")],
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-    task_name: Annotated[str, Field(description="Short name/title of the task")],
-    description: Annotated[
-        str | None,
-        Field(description="Optional longer description with additional context/instructions"),
-    ] = None,
-) -> dict:
-    """Insert a new stream task at a specific position.
-
-    Args:
-        position: Position to insert the task (0-indexed)
-        stream_name: Name of the stream this task relates to
-        task_id: Unique identifier for the task
-        task_name: Short name/title of the task
-        description: Optional longer description
-
-    Returns:
-        The created task as a dictionary
-    """
-    logger.info(f"Inserting stream task at position {position} for {stream_name}: {task_id}")
-    task = StreamTask(
-        id=task_id,
-        stream_name=stream_name,
-        task_name=task_name,
-        description=description,
-    )
-    position = max(0, min(position, len(_checklist.stream_tasks)))
-    _checklist.stream_tasks.insert(position, task)
-    return task.model_dump()
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def add_acceptance_test_task(
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-    task_name: Annotated[str, Field(description="Short name/title of the task")],
-    description: Annotated[
-        str | None,
-        Field(description="Optional longer description with additional context/instructions"),
-    ] = None,
-) -> dict:
-    """Add a new acceptance test task to the end of the acceptance test tasks list."""
-    logger.info(f"Adding acceptance test task: {task_id}")
-    task = AcceptanceTestTask(
-        id=task_id,
-        task_name=task_name,
-        description=description,
-    )
-    _checklist.acceptance_test_tasks.append(task)
-    return task.model_dump()
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def insert_acceptance_test_task(
-    position: Annotated[int, Field(description="Position to insert the task (0-indexed)")],
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-    task_name: Annotated[str, Field(description="Short name/title of the task")],
-    description: Annotated[
-        str | None,
-        Field(description="Optional longer description with additional context/instructions"),
-    ] = None,
-) -> dict:
-    """Insert a new acceptance test task at a specific position."""
-    logger.info(f"Inserting acceptance test task at position {position}: {task_id}")
-    task = AcceptanceTestTask(
-        id=task_id,
-        task_name=task_name,
-        description=description,
-    )
-    position = max(0, min(position, len(_checklist.acceptance_test_tasks)))
-    _checklist.acceptance_test_tasks.insert(position, task)
-    return task.model_dump()
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def add_finalization_task(
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-    task_name: Annotated[str, Field(description="Short name/title of the task")],
-    description: Annotated[
-        str | None,
-        Field(description="Optional longer description with additional context/instructions"),
-    ] = None,
-) -> dict:
-    """Add a new finalization task to the end of the finalization tasks list.
-
-    Args:
-        task_id: Unique identifier for the task
-        task_name: Short name/title of the task
-        description: Optional longer description
-
-    Returns:
-        The created task as a dictionary
-    """
-    logger.info(f"Adding finalization task: {task_id}")
-    task = FinalizationTask(
-        id=task_id,
-        task_name=task_name,
-        description=description,
-    )
-    _checklist.finalization_tasks.append(task)
-    return task.model_dump()
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def insert_finalization_task(
-    position: Annotated[int, Field(description="Position to insert the task (0-indexed)")],
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-    task_name: Annotated[str, Field(description="Short name/title of the task")],
-    description: Annotated[
-        str | None,
-        Field(description="Optional longer description with additional context/instructions"),
-    ] = None,
-) -> dict:
-    """Insert a new finalization task at a specific position.
-
-    Args:
-        position: Position to insert the task (0-indexed)
-        task_id: Unique identifier for the task
-        task_name: Short name/title of the task
-        description: Optional longer description
-
-    Returns:
-        The created task as a dictionary
-    """
-    logger.info(f"Inserting finalization task at position {position}: {task_id}")
-    task = FinalizationTask(
-        id=task_id,
-        task_name=task_name,
-        description=description,
-    )
-    position = max(0, min(position, len(_checklist.finalization_tasks)))
-    _checklist.finalization_tasks.insert(position, task)
-    return task.model_dump()
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
+    domain=ToolDomain.CHECKLIST,
 )
 def update_task_status(
+    ctx: Context,
     task_id: Annotated[str, Field(description="Unique identifier for the task")],
     status: Annotated[
         TaskStatusEnum,
@@ -466,11 +293,6 @@ def update_task_status(
 ) -> dict:
     """Update the status of a task.
 
-    Args:
-        task_id: Unique identifier for the task
-        status: New status (not_started, in_progress, completed, blocked)
-        status_detail: Optional details about the status change
-
     Returns:
         The updated task as a dictionary
 
@@ -478,57 +300,23 @@ def update_task_status(
         ValueError: If task_id is not found
     """
     logger.info(f"Updating task status for {task_id} to {status}")
-    task = _checklist.get_task_by_id(task_id)
+    checklist = load_session_checklist(ctx.session_id)
+
+    task = checklist.get_task_by_id(task_id)
     if not task:
         raise ValueError(f"Task with ID '{task_id}' not found.")
 
     task.status = status
     task.status_detail = status_detail
+
+    save_session_checklist(ctx.session_id, checklist)
     return task.model_dump()
 
 
 @mcp_tool(
-    domain=ToolDomain.GUIDANCE,
+    domain=ToolDomain.CHECKLIST,
 )
-def remove_task(
-    task_id: Annotated[str, Field(description="Unique identifier for the task")],
-) -> dict:
-    """Remove a task from the checklist.
-
-    Args:
-        task_id: Unique identifier for the task to remove
-
-    Returns:
-        Success message with the removed task details
-
-    Raises:
-        ValueError: If task_id is not found
-    """
-    logger.info(f"Removing task: {task_id}")
-    task = _checklist.get_task_by_id(task_id)
-    if not task:
-        raise ValueError(f"Task with ID '{task_id}' not found.")
-
-    if isinstance(task, ConnectorTask):
-        _checklist.basic_connector_tasks.remove(task)
-    elif isinstance(task, StreamTask):
-        _checklist.stream_tasks.remove(task)
-    elif isinstance(task, AcceptanceTestTask):
-        _checklist.acceptance_test_tasks.remove(task)
-    elif isinstance(task, FinalizationTask):
-        _checklist.finalization_tasks.remove(task)
-
-    return {
-        "success": True,
-        "message": f"Task '{task_id}' removed successfully",
-        "removed_task": task.model_dump(),
-    }
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def reset_checklist() -> dict:
+def reset_checklist(ctx: Context) -> dict:
     """Reset the checklist to the default connector build task list.
 
     This will clear all tasks and restore the default set of connector build tasks.
@@ -536,13 +324,62 @@ def reset_checklist() -> dict:
     Returns:
         Success message with the new task list summary
     """
-    global _checklist
     logger.info("Resetting checklist to default")
-    _checklist = TaskList.new_connector_build_task_list()
+    checklist = TaskList.new_connector_build_task_list()
+    save_session_checklist(ctx.session_id, checklist)
     return {
         "success": True,
         "message": "Checklist reset to default connector build tasks",
-        "summary": _checklist.get_summary(),
+        "summary": checklist.get_summary(),
+    }
+
+
+@mcp_tool(
+    domain=ToolDomain.CHECKLIST,
+)
+def add_special_requirements(
+    ctx: Context,
+    requirements: Annotated[
+        list[str],
+        Field(description="List of special requirement descriptions to add as tasks"),
+    ],
+) -> dict:
+    """Add special requirement tasks to the checklist.
+
+    This is the only way for agents to add custom tasks to the checklist.
+    Each requirement will be converted to a task with a generated ID.
+
+    Returns:
+        Dictionary with added tasks and updated summary
+    """
+    logger.info(f"Adding {len(requirements)} special requirements")
+    checklist = load_session_checklist(ctx.session_id)
+
+    added_tasks = []
+    for req in requirements:
+        slug = req.lower().replace(" ", "-")
+        slug = "".join(c for c in slug if c.isalnum() or c == "-")
+        slug = slug[:50]
+
+        base_slug = slug
+        counter = 1
+        while any(t.id == slug for t in checklist.special_requirements):
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        task = SpecialRequirementTask(
+            id=slug,
+            task_name=req,
+            description=None,
+        )
+        checklist.special_requirements.append(task)
+        added_tasks.append(task.model_dump())
+
+    save_session_checklist(ctx.session_id, checklist)
+    return {
+        "success": True,
+        "added_tasks": added_tasks,
+        "summary": checklist.get_summary(),
     }
 
 
@@ -550,4 +387,4 @@ def register_checklist_tools(
     app: FastMCP,
 ):
     """Register checklist tools in the MCP server."""
-    register_mcp_tools(app, domain=ToolDomain.GUIDANCE)
+    register_mcp_tools(app, domain=ToolDomain.CHECKLIST)
