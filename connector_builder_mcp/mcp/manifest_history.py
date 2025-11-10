@@ -23,6 +23,13 @@ from fastmcp import Context, FastMCP
 from pydantic import BaseModel, ConfigDict, Field
 
 from connector_builder_mcp._manifest_history_utils import (
+    CheckpointDetails,
+    CheckpointType,
+    ManifestRevision,
+    ManifestRevisionDiff,
+    ManifestRevisionMetadata,
+    ManifestRevisionSummary,
+    RevisionId,
     _compute_content_hash,
     _get_next_ordinal,
     _load_revision_metadata,

@@ -7,18 +7,16 @@ It is kept separate to improve code organization and maintainability.
 import hashlib
 import json
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
-from connector_builder_mcp.manifest_history import ManifestRevisionMetadata
 
+from pydantic import BaseModel, ConfigDict, Field
+
+RevisionId = tuple[int, int, str]  # (ordinal, timestamp_ns, content_hash)
 
 if TYPE_CHECKING:
-    from connector_builder_mcp.mcp.manifest_history import (
-        CheckpointDetails,
-        CheckpointType,
-        ManifestRevisionMetadata,
-        RevisionId,
-    )
+    pass
 
 
 class AmbiguousHashError(ValueError):
