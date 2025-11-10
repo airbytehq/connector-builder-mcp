@@ -248,17 +248,15 @@ def set_session_manifest_text(
         else:
             validation_warnings = ["WARNING: Manifest is empty"]
 
-        return SetManifestContentsResult(
-            message=f"Saved manifest (replaced {success_msg})",
-            revision_id=revision_id,
-            diff_summary=diff_summary,
-            validation_warnings=validation_warnings,
-        )
+        ordinal, _, content_hash = revision_id
+        result = f"Saved manifest (replaced {success_msg}, revision {ordinal}: {content_hash[:8]})"
+        if diff_summary:
+            result += f"\n\n{diff_summary}"
+        if validation_warnings:
+            result += f"\n\nValidation warnings:\n" + "\n".join(f"- {w}" for w in validation_warnings)
+        return result
 
-    return SetManifestContentsResult(
-        message="",
-        error=f"Unexpected mode: {mode}",
-    )
+    return f"ERROR: Unexpected mode: {mode}"
 
 
 @mcp_tool(
