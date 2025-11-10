@@ -601,6 +601,15 @@ def set_session_manifest_content(
     return manifest_path, revision_id
 
 
+def register_manifest_edit_tools(app: FastMCP) -> None:
+    """Register manifest edit tools with the FastMCP app.
+
+    Args:
+        app: FastMCP application instance
+    """
+    register_tools(app, ToolDomain.MANIFEST_EDITS)
+
+
 def register_session_manifest_tools(app: FastMCP) -> None:
     """Register session manifest tools with the FastMCP app.
 
