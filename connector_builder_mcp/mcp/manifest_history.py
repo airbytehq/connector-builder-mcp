@@ -17,7 +17,9 @@ import logging
 import time
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Annotated
 
+from fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field
 
 from connector_builder_mcp._manifest_history_utils import (
@@ -29,6 +31,7 @@ from connector_builder_mcp._manifest_history_utils import (
 )
 from connector_builder_mcp._paths import get_session_manifest_path
 from connector_builder_mcp._text_utils import unified_diff_with_context
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_tools
 
 
 # Type aliases for revision identification
@@ -401,9 +404,15 @@ def save_manifest_revision(
     return revision_id
 
 
+@mcp_tool(ToolDomain.MANIFEST_EDITS, read_only=True, idempotent=True)
 def get_manifest_revision(
-    session_id: str,
-    revision: RevisionRef,
+    session_id: Annotated[str, Field(description="Session ID")],
+    revision: Annotated[
+        RevisionRef,
+        Field(
+            description="Revision reference: int (ordinal), str (hash prefix/timestamp/'latest'), or full tuple"
+        ),
+    ],
 ) -> ManifestRevision | None:
     """Get a specific revision of the manifest.
 
@@ -455,7 +464,10 @@ def get_manifest_revision(
     return ManifestRevision(metadata=metadata, content=content)
 
 
-def list_manifest_revisions(session_id: str) -> list[ManifestRevisionSummary]:
+@mcp_tool(ToolDomain.MANIFEST_EDITS, read_only=True, idempotent=True)
+def list_manifest_revisions(
+    session_id: Annotated[str, Field(description="Session ID")],
+) -> list[ManifestRevisionSummary]:
     """List all revisions of the manifest for a session.
 
     Args:
@@ -568,11 +580,18 @@ def list_manifest_revisions(session_id: str) -> list[ManifestRevisionSummary]:
     return revisions
 
 
+@mcp_tool(ToolDomain.MANIFEST_EDITS, read_only=True, idempotent=True)
 def diff_manifest_revisions(
-    session_id: str,
-    from_revision: RevisionRef,
-    to_revision: RevisionRef,
-    context_lines: int = 3,
+    session_id: Annotated[str, Field(description="Session ID")],
+    from_revision: Annotated[
+        RevisionRef,
+        Field(description="Source revision reference (ordinal, hash prefix, timestamp, or 'latest')"),
+    ],
+    to_revision: Annotated[
+        RevisionRef,
+        Field(description="Target revision reference (ordinal, hash prefix, timestamp, or 'latest')"),
+    ],
+    context_lines: Annotated[int, Field(description="Number of context lines to include in diff")] = 3,
 ) -> ManifestRevisionDiff | None:
     """Generate a diff between two manifest revisions.
 
@@ -608,10 +627,14 @@ def diff_manifest_revisions(
     )
 
 
+@mcp_tool(ToolDomain.MANIFEST_EDITS, destructive=True)
 def checkpoint_manifest_revision(
-    session_id: str,
-    checkpoint_type: CheckpointType,
-    checkpoint_details: CheckpointDetails | None = None,
+    session_id: Annotated[str, Field(description="Session ID")],
+    checkpoint_type: Annotated[CheckpointType, Field(description="Type of checkpoint to create")],
+    checkpoint_details: Annotated[
+        CheckpointDetails | None,
+        Field(description="Optional checkpoint details (validation/readiness/restore info)"),
+    ] = None,
 ) -> RevisionId | None:
     """Create a checkpoint for the most recent manifest revision.
 
@@ -651,3 +674,14 @@ def checkpoint_manifest_revision(
         )
 
     return latest_revision.revision_id
+
+
+
+def register_manifest_history_tools(app: FastMCP) -> None:
+    """Register manifest history tools with the FastMCP app.
+
+    Args:
+        app: FastMCP application instance
+    """
+    register_tools(app, domain=ToolDomain.MANIFEST_EDITS)
+
