@@ -13,10 +13,8 @@ import requests
 from fastmcp import FastMCP
 from pydantic import Field
 
-from connector_builder_mcp._guidance import (
-    CONNECTOR_BUILDER_CHECKLIST,
-    TOPIC_MAPPING,
-)
+from connector_builder_mcp._guidance.prompts import CONNECTOR_BUILDER_CHECKLIST
+from connector_builder_mcp._guidance.topics import TOPIC_MAPPING
 from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 
 

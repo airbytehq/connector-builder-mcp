@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 from fastmcp import Context, FastMCP
 from pydantic import Field
 
-from connector_builder_mcp._guidance import SCAFFOLD_CREATION_SUCCESS_MESSAGE
+from connector_builder_mcp._guidance.prompts import SCAFFOLD_CREATION_SUCCESS_MESSAGE
 from connector_builder_mcp._manifest_scaffold_utils import (
     AuthenticationType,
     _generate_manifest_yaml_directly,

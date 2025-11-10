@@ -20,7 +20,7 @@ from dotenv import dotenv_values, set_key
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
-from connector_builder_mcp._guidance import DOTENV_FILE_URI_DESCRIPTION
+from connector_builder_mcp._guidance.prompts import DOTENV_FILE_URI_DESCRIPTION
 from connector_builder_mcp._util import parse_manifest_input
 
 
