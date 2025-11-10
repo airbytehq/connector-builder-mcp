@@ -10,50 +10,76 @@ title: "Connector Builder Development Checklist"
 
 sections:
   - name: "Research Phase"
-    description: "These steps ensure you understand roughly the work to do before diving in."
+    description: >
+      These steps ensure you understand roughly the work to do before diving in.
     tasks:
       - id: "locate-api-docs"
-        marker: "📝"
-        description: "Locate API reference docs using online search."
+        description: "📝 Locate API reference docs using online search."
       
       - id: "identify-auth-methods"
-        marker: "📝"
-        description: "Identify required authentication methods. If multiple auth methods are available, decide which to build first."
+        description: >
+          📝 Identify required authentication methods. If multiple auth methods
+          are available, decide which to build first.
       
       - id: "check-advanced-features"
-        description: "If the user or the API itself appear to require advanced features, check the docs tool to understand how those features might be implemented before you start."
+        description: >
+          If the user or the API itself appear to require advanced features,
+          check the docs tool to understand how those features might be
+          implemented before you start.
 
   - name: "Prerequisites"
-    description: "These prereq steps should be performed before you start work - so you can leave the user alone while you work, and so that you won't be blocked waiting for more info after you start."
+    description: >
+      These prereq steps should be performed before you start work - so you can
+      leave the user alone while you work, and so that you won't be blocked
+      waiting for more info after you start.
     tasks:
       - id: "enumerate-streams"
-        marker: "📝"
-        description: "**Enumerate all available streams first**: Before beginning work on any stream, research the API documentation to identify and list ALL available streams/endpoints. Share this complete list with your user (or the message thread) so they can provide guidance on priorities or exclusions."
+        description: >
+          📝 **Enumerate all available streams first**: Before beginning work on
+          any stream, research the API documentation to identify and list ALL
+          available streams/endpoints. Share this complete list with your user
+          (or the message thread) so they can provide guidance on priorities or
+          exclusions.
       
       - id: "request-dotenv-file"
-        description: "If you do need secrets for authentication, and if user is able to create a .env file for you, ask them to provide you a path to the file."
+        description: >
+          If you do need secrets for authentication, and if user is able to
+          create a .env file for you, ask them to provide you a path to the file.
       
       - id: "populate-secrets"
-        description: "Use your tools to populate required variables to your dotenv file, then let the user enter them, then use your tools to verify they are set. (You will pass the dotenv file to other tools.)"
+        description: >
+          Use your tools to populate required variables to your dotenv file, then
+          let the user enter them, then use your tools to verify they are set.
+          (You will pass the dotenv file to other tools.)
       
       - id: "secrets-security"
         description: "**Important**: Secrets should not be sent directly to or through the LLM."
       
       - id: "confirm-stream-list"
-        marker: "📝"
-        description: "After enumerating streams, ask the user to confirm the list before you start. They can: (1) optionally suggest what the 'first stream' should be, or (2) inform you about specific streams they'd like you to ignore."
+        description: >
+          📝 After enumerating streams, ask the user to confirm the list before
+          you start. They can: (1) optionally suggest what the 'first stream'
+          should be, or (2) inform you about specific streams they'd like you to
+          ignore.
 
   - name: "First Stream Implementation"
-    description: "Follow steps for one stream at a time. Lessons learned from one stream are generally applicable to subsequent streams. Moving in small steps reduces wasted efforts and prevents hard-to-diagnose issues."
+    description: >
+      Follow steps for one stream at a time. Lessons learned from one stream are
+      generally applicable to subsequent streams. Moving in small steps reduces
+      wasted efforts and prevents hard-to-diagnose issues.
     tasks:
       - id: "validate-auth"
-        description: "Validate that authentication works for the stream, without pagination, and that you can see records."
+        description: >
+          Validate that authentication works for the stream, without pagination,
+          and that you can see records.
       
       - id: "add-pagination"
         description: "Add pagination next. (See steps below.)"
       
       - id: "handle-advanced-topics"
-        description: "If other advanced topics are needed, such as custom error handling, address these issues for each stream as needed."
+        description: >
+          If other advanced topics are needed, such as custom error handling,
+          address these issues for each stream as needed.
 
   - name: "Pagination Implementation"
     tasks:
@@ -71,11 +97,15 @@ sections:
           - If counts are suspect, you can sometimes get helpful info from raw responses data, inspecting the headers and returned content body for clues.
       
       - id: "record-counts"
-        marker: "📝"
-        description: "Record the total records count for each stream, as you go. This is information the user will want to audit when the connector is complete."
+        description: >
+          📝 Record the total records count for each stream, as you go. This is
+          information the user will want to audit when the connector is complete.
 
     notes:
-      - "**Important**: When streaming to end of stream to get record counts, disable records and raw responses to avoid overloading the LLM context window."
+      - >
+        **Important**: When streaming to end of stream to get record counts,
+        disable records and raw responses to avoid overloading the LLM context
+        window.
 
   - name: "Additional Streams"
     tasks:
@@ -83,15 +113,22 @@ sections:
         description: "Only add additional streams after first stream is fully validated."
       
       - id: "test-each-stream"
-        description: "Test each new stream individually before proceeding, repeat until all streams are complete."
+        description: >
+          Test each new stream individually before proceeding, repeat until all
+          streams are complete.
       
       - id: "verify-completeness"
-        marker: "📝"
-        description: "Double-check the list of completed streams with the list of planned streams (if available) or against your API docs. If you've omitted any streams, consider if they should be added. Otherwise document what was excluded as well as what was included."
+        description: >
+          📝 Double-check the list of completed streams with the list of planned
+          streams (if available) or against your API docs. If you've omitted any
+          streams, consider if they should be added. Otherwise document what was
+          excluded as well as what was included.
       
       - id: "smoke-test"
-        marker: "📝"
-        description: "If performance will permit, run a full 'smoke test' operation on all streams, validating record counts and sharing the final counts with your user."
+        description: >
+          📝 If performance will permit, run a full 'smoke test' operation on all
+          streams, validating record counts and sharing the final counts with your
+          user.
 
   - name: "Final Validation"
     tasks:
@@ -105,7 +142,8 @@ sections:
         description: "No record counts are suspicious multiples."
       
       - id: "validate-schema"
-        description: "Use validate manifest tool to confirm JSON schema is correct."
+        description: >
+          Use validate manifest tool to confirm JSON schema is correct.
       
       - id: "complete-documentation"
         description: "Documentation is complete."
