@@ -108,10 +108,10 @@ class TaskList(BaseModel):
     def new_connector_build_task_list(cls) -> "TaskList":
         """Create a new task list with default connector build tasks from YAML file."""
         yaml_path = Path(__file__).parent / "_guidance" / "connector_build_checklist.yml"
-        
+
         with open(yaml_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
-        
+
         def _task_from_dict(task_dict: dict) -> Task:
             """Convert a task dict from YAML to a Task object."""
             return Task(
@@ -119,29 +119,29 @@ class TaskList(BaseModel):
                 name=task_dict["name"],
                 description=task_dict.get("description"),
             )
-        
+
         basic_connector_tasks = [
             _task_from_dict(task) for task in data.get("basic_connector_tasks", [])
         ]
-        
+
         stream_tasks_data = data.get("stream_tasks", {})
         stream_tasks = {}
         if isinstance(stream_tasks_data, dict):
             for stream_name, tasks in stream_tasks_data.items():
                 stream_tasks[stream_name] = [_task_from_dict(task) for task in tasks]
-        
+
         special_requirements = [
             _task_from_dict(task) for task in data.get("special_requirements", [])
         ]
-        
+
         acceptance_tests = [
             _task_from_dict(task) for task in data.get("acceptance_tests", [])
         ]
-        
+
         finalization_tasks = [
             _task_from_dict(task) for task in data.get("finalization_tasks", [])
         ]
-        
+
         return cls(
             basic_connector_tasks=basic_connector_tasks,
             stream_tasks=stream_tasks,
@@ -169,11 +169,11 @@ def load_session_checklist(session_id: str) -> TaskList:
     try:
         content = checklist_path.read_text(encoding="utf-8")
         data = json.loads(content)
-        
+
         if "stream_tasks" in data and isinstance(data["stream_tasks"], list):
             logger.warning("Migrating old stream_tasks list format to dict format")
             data["stream_tasks"] = {}
-        
+
         for task_list_key in ["basic_connector_tasks", "special_requirements", "acceptance_tests", "finalization_tasks"]:
             if task_list_key in data:
                 for task in data[task_list_key]:
@@ -181,15 +181,15 @@ def load_session_checklist(session_id: str) -> TaskList:
                     task.pop("stream_name", None)
                     if "task_name" in task and "name" not in task:
                         task["name"] = task.pop("task_name")
-        
+
         if "stream_tasks" in data and isinstance(data["stream_tasks"], dict):
-            for stream_name, tasks in data["stream_tasks"].items():
+            for _stream_name, tasks in data["stream_tasks"].items():
                 for task in tasks:
                     task.pop("task_type", None)
                     task.pop("stream_name", None)
                     if "task_name" in task and "name" not in task:
                         task["name"] = task.pop("task_name")
-        
+
         checklist = TaskList.model_validate(data)
         logger.info(f"Loaded session checklist from: {checklist_path}")
         return checklist
