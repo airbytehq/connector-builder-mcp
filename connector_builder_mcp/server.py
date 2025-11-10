@@ -13,7 +13,7 @@ from connector_builder_mcp._util import initialize_logging
 from connector_builder_mcp.connector_builder import register_connector_builder_tools
 from connector_builder_mcp.constants import MCP_SERVER_NAME
 from connector_builder_mcp.mcp.prompts import register_prompts
-from connector_builder_mcp.resources import register_connector_builder_resources
+from connector_builder_mcp.mcp.server_info import register_connector_builder_resources
 
 
 initialize_logging()

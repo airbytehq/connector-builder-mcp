@@ -67,6 +67,9 @@ class ToolDomain(str, Enum):
     SECRETS_CONFIG = "secrets_config"
     """Tools to view, edit, inspect, or set secrets"""
 
+    SERVER_INFO = "server_info"
+    """Server information and version resources"""
+
 
 _REGISTERED_TOOLS: list[tuple[Callable[..., Any], dict[str, Any]]] = []
 _REGISTERED_RESOURCES: list[tuple[Callable[..., Any], dict[str, Any]]] = []
@@ -201,33 +204,17 @@ def _register_mcp_callables(
     Args:
         app: The FastMCP app instance
         domain: The domain to register tools for (e.g., ToolDomain.SESSION, "session")
+        resource_list: List of (callable, annotations) tuples to register
+        register_fn: Function to call for each registration
     """
     domain_str = domain.value if isinstance(domain, ToolDomain) else domain
-    registered_tools = [
-        (func, ann) for func, ann in _REGISTERED_TOOLS if ann.get("domain") == domain_str
+    
+    filtered_callables = [
+        (func, ann) for func, ann in resource_list if ann.get("domain") == domain_str
     ]
 
-    for func, tool_annotations in registered_tools:
-        if should_register_tool(tool_annotations):
-            exclude_args: list[str] | None = None
-            if REQUIRE_SESSION_MANIFEST_IN_TOOL_CALLS:
-                # By default, we require users to set the manifest using the dedicated tools.
-                # Therefore, we exclude 'manifest' arguments from being advertised in tool calls.
-                # Important:
-                # - Careful with tools that actually need a `manifest` input arg; they should
-                #   use a different arg name.
-                # - Perform a full text search of `manifest: Annotated[` when auditing tool
-                #   implementations.
-
-                params = set(inspect.signature(func).parameters.keys())
-                excluded = [name for name in ["manifest"] if name in params]
-                exclude_args = excluded if excluded else None
-
-            app.tool(
-                func,
-                annotations=tool_annotations,
-                exclude_args=exclude_args,
-            )
+    for callable_fn, annotations in filtered_callables:
+        register_fn(app, callable_fn, annotations)
 
 
 def register_tools(
