@@ -36,6 +36,7 @@ from connector_builder_mcp.mcp._mcp_utils import (
 from connector_builder_mcp.mcp.manifest_history import (
     _save_manifest_revision,
 )
+from connector_builder_mcp.mcp.manifest_tests import validate_manifest
 
 
 logger = logging.getLogger(__name__)
@@ -357,9 +358,6 @@ def create_connector_manifest_scaffold(
         authentication_type=auth_type,
         http_method=http_method.upper(),
     )
-
-    from connector_builder_mcp.mcp.manifest_tests import validate_manifest
-
     validation_result = validate_manifest(ctx, manifest=manifest_yaml)
 
     if not validation_result.is_valid:

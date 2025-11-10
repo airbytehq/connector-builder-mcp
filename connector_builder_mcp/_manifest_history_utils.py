@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
+from connector_builder_mcp.manifest_history import ManifestRevisionMetadata
 
 
 if TYPE_CHECKING:
@@ -100,7 +101,6 @@ def _save_revision_metadata(
     Returns:
         Path to the metadata file
     """
-    from connector_builder_mcp.manifest_history import ManifestRevisionMetadata
 
     ordinal, timestamp_ns, content_hash = revision_id
     timestamp_iso = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
@@ -135,7 +135,5 @@ def _load_revision_metadata(metadata_path: Path) -> "ManifestRevisionMetadata":
     Returns:
         Revision metadata
     """
-    from connector_builder_mcp.manifest_history import ManifestRevisionMetadata
-
     metadata_dict = json.loads(metadata_path.read_text(encoding="utf-8"))
     return ManifestRevisionMetadata(**metadata_dict)
