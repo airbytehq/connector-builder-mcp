@@ -21,6 +21,115 @@ if TYPE_CHECKING:
     )
 
 
+class AmbiguousHashError(ValueError):
+    """Raised when a hash prefix matches multiple revisions.
+
+    Similar to Git's behavior when an abbreviated commit SHA is ambiguous.
+    """
+
+    def __init__(self, hash_prefix: str, matches: list[RevisionId]):
+        self.hash_prefix = hash_prefix
+        self.matches = matches
+        match_strs = "\n".join(f"  - {m}" for m in matches)
+        super().__init__(
+            f"Ambiguous hash prefix '{hash_prefix}' matches {len(matches)} revisions:\n"
+            f"{match_strs}\n"
+            f"Please provide more characters to disambiguate."
+        )
+
+
+class CheckpointType(str, Enum):
+    """Type of checkpoint for a manifest version."""
+
+    NONE = "none"
+    VALIDATION_PASS = "validation_pass"
+    VALIDATION_FAIL = "validation_fail"
+    TEST_PASS = "test_pass"
+    TEST_FAIL = "test_fail"
+    READINESS_PASS = "readiness_pass"
+    READINESS_FAIL = "readiness_fail"
+
+
+class ValidationCheckpointDetails(BaseModel):
+    """Checkpoint details for manifest validation results."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    error_count: int
+    warning_count: int
+    errors: list[str] = Field(default_factory=list)
+
+
+class ReadinessCheckpointDetails(BaseModel):
+    """Checkpoint details for connector readiness test results."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    streams_tested: int
+    streams_successful: int
+    total_records: int
+
+
+class RestoreCheckpointDetails(BaseModel):
+    """Checkpoint details for manifest restore operations."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    restored_from_revision: RevisionId  # Full triple of restored revision
+    restored_from_ordinal: int  # For backwards compatibility/readability
+
+
+CheckpointDetails = (
+    ValidationCheckpointDetails | ReadinessCheckpointDetails | RestoreCheckpointDetails
+)
+
+
+class ManifestRevisionMetadata(BaseModel):
+    """Metadata for a manifest revision.
+
+    Revisions are identified by (ordinal, timestamp_ns, content_hash) triple.
+    """
+
+    revision_id: RevisionId  # Full triple: (ordinal, timestamp_ns, content_hash)
+    ordinal: int  # Sequential number (1, 2, 3...)
+    timestamp_ns: int  # Nanosecond-precision timestamp
+    timestamp: float  # Backwards compatibility (seconds since epoch)
+    timestamp_iso: str  # ISO 8601 format
+    content_hash: str  # First 16 chars of SHA-256
+    checkpoint_type: CheckpointType = CheckpointType.NONE
+    checkpoint_details: CheckpointDetails | None = None
+    file_size_bytes: int
+
+
+class ManifestRevision(BaseModel):
+    """A manifest revision with content and metadata."""
+
+    metadata: ManifestRevisionMetadata
+    content: str
+
+
+class ManifestRevisionSummary(BaseModel):
+    """Summary of a manifest revision (without full content)."""
+
+    revision_id: RevisionId  # Full triple
+    ordinal: int  # For backwards compatibility
+    timestamp_iso: str
+    checkpoint_type: CheckpointType
+    checkpoint_summary: str | None = None
+    content_hash: str  # First 16 chars
+    file_size_bytes: int
+
+
+class ManifestRevisionDiff(BaseModel):
+    """Result of comparing two manifest revisions."""
+
+    from_revision: RevisionId  # Full triple
+    to_revision: RevisionId  # Full triple
+    diff: str
+    from_timestamp_iso: str
+    to_timestamp_iso: str
+
+
 def get_history_dir(manifest_path: Path) -> Path:
     """Get the history directory for a manifest, ensuring it exists.
 
