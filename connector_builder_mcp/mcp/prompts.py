@@ -12,7 +12,9 @@ from pydantic import Field
 
 from connector_builder_mcp._guidance import (
     ADD_STREAM_TO_CONNECTOR_PROMPT,
-    BUILD_CONNECTOR_FROM_SCRATCH_PROMPT,
+    CONNECTOR_BUILD_PROMPT,
+    CREATIVE_MODE_NOTE,
+    NON_CREATIVE_MODE_NOTE,
 )
 from connector_builder_mcp.mcp._mcp_utils import (
     ToolDomain,
@@ -22,33 +24,40 @@ from connector_builder_mcp.mcp._mcp_utils import (
 
 
 @mcp_prompt(
-    name="build_connector_from_scratch",
-    description="Step-by-step playbook to build a declarative connector from scratch",
+    name="new_connector",
+    description="Build a test connector to verify MCP server functionality",
     domain=ToolDomain.PROMPTS,
 )
-def build_connector_from_scratch(
+def new_connector_prompt(
     api_name: Annotated[
         str | None,
-        Field(description="Optional API name to build connector for"),
+        Field(description="Optional API name (defaults to JSONPlaceholder)"),
     ] = None,
-    docs_url: Annotated[
+    dotenv_path: Annotated[
         str | None,
-        Field(description="Optional URL to API documentation"),
+        Field(description="Optional path to .env file for secrets"),
     ] = None,
+    creative_mode: Annotated[
+        bool,
+        Field(
+            description=(
+                "By default, we discourage creative workarounds because those increase "
+                "the agent's likelihood of making mistakes. "
+                "You can enable this setting if you know what you are doing."
+            )
+        ),
+    ] = False,
 ) -> list[dict[str, str]]:
-    """Prompt for building a connector from scratch.
-
-    Args:
-        api_name: Optional name of the API to build connector for
-        docs_url: Optional URL to API documentation
+    """Prompt for debugging and testing the MCP server by building a connector.
 
     Returns:
         List of message dictionaries for the prompt
     """
-    content = BUILD_CONNECTOR_FROM_SCRATCH_PROMPT.format(
-        api_name=api_name or "the target API",
-        docs_url=docs_url or "(locate API docs)",
+    base_content = CONNECTOR_BUILD_PROMPT.format(
+        api_name=api_name or "JSONPlaceholder",
+        dotenv_path=dotenv_path or "(none - search for API docs to determine if needed)",
     )
+    content = base_content + (CREATIVE_MODE_NOTE if creative_mode else NON_CREATIVE_MODE_NOTE)
     return [{"role": "user", "content": content}]
 
 

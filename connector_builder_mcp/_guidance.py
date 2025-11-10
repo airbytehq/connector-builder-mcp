@@ -233,7 +233,7 @@ Rules:
   and then attempt to resolve the errors.
 - For reading manifest content, prefer using the 'session_manifest_yaml_contents'
   MCP resource instead of the get_session_manifest_text tool for better performance
-  and caching. The resource URI format is '{server_name}://session/manifest'
+  and caching. The resource URI format is '<MCP_SERVER_NAME>://session/manifest'
   where server_name matches your MCP configuration.
 
 
@@ -255,70 +255,6 @@ For detailed guidance on specific components and features, you can request docum
 
 {NEWLINE.join(f"- `{key}` - {desc}" for key, (_, desc) in TOPIC_MAPPING.items())}
 
-"""
-
-BUILD_CONNECTOR_FROM_SCRATCH_PROMPT = """# Build a Connector from Scratch
-
-You are building a declarative (YAML) source connector using the Connector
-Builder MCP Server.
-
-
-1. **Research & Planning**
-   - Locate API documentation for {api_name}
-   - Identify authentication method (API key, OAuth, etc.)
-   - List available API endpoints/streams
-   - Check for advanced features (pagination, rate limiting, incremental sync)
-
-2. **Setup Secrets** (if authentication required)
-   - Use `populate_dotenv_missing_secrets_stubs` to create .env template
-   - Have user populate secrets in .env file
-   - Use `list_dotenv_secrets` to verify secrets are set
-   - Pass dotenv_file_uris to all tools that need authentication
-
-3. **Build First Stream**
-   - Create minimal manifest with authentication and one stream
-   - Use `validate_manifest` to check structure
-   - Use `execute_stream_test_read` to test authentication and basic data retrieval
-   - Verify you can read records successfully
-
-4. **Add Pagination**
-   - Add pagination configuration to manifest
-   - Test reading multiple pages with `execute_stream_test_read`
-   - Read to end of stream with high max_records to verify pagination works
-     correctly
-   - Check that record counts are not suspicious multiples (10, 25, page size)
-
-5. **Add Remaining Streams**
-   - Add one stream at a time
-   - Test each stream individually before proceeding
-   - Apply lessons learned from first stream
-
-6. **Final Validation**
-   - Use `run_connector_readiness_test_report` to test all streams
-   - Use `validate_manifest` to confirm schema compliance
-   - Review record counts and warnings
-
-
-- `validate_manifest`: Check manifest structure and schema
-- `execute_stream_test_read`: Test individual streams
-- `run_connector_readiness_test_report`: Generate comprehensive test report
-- `get_connector_builder_docs`: Get detailed documentation on specific topics
-- `populate_dotenv_missing_secrets_stubs`: Create .env template
-- `list_dotenv_secrets`: Verify secrets are configured
-- `get_connector_manifest`: Get example manifests from existing connectors
-- `find_connectors_by_class_name`: Find connectors using specific features
-
-
-- Custom Python components are NOT supported
-- Always pass dotenv_file_uris to tools that need secrets
-- Never send secrets directly through the LLM
-- Test one stream at a time
-- Disable records/raw responses when reading large datasets
-- YAML anchors are not supported (use $ref pointers instead)
-
-
-Use `get_connector_builder_docs` without arguments to see available
-documentation topics, or with a specific topic for detailed guidance.
 """
 
 ADD_STREAM_TO_CONNECTOR_PROMPT = """# Add a New Stream to Existing Connector
@@ -380,7 +316,7 @@ The manifest has been saved to your session and is ready to use.
 
 **To view the manifest:**
 - **Preferred**: Use the MCP resource `session_manifest_yaml_contents`
-  (URI: '{MCP_SERVER_NAME}://session/manifest').
+  (URI: '<MCP_SERVER_NAME>://session/manifest').
 - **Fallback**: Use the `get_session_manifest_text` tool if your client does not
   support MCP resources.
 
@@ -391,4 +327,30 @@ The manifest has been saved to your session and is ready to use.
 4. Add pagination if needed
 
 **Note:** The manifest includes inline TODO comments marking fields that need attention.
+"""
+
+NON_CREATIVE_MODE_NOTE = """
+
+---
+
+**Note**: This prompt is configured in **non-creative mode** (default). You should:
+- ✅ Stick strictly to the MCP tools provided
+- ✅ Report tool failures immediately without attempting workarounds
+- ❌ Do NOT use manual file editing or alternative approaches
+- ❌ Do NOT get creative if tools don't work as expected
+
+This ensures we properly test the MCP tools and identify any issues.
+"""
+
+CREATIVE_MODE_NOTE = """
+
+---
+
+**Note**: This prompt is configured in **creative mode**. You may:
+- ✅ Use creative solutions and workarounds if MCP tools fail
+- ✅ Manually edit files if needed to unblock progress
+- ✅ Find alternative approaches to achieve the goal
+- ⚠️ Still report any tool malfunctions, but proceed with workarounds
+
+**Warning**: Creative mode is less reliable and may lead to mistakes. Use only for complex scenarios.
 """

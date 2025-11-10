@@ -273,7 +273,7 @@ def get_session_manifest_text(ctx: Context) -> str:
     Note: This tool is provided for backwards compatibility with clients that
     don't support MCP resources. For clients that support MCP resources, prefer
     using the 'session_manifest_yaml_contents' resource for more efficient read access.
-    The resource URI should be approximately 'connector-builder-mcp://session/manifest'.
+    The resource URI should be approximately '<MCP_SERVER_NAME>://session/manifest'.
     Args:
         ctx: FastMCP context (automatically injected in MCP tool calls)
 
@@ -371,7 +371,7 @@ def create_connector_manifest_scaffold(
         f"Saved generated manifest to session at: {manifest_path} (revision {ordinal}: {content_hash[:8]})"
     )
 
-    success_message = SCAFFOLD_CREATION_SUCCESS_MESSAGE.format(MCP_SERVER_NAME=MCP_SERVER_NAME)
+    success_message = SCAFFOLD_CREATION_SUCCESS_MESSAGE
     return f"{success_message}\n\nCreated manifest revision {ordinal} ({content_hash[:8]})."
 
 
