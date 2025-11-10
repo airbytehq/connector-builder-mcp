@@ -223,15 +223,9 @@ def set_session_manifest_text(
 
     if mode == "replace_text":
         if replace_text is None:
-            return SetManifestContentsResult(
-                message="",
-                error="mode='replace_text' requires replace_text parameter",
-            )
+            return "ERROR: mode='replace_text' requires replace_text parameter"
         if new_text is None:
-            return SetManifestContentsResult(
-                message="",
-                error="mode='replace_text' requires new_text parameter",
-            )
+            return "ERROR: mode='replace_text' requires new_text parameter"
 
         new_content, success_msg, error = replace_text_content(
             existing_content=existing_content,
