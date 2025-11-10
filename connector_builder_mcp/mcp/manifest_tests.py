@@ -1,4 +1,7 @@
-"""Validation and testing tools for Airbyte connector manifests."""
+"""MANIFEST_TESTS domain tools - Testing that runs the connector.
+
+This module contains tools for testing connectors by actually running them.
+"""
 
 import logging
 import pkgutil
@@ -7,7 +10,8 @@ from io import StringIO
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
-from fastmcp import Context
+import yaml
+from fastmcp import Context, FastMCP
 from jsonschema import ValidationError
 from pydantic import BaseModel, Field
 from ruamel.yaml import YAML
@@ -27,6 +31,11 @@ from airbyte_cdk.models import (
     SyncMode,
 )
 
+from connector_builder_mcp._manifest_history_utils import (
+    CheckpointType,
+    ReadinessCheckpointDetails,
+    ValidationCheckpointDetails,
+)
 from connector_builder_mcp._util import (
     as_bool,
     as_dict,
@@ -34,11 +43,13 @@ from connector_builder_mcp._util import (
     parse_manifest_input,
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
-from connector_builder_mcp.secrets import hydrate_config
-from connector_builder_mcp.session_manifest import (
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, register_mcp_tools
+from connector_builder_mcp.mcp.manifest_edits import (
     get_session_manifest_content,
     set_session_manifest_content,
 )
+from connector_builder_mcp.mcp.manifest_history import _checkpoint_manifest_revision
+from connector_builder_mcp.mcp.secrets_config import hydrate_config
 
 
 logger = logging.getLogger(__name__)
@@ -424,8 +435,6 @@ def _get_declarative_component_schema() -> dict[str, Any]:
         if schema_text is None:
             raise FileNotFoundError("Could not load declarative component schema")
 
-        import yaml
-
         schema_data = yaml.safe_load(schema_text.decode("utf-8"))
         if isinstance(schema_data, dict):
             return schema_data
@@ -507,6 +516,18 @@ def validate_manifest(
         logger.info("Using session manifest for validation")
 
     is_valid, errors, warnings, resolved_manifest = validate_manifest_content(manifest)
+
+    checkpoint_type = CheckpointType.VALIDATION_PASS if is_valid else CheckpointType.VALIDATION_FAIL
+    checkpoint_details = ValidationCheckpointDetails(
+        error_count=len(errors),
+        warning_count=len(warnings),
+        errors=errors[:5] if errors else [],
+    )
+    _checkpoint_manifest_revision(
+        session_id=ctx.session_id,
+        checkpoint_type=checkpoint_type,
+        checkpoint_details=checkpoint_details,
+    )
 
     return ManifestValidationResult(
         is_valid=is_valid,
@@ -1086,6 +1107,21 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
                 ]
             )
 
+    all_streams_passed = total_streams_successful == total_streams_tested
+    checkpoint_type = (
+        CheckpointType.READINESS_PASS if all_streams_passed else CheckpointType.READINESS_FAIL
+    )
+    checkpoint_details = ReadinessCheckpointDetails(
+        streams_tested=total_streams_tested,
+        streams_successful=total_streams_successful,
+        total_records=total_records_count,
+    )
+    _checkpoint_manifest_revision(
+        session_id=ctx.session_id,
+        checkpoint_type=checkpoint_type,
+        checkpoint_details=checkpoint_details,
+    )
+
     return _as_saved_report(
         report_text="\n".join(report_lines),
         file_path=report_output_path,
@@ -1161,3 +1197,12 @@ def execute_dynamic_manifest_resolution_test(
         return {}
 
     return "Failed to resolve manifest"
+
+
+def register_manifest_test_tools(app: FastMCP) -> None:
+    """Register manifest test tools with the FastMCP app.
+
+    Args:
+        app: FastMCP application instance
+    """
+    register_mcp_tools(app, domain=ToolDomain.MANIFEST_TESTS)

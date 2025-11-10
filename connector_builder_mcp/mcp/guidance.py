@@ -1,10 +1,7 @@
-"""Builder MCP - Model Context Protocol server for Airbyte connector building.
+"""GUIDANCE domain tools - Checklist, documentation, and connector discovery.
 
-This module provides MCP tools for autonomous AI ownership of connector building processes,
-including manifest validation, stream testing, and configuration management.
-
-The focus is on end-to-end AI ownership rather than AI assist, enabling AI agents to
-fully control the connector development workflow including testing and PR creation.
+This module contains tools for getting guidance and documentation about
+building connectors with the Connector Builder MCP server.
 """
 
 import csv
@@ -20,17 +17,7 @@ from connector_builder_mcp._guidance import (
     CONNECTOR_BUILDER_CHECKLIST,
     TOPIC_MAPPING,
 )
-from connector_builder_mcp.manifest_scaffold import (
-    create_connector_manifest_scaffold,
-)
-from connector_builder_mcp.secrets import register_secrets_tools
-from connector_builder_mcp.session_manifest import register_session_manifest_tools
-from connector_builder_mcp.validation_testing import (
-    execute_dynamic_manifest_resolution_test,
-    execute_stream_test_read,
-    run_connector_readiness_test_report,
-    validate_manifest,
-)
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +28,9 @@ _MANIFEST_SCHEMA_URL = "https://raw.githubusercontent.com/airbytehq/airbyte-pyth
 _HTTP_OK = 200
 
 
+@mcp_tool(
+    domain=ToolDomain.GUIDANCE,
+)
 def get_connector_builder_checklist() -> str:
     """Get the comprehensive development checklist for building declarative source connectors.
 
@@ -54,6 +44,9 @@ def get_connector_builder_checklist() -> str:
     return CONNECTOR_BUILDER_CHECKLIST
 
 
+@mcp_tool(
+    domain=ToolDomain.GUIDANCE,
+)
 def get_connector_builder_docs(
     topic: Annotated[
         str | None,
@@ -156,6 +149,9 @@ def _is_manifest_only_connector(connector_name: str) -> bool:
         return False
 
 
+@mcp_tool(
+    domain=ToolDomain.GUIDANCE,
+)
 def get_connector_manifest(
     connector_name: Annotated[
         str,
@@ -168,10 +164,10 @@ def get_connector_manifest(
         ),
     ] = "latest",
 ) -> str:
-    """Get the raw connector manifest YAML from connectors.airbyte.com.
+    """Get an existing raw connector manifest YAML from connectors.airbyte.com.
 
     Args:
-        connector_name: Name of the connector (e.g., 'source-stripe')
+        connector_name: Name of the existing connector (e.g., 'source-stripe')
         version: Version of the connector manifest to retrieve (defaults to 'latest')
 
     Returns:
@@ -204,8 +200,7 @@ def get_connector_manifest(
         )
 
 
-# @mcp.tool() // Deferred
-def get_manifest_yaml_json_schema() -> str:
+def _get_manifest_yaml_json_schema() -> str:
     """Retrieve the connector manifest JSON schema from the Airbyte repository.
 
     This tool fetches the official JSON schema used to validate connector manifests.
@@ -215,8 +210,6 @@ def get_manifest_yaml_json_schema() -> str:
     Returns:
         Response containing the schema in YAML format
     """
-    # URL to the manifest schema in the Airbyte Python CDK repository
-
     headers = {
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "connector-schema-tool",
@@ -236,6 +229,9 @@ def get_manifest_yaml_json_schema() -> str:
     )  # pragma: no cover # This line should not be reached
 
 
+@mcp_tool(
+    domain=ToolDomain.GUIDANCE,
+)
 def find_connectors_by_class_name(class_names: str) -> list[str]:
     """Find connectors that use ALL specified class names/components.
 
@@ -264,7 +260,9 @@ def find_connectors_by_class_name(class_names: str) -> list[str]:
     if not class_name_list:
         return []
 
-    csv_path = Path(__file__).parent / "resources" / "generated" / "connector-feature-index.csv"
+    csv_path = (
+        Path(__file__).parent.parent / "resources" / "generated" / "connector-feature-index.csv"
+    )
 
     if not csv_path.exists():
         raise FileNotFoundError(f"Feature index file not found: {csv_path}")
@@ -297,21 +295,8 @@ def find_connectors_by_class_name(class_names: str) -> list[str]:
     return sorted(result_connectors) if result_connectors else []
 
 
-def register_connector_builder_tools(app: FastMCP) -> None:
-    """Register connector builder tools with the FastMCP app.
-
-    Args:
-        app: FastMCP application instance
-    """
-    app.tool(validate_manifest)
-    app.tool(execute_stream_test_read)
-    app.tool(run_connector_readiness_test_report)
-    app.tool(execute_dynamic_manifest_resolution_test)
-    app.tool(get_manifest_yaml_json_schema)
-    app.tool(get_connector_builder_checklist)
-    app.tool(get_connector_builder_docs)
-    app.tool(get_connector_manifest)
-    app.tool(find_connectors_by_class_name)
-    app.tool(create_connector_manifest_scaffold)
-    register_secrets_tools(app)
-    register_session_manifest_tools(app)
+def register_guidance_tools(
+    app: FastMCP,
+):
+    """Register guidance tools in the MCP server."""
+    register_mcp_tools(app, domain=ToolDomain.GUIDANCE)

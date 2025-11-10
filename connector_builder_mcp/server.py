@@ -10,18 +10,48 @@ import sys
 from fastmcp import FastMCP
 
 from connector_builder_mcp._util import initialize_logging
-from connector_builder_mcp.connector_builder import register_connector_builder_tools
 from connector_builder_mcp.constants import MCP_SERVER_NAME
-from connector_builder_mcp.prompts import register_prompts
-from connector_builder_mcp.resources import register_resources
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain
+from connector_builder_mcp.mcp.guidance import register_guidance_tools
+from connector_builder_mcp.mcp.manifest_checks import register_manifest_check_tools
+from connector_builder_mcp.mcp.manifest_edits import register_manifest_edit_tools
+from connector_builder_mcp.mcp.manifest_history import register_manifest_history_tools
+from connector_builder_mcp.mcp.manifest_tests import register_manifest_test_tools
+from connector_builder_mcp.mcp.prompts import register_mcp_prompts
+from connector_builder_mcp.mcp.secrets_config import register_secrets_tools
+from connector_builder_mcp.mcp.server_info import register_server_info_resources
 
 
 initialize_logging()
 
 app: FastMCP = FastMCP(MCP_SERVER_NAME)
-register_connector_builder_tools(app)
-register_prompts(app)
-register_resources(app)
+
+
+def register_server_assets(app: FastMCP) -> None:
+    """Register all server assets (tools, prompts, resources) with the FastMCP app.
+
+    This function registers assets from all domains:
+    - GUIDANCE: Checklist, docs, schema, find connectors
+    - MANIFEST_CHECKS: Validation without running connector
+    - MANIFEST_TESTS: Testing that runs the connector
+    - MANIFEST_EDITS: Create, edit, manage manifests
+    - SECRETS_CONFIG: Manage secrets and configuration
+    - SERVER_INFO: Server version and information resources
+
+    Args:
+        app: FastMCP application instance
+    """
+    register_guidance_tools(app)
+    register_manifest_edit_tools(app)
+    register_manifest_check_tools(app)
+    register_manifest_test_tools(app)
+    register_secrets_tools(app)
+    register_manifest_history_tools(app)
+    register_mcp_prompts(app, domain=ToolDomain.PROMPTS)
+    register_server_info_resources(app)
+
+
+register_server_assets(app)
 
 
 def main() -> None:

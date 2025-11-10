@@ -11,10 +11,7 @@ from functools import lru_cache
 from fastmcp import FastMCP
 
 from connector_builder_mcp.constants import MCP_SERVER_NAME
-from connector_builder_mcp.mcp_capabilities import (
-    mcp_resource,
-    register_deferred_resources,
-)
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_resource, register_mcp_resources
 
 
 @lru_cache(maxsize=1)
@@ -68,6 +65,7 @@ def _get_version_info() -> dict[str, str | None]:
     uri=f"{MCP_SERVER_NAME}://version",
     description="Version information for the Connector Builder MCP server",
     mime_type="application/json",
+    domain=ToolDomain.SERVER_INFO,
 )
 def mcp_server_info() -> dict[str, str | None]:
     """Resource that returns information for the MCP server.
@@ -80,10 +78,10 @@ def mcp_server_info() -> dict[str, str | None]:
     return _get_version_info()
 
 
-def register_resources(app: FastMCP) -> None:
+def register_server_info_resources(app: FastMCP) -> None:
     """Register connector builder resources with the FastMCP app.
 
     Args:
         app: FastMCP application instance
     """
-    register_deferred_resources(app)
+    register_mcp_resources(app, domain=ToolDomain.SERVER_INFO)

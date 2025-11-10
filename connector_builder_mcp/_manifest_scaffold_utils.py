@@ -1,20 +1,7 @@
 """Manifest scaffold generation tools for Airbyte connectors."""
 
 import logging
-import re
 from enum import Enum
-from typing import Annotated
-
-from fastmcp import Context
-from pydantic import Field
-
-from connector_builder_mcp._guidance import SCAFFOLD_CREATION_SUCCESS_MESSAGE
-from connector_builder_mcp.constants import MCP_SERVER_NAME
-from connector_builder_mcp.session_manifest import (
-    get_session_manifest_content,
-    set_session_manifest_content,
-)
-from connector_builder_mcp.validation_testing import validate_manifest
 
 
 logger = logging.getLogger(__name__)
@@ -213,74 +200,3 @@ def _generate_connection_spec_yaml(connector_name: str, auth_type: Authenticatio
     return f"""{base_spec}
 {properties}
 {required}"""
-
-
-def create_connector_manifest_scaffold(
-    ctx: Context,
-    *,
-    connector_name: Annotated[
-        str, Field(description="Connector name in kebab-case starting with 'source-'")
-    ],
-    api_base_url: Annotated[str, Field(description="Base URL for the API")],
-    initial_stream_name: Annotated[str, Field(description="Name of the initial stream to create")],
-    initial_stream_path: Annotated[
-        str, Field(description="API endpoint path for the initial stream")
-    ],
-    authentication_type: Annotated[
-        str,
-        Field(
-            description="Authentication method (NoAuth, ApiKeyAuthenticator, BearerAuthenticator, BasicHttpAuthenticator, OAuthAuthenticator)"
-        ),
-    ],
-    http_method: Annotated[str, Field(description="HTTP method for requests")] = "GET",
-) -> str:
-    """Create a basic connector manifest scaffold with the specified configuration.
-
-    This tool generates a complete, valid Airbyte connector manifest YAML file
-    with proper authentication, pagination, and stream configuration.
-
-    The generated manifest includes TODO placeholders with inline comments for fields
-    that need to be filled in later, ensuring the manifest is valid even in its initial state.
-
-    The generated manifest is automatically saved to the session so other tools can use it
-    without needing to pass the manifest content explicitly.
-
-    Tool should only be invoked when setting up the initial connector.
-    """
-    logger.info(f"Creating connector manifest scaffold for {connector_name}")
-
-    existing_manifest = get_session_manifest_content(ctx.session_id)
-    if existing_manifest and existing_manifest.strip():
-        return (
-            "ERROR: Refusing to overwrite existing session manifest. "
-            'To proceed, first call set_session_manifest_text with manifest_yaml="" to reset the session manifest.'
-        )
-
-    if not re.match(r"^source-[a-z0-9]+(-[a-z0-9]+)*$", connector_name):
-        return "ERROR: Input validation error: Connector name must be in kebab-case starting with 'source-'"
-
-    try:
-        auth_type = AuthenticationType(authentication_type)
-    except ValueError:
-        valid_auth_types = [at.value for at in AuthenticationType]
-        return f"ERROR: Input validation error: Invalid authentication_type. Must be one of: {valid_auth_types}"
-
-    manifest_yaml = _generate_manifest_yaml_directly(
-        connector_name=connector_name,
-        api_base_url=api_base_url,
-        initial_stream_name=initial_stream_name,
-        initial_stream_path=initial_stream_path,
-        authentication_type=auth_type,
-        http_method=http_method.upper(),
-    )
-
-    validation_result = validate_manifest(ctx, manifest=manifest_yaml)
-
-    if not validation_result.is_valid:
-        error_details = "; ".join(validation_result.errors)
-        return f"ERROR: Generated manifest failed validation: {error_details}"
-
-    manifest_path = set_session_manifest_content(manifest_yaml, session_id=ctx.session_id)
-    logger.info(f"Saved generated manifest to session at: {manifest_path}")
-
-    return SCAFFOLD_CREATION_SUCCESS_MESSAGE.format(MCP_SERVER_NAME=MCP_SERVER_NAME)

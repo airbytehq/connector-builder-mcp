@@ -8,12 +8,13 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from connector_builder_mcp.secrets import (
+from connector_builder_mcp.mcp.secrets_config import (
     SecretsFileInfo,
     _cast_secrets_to_types,
     _cast_value_to_type,
     _get_schema_for_path,
     _load_secrets,
+    _validate_secrets_uris,
     hydrate_config,
     list_dotenv_secrets,
     populate_dotenv_missing_secrets_stubs,
@@ -99,7 +100,7 @@ def test_hydrate_config_no_secrets():
     """Test hydration with no secrets available."""
     config = {"host": "localhost", "credentials": {"username": "user"}}
 
-    with patch("connector_builder_mcp.secrets._load_secrets", return_value={}):
+    with patch("connector_builder_mcp.mcp.secrets_config._load_secrets", return_value={}):
         result = hydrate_config(config, "/path/to/.env")
         assert result == config
 
@@ -395,8 +396,8 @@ def test_load_secrets_list_of_files():
             Path(f2.name).unlink()
 
 
-@patch("connector_builder_mcp.secrets.privatebin.get")
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.privatebin.get")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_load_secrets_privatebin_url_success(mock_getenv, mock_privatebin_get):
     """Test loading from privatebin URL with password authentication."""
     mock_getenv.return_value = "test_password"
@@ -412,7 +413,7 @@ def test_load_secrets_privatebin_url_success(mock_getenv, mock_privatebin_get):
     )
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_load_secrets_privatebin_url_no_password(mock_getenv):
     """Test loading from privatebin URL without PRIVATEBIN_PASSWORD fails."""
     mock_getenv.return_value = None
@@ -423,8 +424,8 @@ def test_load_secrets_privatebin_url_no_password(mock_getenv):
     mock_getenv.assert_called_with("PRIVATEBIN_PASSWORD")
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
-@patch("connector_builder_mcp.secrets.requests.get")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.requests.get")
 def test_load_secrets_privatebin_url_with_existing_password_param(mock_get, mock_getenv):
     """Test loading from privatebin URL with embedded password fails validation."""
     mock_getenv.return_value = "test_password"
@@ -437,8 +438,8 @@ def test_load_secrets_privatebin_url_with_existing_password_param(mock_get, mock
     assert secrets == {}
 
 
-@patch("connector_builder_mcp.secrets.privatebin.get")
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.privatebin.get")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_load_secrets_mixed_files_and_privatebin(mock_getenv, mock_privatebin_get):
     """Test loading from mix of local files and privatebin URLs."""
     mock_getenv.return_value = "test_password"
@@ -479,8 +480,8 @@ def test_list_dotenv_secrets_multiple_sources():
             Path(f2.name).unlink()
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
-@patch("connector_builder_mcp.secrets._fetch_privatebin_content")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config._fetch_privatebin_content")
 def test_list_dotenv_secrets_privatebin_url(mock_fetch, mock_getenv):
     """Test listing secrets from privatebin URL."""
     mock_getenv.return_value = "test_password"
@@ -502,11 +503,11 @@ def test_list_dotenv_secrets_privatebin_url(mock_fetch, mock_getenv):
             assert secret.is_set is False
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_populate_dotenv_missing_secrets_stubs_privatebin_url(mock_getenv):
     """Test populate stubs with privatebin URL returns instructions."""
     mock_getenv.return_value = "test_password"
-    with patch("connector_builder_mcp.secrets._load_secrets") as mock_load:
+    with patch("connector_builder_mcp.mcp.secrets_config._load_secrets") as mock_load:
         mock_load.return_value = {"existing_key": "value"}
 
         result = populate_dotenv_missing_secrets_stubs(
@@ -522,11 +523,11 @@ def test_populate_dotenv_missing_secrets_stubs_privatebin_url(mock_getenv):
         assert "Ensure PRIVATEBIN_PASSWORD environment variable is set" in result
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_populate_dotenv_missing_secrets_stubs_privatebin_all_present(mock_getenv):
     """Test populate stubs with privatebin URL when all secrets are present."""
     mock_getenv.return_value = "test_password"
-    with patch("connector_builder_mcp.secrets._load_secrets") as mock_load:
+    with patch("connector_builder_mcp.mcp.secrets_config._load_secrets") as mock_load:
         mock_load.return_value = {"key1": "value1", "key2": "value2"}
 
         result = populate_dotenv_missing_secrets_stubs(
@@ -561,8 +562,6 @@ def test_populate_dotenv_missing_secrets_stubs_readonly_file():
 
 def test_validate_secrets_uris_absolute_path_valid():
     """Test validation passes for absolute paths."""
-    from connector_builder_mcp.secrets import _validate_secrets_uris
-
     with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:
         absolute_path = str(Path(f.name).resolve())
         errors = _validate_secrets_uris(absolute_path)
@@ -572,40 +571,32 @@ def test_validate_secrets_uris_absolute_path_valid():
 
 def test_validate_secrets_uris_relative_path_invalid():
     """Test validation fails for relative paths."""
-    from connector_builder_mcp.secrets import _validate_secrets_uris
-
     errors = _validate_secrets_uris("relative/path/.env")
     assert len(errors) == 1
     assert "must be absolute" in errors[0]
     assert "relative/path/.env" in errors[0]
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_validate_secrets_uris_privatebin_no_password(mock_getenv):
     """Test validation fails for privatebin URL without PRIVATEBIN_PASSWORD."""
-    from connector_builder_mcp.secrets import _validate_secrets_uris
-
     mock_getenv.return_value = None
     errors = _validate_secrets_uris("https://privatebin.net/abc123")
     assert len(errors) == 1
     assert "requires PRIVATEBIN_PASSWORD environment variable" in errors[0]
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_validate_secrets_uris_privatebin_with_password_valid(mock_getenv):
     """Test validation passes for privatebin URL with PRIVATEBIN_PASSWORD set."""
-    from connector_builder_mcp.secrets import _validate_secrets_uris
-
     mock_getenv.return_value = "test_password"
     errors = _validate_secrets_uris("https://privatebin.net/abc123")
     assert errors == []
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_validate_secrets_uris_privatebin_embedded_password_invalid(mock_getenv):
     """Test validation fails for privatebin URL with embedded password."""
-    from connector_builder_mcp.secrets import _validate_secrets_uris
-
     mock_getenv.return_value = "test_password"
     errors = _validate_secrets_uris("https://privatebin.net/abc123?password=embedded")
     assert len(errors) == 1
@@ -613,11 +604,9 @@ def test_validate_secrets_uris_privatebin_embedded_password_invalid(mock_getenv)
     assert "not allowed for security reasons" in errors[0]
 
 
-@patch("connector_builder_mcp.secrets.os.getenv")
+@patch("connector_builder_mcp.mcp.secrets_config.os.getenv")
 def test_validate_secrets_uris_mixed_valid_invalid(mock_getenv):
     """Test validation with mix of valid and invalid URIs."""
-    from connector_builder_mcp.secrets import _validate_secrets_uris
-
     mock_getenv.return_value = None
 
     with tempfile.NamedTemporaryFile(suffix=".env", delete=False) as f:

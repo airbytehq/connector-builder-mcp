@@ -232,8 +232,8 @@ Rules:
 - If manifest validation fails, review the errors and relevant documentation
   and then attempt to resolve the errors.
 - For reading manifest content, prefer using the 'session_manifest_yaml_contents'
-  MCP resource instead of the get_session_manifest tool for better performance
-  and caching. The resource URI format is '{server_name}://session/manifest'
+  MCP resource instead of the get_session_manifest_text tool for better performance
+  and caching. The resource URI format is '<MCP_SERVER_NAME>://session/manifest'
   where server_name matches your MCP configuration.
 
 
@@ -255,70 +255,6 @@ For detailed guidance on specific components and features, you can request docum
 
 {NEWLINE.join(f"- `{key}` - {desc}" for key, (_, desc) in TOPIC_MAPPING.items())}
 
-"""
-
-BUILD_CONNECTOR_FROM_SCRATCH_PROMPT = """# Build a Connector from Scratch
-
-You are building a declarative (YAML) source connector using the Connector
-Builder MCP Server.
-
-
-1. **Research & Planning**
-   - Locate API documentation for {api_name}
-   - Identify authentication method (API key, OAuth, etc.)
-   - List available API endpoints/streams
-   - Check for advanced features (pagination, rate limiting, incremental sync)
-
-2. **Setup Secrets** (if authentication required)
-   - Use `populate_dotenv_missing_secrets_stubs` to create .env template
-   - Have user populate secrets in .env file
-   - Use `list_dotenv_secrets` to verify secrets are set
-   - Pass dotenv_file_uris to all tools that need authentication
-
-3. **Build First Stream**
-   - Create minimal manifest with authentication and one stream
-   - Use `validate_manifest` to check structure
-   - Use `execute_stream_test_read` to test authentication and basic data retrieval
-   - Verify you can read records successfully
-
-4. **Add Pagination**
-   - Add pagination configuration to manifest
-   - Test reading multiple pages with `execute_stream_test_read`
-   - Read to end of stream with high max_records to verify pagination works
-     correctly
-   - Check that record counts are not suspicious multiples (10, 25, page size)
-
-5. **Add Remaining Streams**
-   - Add one stream at a time
-   - Test each stream individually before proceeding
-   - Apply lessons learned from first stream
-
-6. **Final Validation**
-   - Use `run_connector_readiness_test_report` to test all streams
-   - Use `validate_manifest` to confirm schema compliance
-   - Review record counts and warnings
-
-
-- `validate_manifest`: Check manifest structure and schema
-- `execute_stream_test_read`: Test individual streams
-- `run_connector_readiness_test_report`: Generate comprehensive test report
-- `get_connector_builder_docs`: Get detailed documentation on specific topics
-- `populate_dotenv_missing_secrets_stubs`: Create .env template
-- `list_dotenv_secrets`: Verify secrets are configured
-- `get_connector_manifest`: Get example manifests from existing connectors
-- `find_connectors_by_class_name`: Find connectors using specific features
-
-
-- Custom Python components are NOT supported
-- Always pass dotenv_file_uris to tools that need secrets
-- Never send secrets directly through the LLM
-- Test one stream at a time
-- Disable records/raw responses when reading large datasets
-- YAML anchors are not supported (use $ref pointers instead)
-
-
-Use `get_connector_builder_docs` without arguments to see available
-documentation topics, or with a specific topic for detailed guidance.
 """
 
 ADD_STREAM_TO_CONNECTOR_PROMPT = """# Add a New Stream to Existing Connector
@@ -380,8 +316,8 @@ The manifest has been saved to your session and is ready to use.
 
 **To view the manifest:**
 - **Preferred**: Use the MCP resource `session_manifest_yaml_contents`
-  (URI: '{MCP_SERVER_NAME}://session/manifest').
-- **Fallback**: Use the `get_session_manifest` tool if your client does not
+  (URI: '<MCP_SERVER_NAME>://session/manifest').
+- **Fallback**: Use the `get_session_manifest_text` tool if your client does not
   support MCP resources.
 
 **Next steps:**
@@ -391,4 +327,223 @@ The manifest has been saved to your session and is ready to use.
 4. Add pagination if needed
 
 **Note:** The manifest includes inline TODO comments marking fields that need attention.
+"""
+
+CONNECTOR_BUILD_PROMPT = """# Build a Test Connector (MCP Server Debug)
+
+Build a working connector to verify the Connector Builder MCP server is functioning correctly.
+
+## API Connector Specifications
+
+**Target API**: {api_name}
+**Secrets File** (if applicable): {dotenv_path}
+**Additional Requirements** (if applicable): {additional_requirements}
+
+**Note**: You will discover the API base URL and authentication requirements by:
+1. Using web search to find the API documentation
+2. Using `list_dotenv_secrets(dotenv_path='{dotenv_path}')` to see what secret keys are available (if .env file provided)
+3. The tools let you view secret key names without exposing the actual values
+
+## Critical Guidelines
+
+**IMPORTANT - Read Before Starting:**
+
+1. **Track Time**: Note your start time now. At the end, report the total duration of the process.
+   - Exception: If you are not able to view the current time, you may skip this step.
+
+2. **Tool Testing Focus**: The goal is to work using the MCP tools, not work around them.
+   - ❌ DO NOT get creative or find workarounds if tools fail (unless your use explicitly allows it)
+   - ❌ DO NOT manually edit files or use alternative approaches
+   - ✅ DO report any tool that malfunctions or behaves unexpectedly
+   - ✅ DO stop and report if you cannot proceed with the provided tools
+
+3. **Mandatory First Step**: Always start by calling `get_connector_builder_checklist()`
+   - Review the full checklist before beginning work
+   - Use it to guide your development process
+
+4. **Completion Criteria**: This task is NOT complete until:
+   - ✅ You have added all streams that the API supports (unless the user specified otherwise)
+   - ✅ The `run_connector_readiness_test_report` tool executes successfully
+   - ✅ The readiness report shows passing results, with no unexpected errors or warnings
+   - ✅ You provide the report results AND file path as evidence
+   - ✅ You report the total time elapsed from start to finish
+
+5. **Reporting Malfunctions**: Immediately report if any tool:
+   - Returns unexpected errors
+   - Produces invalid output
+   - Fails to perform its documented function
+   - Behaves inconsistently
+
+6. **Version Tracking**
+- If you make a mistake which you cannot readily fix, use your tools to list, diff
+  or recall prior versions of the session's manifest.yaml resource.
+
+## Build Steps
+
+### 0. Review Checklist (MANDATORY FIRST STEP)
+- Call `get_connector_builder_checklist()` to get the comprehensive development checklist
+- Review the entire checklist before proceeding
+- Keep the checklist guidance in mind throughout the process
+
+### 1. Research API & Discover Configuration
+- Use web search to find official API documentation
+- Discover the base URL from the documentation
+- Identify authentication requirements (API key, OAuth, Bearer token, etc.)
+- Enumerate all available endpoints/streams
+- Share findings with user
+
+### 2. Decide on Authentication Strategy
+
+**If auth not required:**
+- Simply note to the user that no authentication is provided and continue
+
+**If .env file provided:**
+- Use `list_dotenv_secrets(dotenv_path='{dotenv_path}')` to see what secret keys are available
+- This shows you the key names (e.g., "API_KEY", "CLIENT_ID") without exposing values
+- Infer the authentication type from the key names
+- The tools will automatically use these secrets when needed
+
+**If auth is required but you do not have a .env file:**
+- 🛑 STOP! Ask your user to select between options and give them instructions to create a .env file
+  before continuing.
+- 🛑 Important: DO NOT attempt to build a connector that you don't have credentials to test. This
+  would waste your time and your users' time.
+
+- If the API requires secrets which are not yet in the .env file:
+  - First use `list_dotenv_secrets` to ensure they don't exist by another name
+  - Use `populate_dotenv_missing_secrets_stubs(dotenv_path='{dotenv_path}')` to add missing key stubs
+  - Wait for user to populate the new secrets
+  - Use `list_dotenv_secrets(dotenv_path='{dotenv_path}')` to verify they were added
+
+### 3. Create Connector Scaffold
+- Use `create_connector_manifest_scaffold` with appropriate parameters
+- For JSONPlaceholder, use:
+  - connector_name: "source-jsonplaceholder"
+  - api_base_url: "https://jsonplaceholder.typicode.com"
+  - initial_stream_name: "posts"
+  - initial_stream_path: "/posts"
+  - authentication_type: "NoAuth"
+
+### 4. View and Validate Manifest
+- Use `get_session_manifest_text()` to retrieve the scaffold
+- Use `validate_manifest()` to check structure
+- Review any TODO placeholders that need updating
+
+### 5. Test First Stream
+- Use `execute_stream_test_read(stream_name='posts', max_records=5)` to test
+- Verify records are returned successfully
+- Check data structure looks correct
+
+### 6. Add Pagination
+- Edit manifest to add proper pagination configuration
+- Use `set_session_manifest_text()` to update manifest
+- Test with more records to verify pagination works
+- Read to end of stream to get total count
+
+### 7. Add Remaining Streams (One at a time)
+- Repeat your previous steps for each stream
+- Test each stream individually after adding, and before moving on to the next stream
+
+### 8. Final Validation & Readiness Report (MANDATORY)
+- Use `validate_manifest()` to ensure manifest is valid
+- **CRITICAL**: Run `run_connector_readiness_test_report()`
+  - This tool generates a comprehensive test report
+  - It MUST complete successfully for the task to be considered done
+  - The report is saved to a file - you MUST provide the file path
+- Review the readiness report results thoroughly
+- If any streams fail, investigate and fix issues before proceeding
+
+### 10. Final Summary & Evidence (MANDATORY)
+**You MUST provide all of the following:**
+- ✅ Total time elapsed (from start to finish)
+- ✅ Connector readiness report file path
+- ✅ Full results from the readiness report
+- ✅ List of streams added and their record counts
+- ✅ Any tool malfunctions encountered (or note "None")
+- ✅ Overall success status
+
+## Reporting Guidelines
+
+Report progress as you go:
+- ✅ Steps completed successfully
+- ⚠️ Tool malfunctions or unexpected behavior (REPORT IMMEDIATELY)
+- ❌ Blocking errors that prevent progress (STOP and REPORT)
+- 📊 Ongoing statistics: streams, total records, validation status
+
+**Remember**: The goal is to test the tools, not to be clever. If a tool doesn't work, report it - don't work around it.
+
+## Success Criteria
+
+**ALL of the following must be met:**
+- ✅ Checklist reviewed at start
+- ✅ Manifest validates successfully
+- ✅ All streams working and returning data
+- ✅ Pagination tested and verified
+- ✅ `run_connector_readiness_test_report()` executed and passes
+- ✅ Report file path and results provided
+- ✅ Total time duration reported (if tools permit)
+- ✅ No tool malfunctions left unreported
+
+## Important Notes
+
+- **Start with checklist tool** - This is mandatory, not optional
+- **End with readiness report tool** - Provide file path and results
+- **Report time elapsed** - Track from start to finish
+- **Report tool issues** - Don't work around them, report them
+- **Don't get creative** - Stick to the MCP tools provided
+- Keep the scope manageable - 2-4 streams is sufficient for testing
+
+## Key Tools Reference
+
+**Documentation & Guidance:**
+- `get_connector_builder_checklist()` - Get comprehensive development checklist
+- `get_connector_builder_docs(topic)` - Get detailed docs on specific topics
+
+**Connector Examples:**
+- `get_connector_manifest(connector_name)` - Get example manifests from existing connectors
+- `find_connectors_by_class_name(class_names)` - Find connectors using specific features
+
+**Manifest Operations:**
+- `create_connector_manifest_scaffold()` - Create initial connector scaffold
+- `get_session_manifest_text()` - Retrieve current manifest
+- `set_session_manifest_text()` - Edit manifest content
+- `validate_manifest()` - Validate manifest structure and schema
+
+**Testing & Validation:**
+- `execute_stream_test_read()` - Test individual streams and verify data
+- `run_connector_readiness_test_report()` - Generate comprehensive test report
+
+**Secret Management:**
+- `list_dotenv_secrets(dotenv_path)` - List secret keys without exposing values
+- `populate_dotenv_missing_secrets_stubs()` - Create .env template
+
+**Version Control:**
+- `list_session_manifest_versions()` - List manifest version history
+- `diff_session_manifest_versions()` - Compare versions
+"""
+
+NON_CREATIVE_MODE_NOTE = """
+
+---
+
+**Note**: This prompt is configured in **non-creative mode** (default). You should:
+- ✅ Stick strictly to the MCP tools provided
+- ✅ Report tool failures immediately without attempting workarounds
+- ❌ Do NOT use manual file editing or alternative approaches
+- ❌ Do NOT get creative if tools don't work as expected
+
+This ensures we properly test the MCP tools and identify any issues.
+"""
+
+CREATIVE_MODE_NOTE = """
+
+---
+
+**Note**: This prompt is configured in **creative mode**. You may:
+- ✅ Use creative solutions and workarounds if MCP tools fail
+- ✅ Manually edit files if needed to unblock progress
+- ✅ Find alternative approaches to achieve the goal
+- ⚠️ Still report any tool malfunctions, but proceed with workarounds
+
+**Warning**: Creative mode is less reliable and may lead to mistakes. Use only for complex scenarios.
 """
