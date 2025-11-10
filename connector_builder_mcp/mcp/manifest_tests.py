@@ -49,7 +49,7 @@ from connector_builder_mcp.mcp.manifest_edits import (
     get_session_manifest_content,
     set_session_manifest_content,
 )
-from connector_builder_mcp.secrets import hydrate_config
+from connector_builder_mcp.mcp.secrets_config import hydrate_config
 
 
 logger = logging.getLogger(__name__)
