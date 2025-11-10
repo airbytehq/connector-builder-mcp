@@ -573,7 +573,6 @@ def session_manifest_yaml_contents(ctx: Context) -> str:
     """Resource that exposes the current session's manifest file.
 
     This resource returns the raw YAML manifest content as a string.
-    For metadata like session ID and file path, use the get_session_manifest_text tool instead.
 
     Args:
         ctx: FastMCP context (automatically injected in MCP resource calls)
