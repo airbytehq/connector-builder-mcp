@@ -14,7 +14,7 @@ from connector_builder_mcp._guidance import (
     ADD_STREAM_TO_CONNECTOR_PROMPT,
     BUILD_CONNECTOR_FROM_SCRATCH_PROMPT,
 )
-from connector_builder_mcp.mcp._mcp_utils import mcp_prompt, register_prompts as register_deferred_prompts
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_prompt, register_prompts as register_deferred_prompts
 
 
 @mcp_prompt(
@@ -83,4 +83,4 @@ def register_prompts(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_deferred_prompts(app)
+    register_deferred_prompts(app, domain=ToolDomain.GUIDANCE)
