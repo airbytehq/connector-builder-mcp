@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastmcp import Context, FastMCP
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from connector_builder_mcp._guidance import SCAFFOLD_CREATION_SUCCESS_MESSAGE
 from connector_builder_mcp._manifest_scaffold_utils import (
@@ -145,7 +145,9 @@ def set_session_manifest_text(
         if diff_summary:
             result += f"\n\n{diff_summary}"
         if validation_warnings:
-            result += f"\n\nValidation warnings:\n" + "\n".join(f"- {w}" for w in validation_warnings)
+            result += "\n\nValidation warnings:\n" + "\n".join(
+                f"- {w}" for w in validation_warnings
+            )
         return result
 
     # Get existing content for other modes
@@ -184,7 +186,9 @@ def set_session_manifest_text(
         if diff_summary:
             result += f"\n\n{diff_summary}"
         if validation_warnings:
-            result += f"\n\nValidation warnings:\n" + "\n".join(f"- {w}" for w in validation_warnings)
+            result += "\n\nValidation warnings:\n" + "\n".join(
+                f"- {w}" for w in validation_warnings
+            )
         return result
 
     if mode == "insert_lines":
@@ -218,7 +222,9 @@ def set_session_manifest_text(
         if diff_summary:
             result += f"\n\n{diff_summary}"
         if validation_warnings:
-            result += f"\n\nValidation warnings:\n" + "\n".join(f"- {w}" for w in validation_warnings)
+            result += "\n\nValidation warnings:\n" + "\n".join(
+                f"- {w}" for w in validation_warnings
+            )
         return result
 
     if mode == "replace_text":
@@ -253,7 +259,9 @@ def set_session_manifest_text(
         if diff_summary:
             result += f"\n\n{diff_summary}"
         if validation_warnings:
-            result += f"\n\nValidation warnings:\n" + "\n".join(f"- {w}" for w in validation_warnings)
+            result += "\n\nValidation warnings:\n" + "\n".join(
+                f"- {w}" for w in validation_warnings
+            )
         return result
 
     return f"ERROR: Unexpected mode: {mode}"
