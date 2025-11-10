@@ -11,12 +11,10 @@ from fastmcp import FastMCP
 
 from connector_builder_mcp._util import initialize_logging
 from connector_builder_mcp.constants import MCP_SERVER_NAME
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain
 from connector_builder_mcp.mcp.guidance import register_guidance_tools
 from connector_builder_mcp.mcp.manifest_checks import register_manifest_check_tools
-from connector_builder_mcp.mcp.manifest_edits import (
-    register_manifest_edit_tools,
-    register_session_manifest_tools,
-)
+from connector_builder_mcp.mcp.manifest_edits import register_manifest_edit_tools
 from connector_builder_mcp.mcp.manifest_history import register_manifest_history_tools
 from connector_builder_mcp.mcp.manifest_tests import register_manifest_test_tools
 from connector_builder_mcp.mcp.prompts import register_mcp_prompts
@@ -47,10 +45,9 @@ def register_server_assets(app: FastMCP) -> None:
     register_manifest_edit_tools(app)
     register_manifest_check_tools(app)
     register_manifest_test_tools(app)
-    register_session_manifest_tools(app)
     register_secrets_tools(app)
     register_manifest_history_tools(app)
-    register_mcp_prompts(app)
+    register_mcp_prompts(app, domain=ToolDomain.PROMPTS)
     register_server_info_resources(app)
 
 

@@ -2,11 +2,17 @@
 
 import pytest
 
-from connector_builder_mcp.mcp.manifest_history import (
+from connector_builder_mcp._manifest_history_utils import (
     CheckpointType,
     ReadinessCheckpointDetails,
     RestoreCheckpointDetails,
     ValidationCheckpointDetails,
+)
+from connector_builder_mcp.mcp.manifest_edits import (
+    get_session_manifest_content,
+    set_session_manifest_text,
+)
+from connector_builder_mcp.mcp.manifest_history import (
     _checkpoint_manifest_revision,
     _diff_manifest_revisions,
     _get_manifest_revision,
@@ -16,10 +22,6 @@ from connector_builder_mcp.mcp.manifest_history import (
     get_session_manifest_version,
     list_session_manifest_versions,
     restore_session_manifest_version,
-)
-from connector_builder_mcp.session_manifest import (
-    get_session_manifest_content,
-    set_session_manifest_text,
 )
 
 

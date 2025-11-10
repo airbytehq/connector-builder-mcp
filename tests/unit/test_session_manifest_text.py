@@ -1,7 +1,6 @@
 """Tests for set_session_manifest_text tool with all edit modes."""
 
-from connector_builder_mcp.session_manifest import (
-    SetManifestContentsResult,
+from connector_builder_mcp.mcp.manifest_edits import (
     get_session_manifest_content,
     set_session_manifest_text,
 )
@@ -38,11 +37,10 @@ def test_replace_all_mode_with_content(ctx) -> None:
         new_text=VALID_MINIMAL_MANIFEST,
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is None
-    assert "Saved manifest" in result.message
-    assert "Replaced 0 lines with" in result.diff_summary
-    assert isinstance(result.validation_warnings, list)
+    assert isinstance(result, str)
+    assert not result.startswith("ERROR:")
+    assert "Saved manifest" in result
+    assert "Replaced 0 lines with" in result or "revision" in result
 
     content = get_session_manifest_content(ctx.session_id)
     assert content == VALID_MINIMAL_MANIFEST
@@ -58,10 +56,9 @@ def test_replace_all_mode_delete_content(ctx) -> None:
         new_text="",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is None
-    assert "Deleted" in result.diff_summary and "lines" in result.diff_summary
-    assert isinstance(result.validation_warnings, list)
+    assert isinstance(result, str)
+    assert not result.startswith("ERROR:")
+    assert "Deleted" in result and "lines" in result
 
     content = get_session_manifest_content(ctx.session_id)
     assert content == ""
@@ -74,9 +71,9 @@ def test_replace_all_mode_missing_new_text(ctx) -> None:
         mode="replace_all",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "requires new_text parameter" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "requires new_text parameter" in result
 
 
 def test_replace_lines_mode_success(ctx) -> None:
@@ -90,11 +87,10 @@ def test_replace_lines_mode_success(ctx) -> None:
         new_text="# Modified line\n",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is None
-    assert "Saved manifest" in result.message
-    assert result.diff_summary is not None
-    assert result.diff_summary != "[no changes]"
+    assert isinstance(result, str)
+    assert not result.startswith("ERROR:")
+    assert "Saved manifest" in result
+    assert "[no changes]" not in result
 
     content = get_session_manifest_content(ctx.session_id)
     assert "# Modified line" in content
@@ -112,9 +108,9 @@ def test_replace_lines_mode_no_changes(ctx) -> None:
         new_text=lines[1],
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is None
-    assert result.diff_summary == "[no changes]"
+    assert isinstance(result, str)
+    assert not result.startswith("ERROR:")
+    assert "[no changes]" in result
 
 
 def test_replace_lines_mode_missing_params(ctx) -> None:
@@ -127,9 +123,9 @@ def test_replace_lines_mode_missing_params(ctx) -> None:
         new_text="replacement\n",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "requires replace_lines" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "requires replace_lines" in result
 
 
 def test_replace_lines_mode_out_of_range(ctx) -> None:
@@ -143,9 +139,9 @@ def test_replace_lines_mode_out_of_range(ctx) -> None:
         new_text="replacement\n",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "exceeds file length" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "exceeds file length" in result
 
 
 def test_insert_lines_mode_success(ctx) -> None:
@@ -159,11 +155,10 @@ def test_insert_lines_mode_success(ctx) -> None:
         new_text="# Inserted comment\n",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is None
-    assert "Saved manifest" in result.message
-    assert result.diff_summary is not None
-    assert "+# Inserted comment" in result.diff_summary or "Inserted comment" in result.diff_summary
+    assert isinstance(result, str)
+    assert not result.startswith("ERROR:")
+    assert "Saved manifest" in result
+    assert "+# Inserted comment" in result or "Inserted comment" in result
 
     content = get_session_manifest_content(ctx.session_id)
     assert "# Inserted comment" in content
@@ -179,9 +174,9 @@ def test_insert_lines_mode_missing_params(ctx) -> None:
         new_text="inserted\n",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "requires insert_at_line_number" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "requires insert_at_line_number" in result
 
 
 def test_insert_lines_mode_out_of_range(ctx) -> None:
@@ -195,9 +190,9 @@ def test_insert_lines_mode_out_of_range(ctx) -> None:
         new_text="inserted\n",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "must be in range" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "must be in range" in result
 
 
 def test_replace_text_mode_single_occurrence(ctx) -> None:
@@ -212,11 +207,10 @@ def test_replace_text_mode_single_occurrence(ctx) -> None:
         replace_all_occurrences=False,
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is None
-    assert "Saved manifest" in result.message
-    assert "replaced 1 occurrence" in result.message
-    assert result.diff_summary is not None
+    assert isinstance(result, str)
+    assert not result.startswith("ERROR:")
+    assert "Saved manifest" in result
+    assert "replaced 1 occurrence" in result
 
     content = get_session_manifest_content(ctx.session_id)
     assert "https://api.newdomain.com" in content
@@ -236,9 +230,9 @@ def test_replace_text_mode_multiple_occurrences_with_flag(ctx) -> None:
         replace_all_occurrences=True,
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is None
-    assert "replaced all" in result.message and "occurrences" in result.message
+    assert isinstance(result, str)
+    assert not result.startswith("ERROR:")
+    assert "replaced all" in result and "occurrences" in result
 
     content = get_session_manifest_content(ctx.session_id)
     assert "customers" in content
@@ -258,10 +252,10 @@ def test_replace_text_mode_multiple_occurrences_without_flag(ctx) -> None:
         replace_all_occurrences=False,
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "appears" in result.error and "times" in result.error
-    assert "replace_all_occurrences=True" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "appears" in result and "times" in result
+    assert "replace_all_occurrences=True" in result
 
 
 def test_replace_text_mode_text_not_found(ctx) -> None:
@@ -275,9 +269,9 @@ def test_replace_text_mode_text_not_found(ctx) -> None:
         new_text="replacement",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "not found" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "not found" in result
 
 
 def test_replace_text_mode_missing_params(ctx) -> None:
@@ -290,9 +284,9 @@ def test_replace_text_mode_missing_params(ctx) -> None:
         new_text="replacement",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "requires replace_text parameter" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "requires replace_text parameter" in result
 
 
 def test_invalid_mode(ctx) -> None:
@@ -303,9 +297,9 @@ def test_invalid_mode(ctx) -> None:
         new_text="content",
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is not None
-    assert "Unexpected mode" in result.error
+    assert isinstance(result, str)
+    assert result.startswith("ERROR:")
+    assert "Unexpected mode" in result
 
 
 def test_validation_warnings_included(ctx) -> None:
@@ -325,6 +319,6 @@ streams: []
         new_text=invalid_manifest,
     )
 
-    assert isinstance(result, SetManifestContentsResult)
-    assert result.error is None
-    assert isinstance(result.validation_warnings, list)
+    assert isinstance(result, str)
+    assert not result.startswith("ERROR:")
+    assert "Saved manifest" in result

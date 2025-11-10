@@ -22,13 +22,17 @@ from fastmcp import Context, FastMCP
 from pydantic import Field
 
 from connector_builder_mcp._manifest_history_utils import (
+    AmbiguousHashError,
     CheckpointDetails,
     CheckpointType,
     ManifestRevision,
     ManifestRevisionDiff,
     ManifestRevisionMetadata,
     ManifestRevisionSummary,
+    ReadinessCheckpointDetails,
+    RestoreCheckpointDetails,
     RevisionId,
+    ValidationCheckpointDetails,
     _compute_content_hash,
     _get_next_ordinal,
     _load_revision_metadata,
@@ -41,7 +45,6 @@ from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_
 
 
 # Type aliases for revision identification
-RevisionId = tuple[int, int, str]  # (ordinal, timestamp_ns, content_hash)
 RevisionRef = int | str | RevisionId  # Flexible reference type for lookups
 
 
