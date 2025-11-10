@@ -7,8 +7,10 @@ The MCP integration layer is in mcp/checklist.py.
 import json
 import logging
 from enum import Enum
+from pathlib import Path
 
-from pydantic import BaseModel, Field
+import yaml
+from pydantic import BaseModel, ConfigDict, Field
 
 from connector_builder_mcp._paths import get_session_checklist_path
 
@@ -25,24 +27,13 @@ class TaskStatusEnum(str, Enum):
     BLOCKED = "blocked"
 
 
-class TaskTypeEnum(str, Enum):
-    """Types of tasks in the task list."""
-
-    CONNECTOR = "connector"
-    STREAM = "stream"
-    SPECIAL_REQUIREMENTS = "special_requirements"
-    ACCEPTANCE_TESTS = "acceptance_tests"
-    FINALIZATION = "finalization"
-
-
 class Task(BaseModel):
-    """Base task model with common fields."""
+    """Task model with ID, name, description, and status tracking."""
 
-    task_type: TaskTypeEnum = Field(
-        description="Type of task (connector, stream, special_requirements, acceptance_tests, or finalization)"
-    )
+    model_config = ConfigDict(extra="ignore")
+
     id: str = Field(description="Unique identifier for the task")
-    task_name: str = Field(description="Short name/title of the task")
+    name: str = Field(description="Short name/title of the task")
     description: str | None = Field(
         default=None,
         description="Optional longer description with additional context/instructions",
@@ -54,57 +45,26 @@ class Task(BaseModel):
     )
 
 
-class ConnectorTask(Task):
-    """General connector task for pre-stream work."""
-
-    task_type: TaskTypeEnum = TaskTypeEnum.CONNECTOR
-
-
-class StreamTask(Task):
-    """Stream-specific task with an additional stream name field."""
-
-    task_type: TaskTypeEnum = TaskTypeEnum.STREAM
-    stream_name: str = Field(description="Name of the stream this task relates to")
-
-
-class SpecialRequirementTask(Task):
-    """Special requirement task for custom connector-specific requirements."""
-
-    task_type: TaskTypeEnum = TaskTypeEnum.SPECIAL_REQUIREMENTS
-
-
-class AcceptanceTestsTask(Task):
-    """Acceptance tests task for testing and validation."""
-
-    task_type: TaskTypeEnum = TaskTypeEnum.ACCEPTANCE_TESTS
-
-
-class FinalizationTask(Task):
-    """Finalization task for post-stream work."""
-
-    task_type: TaskTypeEnum = TaskTypeEnum.FINALIZATION
-
-
 class TaskList(BaseModel):
     """Generic task list for tracking progress."""
 
-    basic_connector_tasks: list[ConnectorTask] = Field(
+    basic_connector_tasks: list[Task] = Field(
         default_factory=list,
         description="List of basic connector tasks",
     )
-    stream_tasks: list[StreamTask] = Field(
-        default_factory=list,
-        description="List of stream tasks",
+    stream_tasks: dict[str, list[Task]] = Field(
+        default_factory=dict,
+        description="Dict of stream tasks, keyed by stream name",
     )
-    special_requirements: list[SpecialRequirementTask] = Field(
+    special_requirements: list[Task] = Field(
         default_factory=list,
         description="List of special requirement tasks",
     )
-    acceptance_tests: list[AcceptanceTestsTask] = Field(
+    acceptance_tests: list[Task] = Field(
         default_factory=list,
         description="List of acceptance test tasks",
     )
-    finalization_tasks: list[FinalizationTask] = Field(
+    finalization_tasks: list[Task] = Field(
         default_factory=list,
         description="List of finalization tasks",
     )
@@ -114,7 +74,8 @@ class TaskList(BaseModel):
         """Get all tasks combined from all task lists."""
         result: list[Task] = []
         result.extend(self.basic_connector_tasks)
-        result.extend(self.stream_tasks)
+        for stream_task_list in self.stream_tasks.values():
+            result.extend(stream_task_list)
         result.extend(self.special_requirements)
         result.extend(self.acceptance_tests)
         result.extend(self.finalization_tasks)
@@ -145,40 +106,48 @@ class TaskList(BaseModel):
 
     @classmethod
     def new_connector_build_task_list(cls) -> "TaskList":
-        """Create a new task list with default connector build tasks."""
+        """Create a new task list with default connector build tasks from YAML file."""
+        yaml_path = Path(__file__).parent / "_guidance" / "connector_build_checklist.yml"
+        
+        with open(yaml_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        
+        def _task_from_dict(task_dict: dict) -> Task:
+            """Convert a task dict from YAML to a Task object."""
+            return Task(
+                id=task_dict["id"],
+                name=task_dict["name"],
+                description=task_dict.get("description"),
+            )
+        
+        basic_connector_tasks = [
+            _task_from_dict(task) for task in data.get("basic_connector_tasks", [])
+        ]
+        
+        stream_tasks_data = data.get("stream_tasks", {})
+        stream_tasks = {}
+        if isinstance(stream_tasks_data, dict):
+            for stream_name, tasks in stream_tasks_data.items():
+                stream_tasks[stream_name] = [_task_from_dict(task) for task in tasks]
+        
+        special_requirements = [
+            _task_from_dict(task) for task in data.get("special_requirements", [])
+        ]
+        
+        acceptance_tests = [
+            _task_from_dict(task) for task in data.get("acceptance_tests", [])
+        ]
+        
+        finalization_tasks = [
+            _task_from_dict(task) for task in data.get("finalization_tasks", [])
+        ]
+        
         return cls(
-            basic_connector_tasks=[
-                ConnectorTask(
-                    id="collect-info",
-                    task_name="Collect information from user",
-                    description="Gather requirements, API details, authentication info, and user expectations",
-                ),
-                ConnectorTask(
-                    id="research-api",
-                    task_name="Research and analyze source API",
-                    description="Study API documentation, endpoints, rate limits, and data structures",
-                ),
-                ConnectorTask(
-                    id="first-stream-tasks",
-                    task_name="Enumerate streams and create first stream's tasks",
-                    description="Identify all available streams and create detailed tasks for implementing the first stream",
-                ),
-            ],
-            stream_tasks=[],
-            special_requirements=[],
-            acceptance_tests=[],
-            finalization_tasks=[
-                FinalizationTask(
-                    id="readiness-pass-1",
-                    task_name="Run connector readiness report",
-                    description="Execute readiness check. If issues exist, go back and fix them. Otherwise, create tasks for remaining streams that were enumerated",
-                ),
-                FinalizationTask(
-                    id="readiness-pass-2",
-                    task_name="Run connector readiness report",
-                    description="Execute final readiness check and create new tasks based on findings",
-                ),
-            ],
+            basic_connector_tasks=basic_connector_tasks,
+            stream_tasks=stream_tasks,
+            special_requirements=special_requirements,
+            acceptance_tests=acceptance_tests,
+            finalization_tasks=finalization_tasks,
         )
 
 
@@ -200,6 +169,27 @@ def load_session_checklist(session_id: str) -> TaskList:
     try:
         content = checklist_path.read_text(encoding="utf-8")
         data = json.loads(content)
+        
+        if "stream_tasks" in data and isinstance(data["stream_tasks"], list):
+            logger.warning("Migrating old stream_tasks list format to dict format")
+            data["stream_tasks"] = {}
+        
+        for task_list_key in ["basic_connector_tasks", "special_requirements", "acceptance_tests", "finalization_tasks"]:
+            if task_list_key in data:
+                for task in data[task_list_key]:
+                    task.pop("task_type", None)
+                    task.pop("stream_name", None)
+                    if "task_name" in task and "name" not in task:
+                        task["name"] = task.pop("task_name")
+        
+        if "stream_tasks" in data and isinstance(data["stream_tasks"], dict):
+            for stream_name, tasks in data["stream_tasks"].items():
+                for task in tasks:
+                    task.pop("task_type", None)
+                    task.pop("stream_name", None)
+                    if "task_name" in task and "name" not in task:
+                        task["name"] = task.pop("task_name")
+        
         checklist = TaskList.model_validate(data)
         logger.info(f"Loaded session checklist from: {checklist_path}")
         return checklist
@@ -258,9 +248,9 @@ def add_special_requirements_to_checklist(
             slug = f"{base_slug}-{counter}"
             counter += 1
 
-        task = SpecialRequirementTask(
+        task = Task(
             id=slug,
-            task_name=req,
+            name=req,
             description=None,
         )
         checklist.special_requirements.append(task)

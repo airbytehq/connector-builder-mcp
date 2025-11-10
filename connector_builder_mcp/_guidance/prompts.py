@@ -40,35 +40,69 @@ def _load_checklist_from_yaml() -> str:
     lines.append("or in a log file if no user is available.")
     lines.append("")
 
-    for section in data["sections"]:
-        lines.append(f"## {section['name']}")
+    if data.get("basic_connector_tasks"):
+        lines.append("## Basic Connector Tasks")
         lines.append("")
-        if "description" in section:
-            lines.append(section["description"])
+        for task in data["basic_connector_tasks"]:
+            task_name = task.get("name", task["id"])
+            lines.append(f"- [ ] **{task_name}**: {task['description']}")
+        lines.append("")
+
+    if data.get("stream_tasks"):
+        lines.append("## Stream Tasks")
+        lines.append("")
+        if isinstance(data["stream_tasks"], dict) and data["stream_tasks"]:
+            for stream_name, tasks in data["stream_tasks"].items():
+                lines.append(f"### Stream: {stream_name}")
+                for task in tasks:
+                    task_name = task.get("name", task["id"])
+                    lines.append(f"- [ ] **{task_name}**: {task['description']}")
+                lines.append("")
+        else:
+            lines.append("*(Stream tasks will be added dynamically as streams are implemented)*")
             lines.append("")
 
-        for task in section["tasks"]:
-            marker = task.get("marker", "")
-            marker_str = f"{marker} " if marker else ""
-            lines.append(f"- [ ] {marker_str}{task['description']}")
+    if data.get("special_requirements"):
+        lines.append("## Special Requirements")
+        lines.append("")
+        if data["special_requirements"]:
+            for task in data["special_requirements"]:
+                task_name = task.get("name", task["id"])
+                lines.append(f"- [ ] **{task_name}**: {task.get('description', '')}")
+        else:
+            lines.append("*(Special requirements will be added by agents as needed)*")
+        lines.append("")
 
-        if "notes" in section:
-            lines.append("")
-            for note in section["notes"]:
-                lines.append(note)
+    if data.get("acceptance_tests"):
+        lines.append("## Acceptance Tests")
+        lines.append("")
+        if data["acceptance_tests"]:
+            for task in data["acceptance_tests"]:
+                task_name = task.get("name", task["id"])
+                lines.append(f"- [ ] **{task_name}**: {task.get('description', '')}")
+        else:
+            lines.append("*(Acceptance test tasks will be added as needed)*")
+        lines.append("")
 
+    if data.get("finalization_tasks"):
+        lines.append("## Finalization Tasks")
+        lines.append("")
+        for task in data["finalization_tasks"]:
+            task_name = task.get("name", task["id"])
+            lines.append(f"- [ ] **{task_name}**: {task['description']}")
         lines.append("")
 
     if "rules" in data:
-        lines.append("Rules:")
+        lines.append("## Rules")
         for rule in data["rules"]:
             lines.append(f"- {rule}")
         lines.append("")
 
     if "guidance" in data:
-        lines.append("")
+        lines.append("## Guidance")
         for guide in data["guidance"]:
-            lines.append(guide)
+            lines.append(f"- {guide}")
+        lines.append("")
 
     return "\n".join(lines)
 

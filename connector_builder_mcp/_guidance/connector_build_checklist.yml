@@ -8,169 +8,90 @@
 
 title: Connector Builder Development Checklist
 
-sections:
-  - name: Research Phase
+# Task lists matching TaskList model properties
+basic_connector_tasks:
+  - id: locate-api-docs
+    name: Locate API documentation
+    description: 📝 Locate API reference docs using online search.
+  
+  - id: identify-auth-methods
+    name: Identify authentication methods
     description: >
-      These steps ensure you understand roughly the work to do before diving in.
-    tasks:
-      - id: locate-api-docs
-        name: Locate API documentation
-        description: 📝 Locate API reference docs using online search.
-      
-      - id: identify-auth-methods
-        name: Identify authentication methods
-        description: >
-          📝 Identify required authentication methods. If multiple auth methods
-          are available, decide which to build first.
-      
-      - id: check-advanced-features
-        name: Check advanced features
-        description: >
-          If the user or the API itself appear to require advanced features,
-          check the docs tool to understand how those features might be
-          implemented before you start.
-
-  - name: Prerequisites
+      📝 Identify required authentication methods. If multiple auth methods
+      are available, decide which to build first.
+  
+  - id: check-advanced-features
+    name: Check advanced features
     description: >
-      These prereq steps should be performed before you start work - so you can
-      leave the user alone while you work, and so that you won't be blocked
-      waiting for more info after you start.
-    tasks:
-      - id: enumerate-streams
-        name: Enumerate streams
-        description: >
-          📝 **Enumerate all available streams first**: Before beginning work on
-          any stream, research the API documentation to identify and list ALL
-          available streams/endpoints. Share this complete list with your user
-          (or the message thread) so they can provide guidance on priorities or
-          exclusions.
-      
-      - id: request-dotenv-file
-        name: Request .env file
-        description: >
-          If you do need secrets for authentication, and if user is able to
-          create a .env file for you, ask them to provide you a path to the file.
-      
-      - id: populate-secrets
-        name: Populate secrets
-        description: >
-          Use your tools to populate required variables to your dotenv file, then
-          let the user enter them, then use your tools to verify they are set.
-          (You will pass the dotenv file to other tools.)
-      
-      - id: secrets-security
-        name: Follow secrets handling policy
-        description: '**Important**: Secrets should not be sent directly to or through the LLM.'
-      
-      - id: confirm-stream-list
-        name: Confirm stream list
-        description: >
-          📝 After enumerating streams, ask the user to confirm the list before
-          you start. They can: (1) optionally suggest what the 'first stream'
-          should be, or (2) inform you about specific streams they'd like you to
-          ignore.
-
-  - name: First Stream Implementation
+      If the user or the API itself appear to require advanced features,
+      check the docs tool to understand how those features might be
+      implemented before you start.
+  
+  - id: enumerate-streams
+    name: Enumerate streams
     description: >
-      Follow steps for one stream at a time. Lessons learned from one stream are
-      generally applicable to subsequent streams. Moving in small steps reduces
-      wasted efforts and prevents hard-to-diagnose issues.
-    tasks:
-      - id: validate-auth
-        name: Validate authentication
-        description: >
-          Validate that authentication works for the stream, without pagination,
-          and that you can see records.
-      
-      - id: add-pagination
-        name: Add pagination
-        description: Add pagination next. (See steps below.)
-      
-      - id: handle-advanced-topics
-        name: Handle advanced topics
-        description: >
-          If other advanced topics are needed, such as custom error handling,
-          address these issues for each stream as needed.
+      📝 **Enumerate all available streams first**: Before beginning work on
+      any stream, research the API documentation to identify and list ALL
+      available streams/endpoints. Share this complete list with your user
+      (or the message thread) so they can provide guidance on priorities or
+      exclusions.
+  
+  - id: request-dotenv-file
+    name: Request .env file
+    description: >
+      If you do need secrets for authentication, and if user is able to
+      create a .env file for you, ask them to provide you a path to the file.
+  
+  - id: populate-secrets
+    name: Populate secrets
+    description: >
+      Use your tools to populate required variables to your dotenv file, then
+      let the user enter them, then use your tools to verify they are set.
+      (You will pass the dotenv file to other tools.)
+  
+  - id: secrets-security
+    name: Follow secrets handling policy
+    description: '**Important**: Secrets should not be sent directly to or through the LLM.'
+  
+  - id: confirm-stream-list
+    name: Confirm stream list
+    description: >
+      📝 After enumerating streams, ask the user to confirm the list before
+      you start. They can: (1) optionally suggest what the 'first stream'
+      should be, or (2) inform you about specific streams they'd like you to
+      ignore.
 
-  - name: Pagination Implementation
-    tasks:
-      - id: add-pagination-logic
-        name: Add pagination logic
-        description: Add pagination logic after working stream is established.
-      
-      - id: test-pagination
-        name: Test pagination
-        description: Confirm you can read a few pages.
-      
-      - id: verify-stream-end
-        name: Verify end of stream
-        description: |
-          Confirm you can reach the end of the stream and that stream counts are not suspect.
-          - Use a suitably high record limit to get a total record count, while keeping context window manageable by opting not to returning records data or raw responses.
-          - Counts are suspect if they are an even multiple of 10 or 25, or if they are an even multiple of the page size.
-          - If counts are suspect, you can sometimes get helpful info from raw responses data, inspecting the headers and returned content body for clues.
-      
-      - id: record-counts
-        name: Record counts
-        description: >
-          📝 Record the total records count for each stream, as you go. This is
-          information the user will want to audit when the connector is complete.
+# Stream tasks are added dynamically per stream
+stream_tasks: {}
 
-    notes:
-      - >
-        **Important**: When streaming to end of stream to get record counts,
-        disable records and raw responses to avoid overloading the LLM context
-        window.
+# Special requirements are added by agents as needed
+special_requirements: []
 
-  - name: Additional Streams
-    tasks:
-      - id: add-streams-sequentially
-        name: Add streams sequentially
-        description: Only add additional streams after first stream is fully validated.
-      
-      - id: test-each-stream
-        name: Test each stream
-        description: >
-          Test each new stream individually before proceeding, repeat until all
-          streams are complete.
-      
-      - id: verify-completeness
-        name: Verify completeness
-        description: >
-          📝 Double-check the list of completed streams with the list of planned
-          streams (if available) or against your API docs. If you've omitted any
-          streams, consider if they should be added. Otherwise document what was
-          excluded as well as what was included.
-      
-      - id: smoke-test
-        name: Run smoke test
-        description: >
-          📝 If performance will permit, run a full 'smoke test' operation on all
-          streams, validating record counts and sharing the final counts with your
-          user.
+# Acceptance tests tasks
+acceptance_tests: []
 
-  - name: Final Validation
-    tasks:
-      - id: individual-tests
-        name: Run individual tests
-        description: All streams pass individual tests.
-      
-      - id: smoke-test-validation
-        name: Validate smoke test results
-        description: Smoke test extracts expected total records.
-      
-      - id: verify-counts
-        name: Verify counts
-        description: No record counts are suspicious multiples.
-      
-      - id: validate-schema
-        name: Validate schema
-        description: >
-          Use validate manifest tool to confirm JSON schema is correct.
-      
-      - id: complete-documentation
-        name: Complete documentation
-        description: Documentation is complete.
+# Finalization tasks
+finalization_tasks:
+  - id: individual-tests
+    name: Run individual tests
+    description: All streams pass individual tests.
+  
+  - id: smoke-test-validation
+    name: Validate smoke test results
+    description: Smoke test extracts expected total records.
+  
+  - id: verify-counts
+    name: Verify counts
+    description: No record counts are suspicious multiples.
+  
+  - id: validate-schema
+    name: Validate schema
+    description: >
+      Use validate manifest tool to confirm JSON schema is correct.
+  
+  - id: complete-documentation
+    name: Complete documentation
+    description: Documentation is complete.
 
 rules:
   - Custom Python components are not supported (for security reasons).

@@ -34,7 +34,7 @@ def list_tasks(ctx: Context) -> dict:
     Returns:
         Dictionary containing:
         - connector_tasks: List of general connector tasks
-        - stream_tasks: List of stream-specific tasks
+        - stream_tasks: Dict of stream tasks, keyed by stream name
         - special_requirements: List of special requirement tasks
         - acceptance_tests: List of acceptance test tasks
         - finalization_tasks: List of finalization tasks
@@ -44,7 +44,10 @@ def list_tasks(ctx: Context) -> dict:
     checklist = load_session_checklist(ctx.session_id)
     return {
         "connector_tasks": [task.model_dump() for task in checklist.basic_connector_tasks],
-        "stream_tasks": [task.model_dump() for task in checklist.stream_tasks],
+        "stream_tasks": {
+            stream_name: [task.model_dump() for task in tasks]
+            for stream_name, tasks in checklist.stream_tasks.items()
+        },
         "special_requirements": [task.model_dump() for task in checklist.special_requirements],
         "acceptance_tests": [task.model_dump() for task in checklist.acceptance_tests],
         "finalization_tasks": [task.model_dump() for task in checklist.finalization_tasks],
