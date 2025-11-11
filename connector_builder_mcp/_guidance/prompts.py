@@ -1,10 +1,6 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Prompt templates for Connector Builder guidance."""
 
-from pathlib import Path
-
-import yaml
-
 from connector_builder_mcp._guidance.topics import TOPIC_MAPPING
 
 

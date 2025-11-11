@@ -104,6 +104,31 @@ class TaskList(BaseModel):
             "blocked": blocked,
         }
 
+    def get_next_tasks(self, n: int = 1) -> list[Task]:
+        """Get the next N tasks that are not yet completed.
+
+        Prioritizes in-progress tasks before not-started tasks, using the order
+        they appear in the task list (YAML order).
+
+        Args:
+            n: Number of tasks to return
+
+        Returns:
+            List of up to N tasks that are in progress or not started
+        """
+        all_tasks = self.tasks
+        in_progress = [t for t in all_tasks if t.status == TaskStatusEnum.IN_PROGRESS]
+        not_started = [t for t in all_tasks if t.status == TaskStatusEnum.NOT_STARTED]
+        return (in_progress + not_started)[:n]
+
+    def get_blocked_tasks(self) -> list[Task]:
+        """Get all tasks that are currently blocked.
+
+        Returns:
+            List of tasks with BLOCKED status
+        """
+        return [t for t in self.tasks if t.status == TaskStatusEnum.BLOCKED]
+
     @classmethod
     def new_connector_build_task_list(cls) -> "TaskList":
         """Create a new task list with default connector build tasks from YAML file."""

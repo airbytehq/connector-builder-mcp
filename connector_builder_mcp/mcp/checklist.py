@@ -83,12 +83,23 @@ def update_task_status(
 def get_next_tasks(
     ctx: Context,
     count: int = 1,
-) -> list[Task]:
-    """Get the next N tasks that are not yet completed."""
+) -> dict:
+    """Get the next N tasks that are not yet completed.
+
+    Returns both the next tasks to work on (prioritizing in-progress before not-started)
+    and any blocked tasks that need attention.
+
+    Returns:
+        Dictionary with 'next_tasks' and 'blocked' keys, each containing a list of task dicts
+    """
     logger.info(f"Getting next {count} tasks")
     checklist = load_session_checklist(ctx.session_id)
     next_tasks = checklist.get_next_tasks(count)
-    return [task for task in next_tasks]
+    blocked_tasks = checklist.get_blocked_tasks()
+    return {
+        "next_tasks": [task.model_dump() for task in next_tasks],
+        "blocked": [task.model_dump() for task in blocked_tasks],
+    }
 
 
 # @mcp_tool(
@@ -132,7 +143,7 @@ def add_special_requirements(
     """
     logger.info(f"Adding {len(requirements)} special requirements")
     checklist = load_session_checklist(ctx.session_id)
-    added_tasks = add_special_requirements_to_checklist(checklist, requirements)
+    add_special_requirements_to_checklist(checklist, requirements)
     save_session_checklist(ctx.session_id, checklist)
     return "Success! Task(s) added to checklist."
 
