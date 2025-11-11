@@ -152,9 +152,7 @@ class TaskList(BaseModel):
         basic_connector_tasks = [
             _task_from_dict(task) for task in data.get("basic_connector_tasks", [])
         ]
-        stream_tasks_template = [
-            _task_from_dict(task) for task in data.get("basic_connector_tasks", [])
-        ]
+        stream_tasks_template = [_task_from_dict(task) for task in data.get("stream_tasks", [])]
         special_requirements = [
             _task_from_dict(task) for task in data.get("special_requirements", [])
         ]
