@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from connector_builder_mcp._guidance.prompts import DOTENV_FILE_URI_DESCRIPTION
 from connector_builder_mcp._util import parse_manifest_input
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool
 
 
 logger = logging.getLogger(__name__)
@@ -451,6 +452,9 @@ def hydrate_config(
     return _merge_nested_dicts(config, typed_secrets)
 
 
+@mcp_tool(
+    domain=ToolDomain.SECRETS_CONFIG,
+)
 def list_dotenv_secrets(
     dotenv_path: Annotated[
         str,
@@ -532,6 +536,9 @@ def list_dotenv_secrets(
     )
 
 
+@mcp_tool(
+    domain=ToolDomain.SECRETS_CONFIG,
+)
 def populate_dotenv_missing_secrets_stubs(
     dotenv_path: Annotated[
         str,
