@@ -85,3 +85,8 @@ def get_session_checklist_path(session_id: str) -> Path:
         Path to the checklist.json file for the session
     """
     return get_session_dir(session_id) / "checklist.json"
+
+
+def get_global_checklist_path() -> Path:
+    """Get the path to the global checklist file."""
+    return Path(__file__).parent / "_guidance" / "connector_build_checklist.yml"
