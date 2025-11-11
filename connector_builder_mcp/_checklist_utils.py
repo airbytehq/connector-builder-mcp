@@ -6,11 +6,12 @@ The MCP integration layer is in mcp/checklist.py.
 
 import json
 import logging
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
 
 from connector_builder_mcp._paths import get_global_checklist_path, get_session_checklist_path
 
@@ -43,6 +44,14 @@ class Task(BaseModel):
         default=None,
         description="Details about the task status. Can be set when marking task as completed, blocked, or in progress to provide context.",
     )
+    started: datetime | None = Field(
+        default=None,
+        description="Timestamp when the task was started (status changed to IN_PROGRESS)",
+    )
+    completed: datetime | None = Field(
+        default=None,
+        description="Timestamp when the task was completed (status changed to COMPLETED)",
+    )
 
 
 class TaskList(BaseModel):
@@ -68,7 +77,27 @@ class TaskList(BaseModel):
         default_factory=list,
         description="List of finalization tasks",
     )
+    first_viewed: datetime | None = Field(
+        default=None,
+        description="Timestamp when the checklist was first viewed by the agent",
+    )
+    last_updated: datetime | None = Field(
+        default=None,
+        description="Timestamp of the most recent update/change to the checklist",
+    )
     _stream_tasks_template: list[Task] = PrivateAttr(default_factory=list)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def elapsed_time(self) -> float | None:
+        """Calculate elapsed time in seconds between first_viewed and last_updated.
+
+        Returns:
+            Elapsed time in seconds, or None if either timestamp is not set
+        """
+        if self.first_viewed is None or self.last_updated is None:
+            return None
+        return (self.last_updated - self.first_viewed).total_seconds()
 
     @property
     def tasks(self) -> list[Task]:
@@ -182,7 +211,11 @@ def load_session_checklist(session_id: str) -> TaskList:
 
     if not checklist_path.exists():
         logger.debug(f"Session checklist does not exist at: {checklist_path}, returning default")
-        return TaskList.new_connector_build_task_list()
+        checklist = TaskList.new_connector_build_task_list()
+        now = datetime.now(timezone.utc)
+        checklist.first_viewed = now
+        checklist.last_updated = now
+        return checklist
 
     try:
         content = checklist_path.read_text(encoding="utf-8")

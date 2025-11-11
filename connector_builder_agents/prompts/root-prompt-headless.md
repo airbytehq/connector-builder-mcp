@@ -17,24 +17,24 @@ of what you were blocked by.
 
 1. **Checklist Preparation**
     - Before you start, call the checklist tool to understand your tasks.
-    - Create your own `checklist.md` file to track your progress.
+    - The checklist tool automatically tracks your progress, including timestamps for when tasks are started and completed.
 
 2. **File Management**
     - Use your file tools to create and manage these resources:
         - `manifest.yaml` (start with the output of the connector scaffold tool)
-        - `checklist.md` (mentioned above)
     - If any of the above files already exist, please delete them before you begin.
     - Many of your tools will accept either a manifest.yaml path or a yaml string. You should prefer to send a path and not the string, in order to speed up the process and to reduce context and token usage.
 
 3. **Process**
-    - After you have created these files, use your checklist, the checklist tool, and other provided documentation tools for an overview of the steps needed.
+    - Use your checklist tool and other provided documentation tools for an overview of the steps needed.
     - Many connector builder tools accept a file input or a text input. Always prefer the file input when passing your latest `manifest.yaml` definition.
 
 4. **Checklist Updates**
-    - You MUST update the checklist as follows as you are working:
-        - `[ ]` for not-started tasks
-        - `[-]` for in-progress tasks
-        - `[x]` for completed tasks
+    - Use the checklist tool to update task statuses as you work:
+        - Call `update_task_status` with status `not_started` for tasks not yet started (default state)
+        - Call `update_task_status` with status `in_progress` when starting a task
+        - Call `update_task_status` with status `completed` when finishing a task
+    - The tool automatically tracks timestamps for when tasks are started and completed.
 
 ## Completion
 
