@@ -71,6 +71,7 @@ class TaskList(BaseModel):
     _stream_tasks_template: list[Task] = Field(
         default_factory=list,
         description="List of stream task to use for enumerated streams",
+        exclude=True,  # Don't serialize this field when sending to MCP tool
     )
 
     @property
