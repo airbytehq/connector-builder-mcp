@@ -9,8 +9,10 @@ from typing import Annotated
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
+from pydantic.main import BaseModel
 
 from connector_builder_mcp._checklist_utils import (
+    Task,
     TaskList,
     TaskStatusEnum,
     add_special_requirements_to_checklist,
@@ -76,6 +78,11 @@ def update_task_status(
     return task.model_dump()
 
 
+class NextTasksResult(BaseModel):
+    next_tasks: list[Task]
+    blocked: list[Task]
+
+
 @mcp_tool(
     domain=ToolDomain.CHECKLIST,
     read_only=True,
@@ -83,23 +90,19 @@ def update_task_status(
 def get_next_tasks(
     ctx: Context,
     count: int = 1,
-) -> dict:
+) -> NextTasksResult:
     """Get the next N tasks that are not yet completed.
 
     Returns both the next tasks to work on (prioritizing in-progress before not-started)
     and any blocked tasks that need attention.
-
-    Returns:
-        Dictionary with 'next_tasks' and 'blocked' keys, each containing a list of task dicts
     """
+
     logger.info(f"Getting next {count} tasks")
     checklist = load_session_checklist(ctx.session_id)
-    next_tasks = checklist.get_next_tasks(count)
-    blocked_tasks = checklist.get_blocked_tasks()
-    return {
-        "next_tasks": [task.model_dump() for task in next_tasks],
-        "blocked": [task.model_dump() for task in blocked_tasks],
-    }
+    return NextTasksResult(
+        next_tasks=checklist.get_next_tasks(count),
+        blocked=checklist.get_blocked_tasks(),
+    )
 
 
 # @mcp_tool(
