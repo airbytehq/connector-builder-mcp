@@ -39,6 +39,10 @@ basic_connector_tasks:
       (or the message thread) so they can provide guidance on priorities or
       exclusions.
 
+
+      After enumerating the streams, call the add_stream_tasks tool with the
+      list of stream names to register tasks for each stream in the checklist.
+
   - id: identify-auth-requirements
     name: Identify authentication requirements
     description: >

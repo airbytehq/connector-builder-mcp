@@ -249,6 +249,21 @@ def save_session_checklist(session_id: str, checklist: TaskList) -> None:
         raise
 
 
+def _slugify(text: str, max_length: int = 50) -> str:
+    """Convert text to a URL-safe slug.
+
+    Args:
+        text: Text to slugify
+        max_length: Maximum length of the slug
+
+    Returns:
+        Slugified text
+    """
+    slug = text.lower().replace(" ", "-")
+    slug = "".join(c for c in slug if c.isalnum() or c == "-")
+    return slug[:max_length]
+
+
 def add_special_requirements_to_checklist(
     checklist: TaskList,
     requirements: list[str],
@@ -264,9 +279,7 @@ def add_special_requirements_to_checklist(
     """
     added_tasks = []
     for req in requirements:
-        slug = req.lower().replace(" ", "-")
-        slug = "".join(c for c in slug if c.isalnum() or c == "-")
-        slug = slug[:50]
+        slug = _slugify(req)
 
         base_slug = slug
         counter = 1
@@ -283,3 +296,79 @@ def add_special_requirements_to_checklist(
         added_tasks.append(task.model_dump())
 
     return added_tasks
+
+
+def get_stream_task_templates() -> list[Task]:
+    """Load stream task templates from the YAML file.
+
+    Returns:
+        List of template Task objects for streams
+    """
+    yaml_path = Path(__file__).parent / "_guidance" / "connector_build_checklist.yml"
+
+    with open(yaml_path, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    stream_tasks_data = data.get("stream_tasks", [])
+    if not isinstance(stream_tasks_data, list):
+        logger.warning("stream_tasks in YAML is not a list, returning empty list")
+        return []
+
+    templates = []
+    for task_dict in stream_tasks_data:
+        templates.append(
+            Task(
+                id=task_dict["id"],
+                name=task_dict["name"],
+                description=task_dict.get("description"),
+            )
+        )
+
+    return templates
+
+
+def register_stream_tasks(
+    checklist: TaskList,
+    stream_names: list[str],
+) -> tuple[list[str], dict[str, str]]:
+    """Register stream tasks for the given stream names.
+
+    For each stream name, copies all stream task templates from the YAML file
+    and adds them to the checklist with unique IDs (stream_slug:task_id).
+
+    Args:
+        checklist: TaskList to add stream tasks to
+        stream_names: List of stream names to register
+
+    Returns:
+        Tuple of (added_streams, skipped_streams_with_reasons)
+    """
+    templates = get_stream_task_templates()
+    if not templates:
+        logger.warning("No stream task templates found in YAML")
+        return [], {}
+
+    added = []
+    skipped = {}
+
+    for stream_name in stream_names:
+        if stream_name in checklist.stream_tasks:
+            skipped[stream_name] = "already registered"
+            continue
+
+        stream_slug = _slugify(stream_name)
+        stream_tasks = []
+
+        for template in templates:
+            task = Task(
+                id=f"{stream_slug}:{template.id}",
+                name=template.name,
+                description=template.description,
+                status=TaskStatusEnum.NOT_STARTED,
+            )
+            stream_tasks.append(task)
+
+        checklist.stream_tasks[stream_name] = stream_tasks
+        added.append(stream_name)
+
+    return added, skipped

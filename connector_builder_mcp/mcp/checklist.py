@@ -17,6 +17,7 @@ from connector_builder_mcp._checklist_utils import (
     TaskStatusEnum,
     add_special_requirements_to_checklist,
     load_session_checklist,
+    register_stream_tasks,
     save_session_checklist,
 )
 from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
@@ -148,6 +149,48 @@ def add_special_requirements(
     add_special_requirements_to_checklist(checklist, requirements)
     save_session_checklist(ctx.session_id, checklist)
     return "Success! Task(s) added to checklist."
+
+
+class AddStreamTasksResult(BaseModel):
+    """Result of adding stream tasks."""
+
+    added: list[str] = Field(description="List of stream names that were successfully added")
+    skipped: dict[str, str] = Field(
+        description="Dict of stream names that were skipped with reasons"
+    )
+
+
+@mcp_tool(
+    domain=ToolDomain.CHECKLIST,
+)
+def add_stream_tasks(
+    ctx: Context,
+    stream_names: Annotated[
+        str | list[str],
+        Field(description="Stream name (string) or list of stream names to register tasks for"),
+    ],
+) -> AddStreamTasksResult:
+    """Register stream tasks for one or more streams.
+
+    For each stream name, copies all stream task templates from the YAML file
+    and adds them to the checklist with unique IDs (stream_slug:task_id).
+
+    If a stream already has tasks registered, it will be skipped with a message.
+
+    Call this tool during the 'enumerate-available-streams' step after identifying
+    all available streams in the API.
+    """
+    if isinstance(stream_names, str):
+        stream_names_list = [stream_names]
+    else:
+        stream_names_list = stream_names
+
+    logger.info(f"Adding stream tasks for {len(stream_names_list)} stream(s)")
+    checklist = load_session_checklist(ctx.session_id)
+    added, skipped = register_stream_tasks(checklist, stream_names_list)
+    save_session_checklist(ctx.session_id, checklist)
+
+    return AddStreamTasksResult(added=added, skipped=skipped)
 
 
 def register_checklist_tools(
