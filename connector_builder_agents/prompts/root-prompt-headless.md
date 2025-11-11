@@ -31,7 +31,6 @@ of what you were blocked by.
 
 4. **Checklist Updates**
     - Use the checklist tool to update task statuses as you work:
-        - Call `update_task_status` with status `not_started` for tasks not yet started (default state)
         - Call `update_task_status` with status `in_progress` when starting a task
         - Call `update_task_status` with status `completed` when finishing a task
     - The tool automatically tracks timestamps for when tasks are started and completed.
