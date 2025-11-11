@@ -56,10 +56,6 @@ class TaskList(BaseModel):
         default_factory=dict,
         description="Dict of stream tasks, keyed by stream name",
     )
-    stream_tasks_template: list[Task] = Field(
-        default_factory=list,
-        description="List of stream task to use for enumerated streams",
-    )
     special_requirements: list[Task] = Field(
         default_factory=list,
         description="List of special requirement tasks",
@@ -71,6 +67,11 @@ class TaskList(BaseModel):
     finalization_tasks: list[Task] = Field(
         default_factory=list,
         description="List of finalization tasks",
+    )
+    _stream_tasks_template: list[Task] = Field(
+        default_factory=list,
+        description="List of stream task to use for enumerated streams",
+        exclude=True,  # Don't serialize this field when sending to MCP tool
     )
 
     @property
@@ -163,7 +164,7 @@ class TaskList(BaseModel):
 
         return cls(
             basic_connector_tasks=basic_connector_tasks,
-            stream_tasks_template=stream_tasks_template,
+            _stream_tasks_template=stream_tasks_template,
             stream_tasks={},
             special_requirements=special_requirements,
             acceptance_tests=acceptance_tests,
@@ -331,7 +332,7 @@ def register_stream_tasks(
     Returns:
         Tuple of (added_streams, skipped_streams_with_reasons)
     """
-    templates = checklist.stream_tasks_template
+    templates = checklist._stream_tasks_template
     if not templates:
         logger.warning("No stream task templates found in checklist")
         return [], {}
