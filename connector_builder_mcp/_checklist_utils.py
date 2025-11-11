@@ -248,6 +248,14 @@ def load_session_checklist(session_id: str) -> TaskList:
 
         checklist = TaskList.model_validate(data)
 
+        if checklist.first_viewed is None or checklist.last_updated is None:
+            now = datetime.now(timezone.utc)
+            if checklist.first_viewed is None:
+                checklist.first_viewed = now
+            if checklist.last_updated is None:
+                checklist.last_updated = now
+            logger.info("Initialized timestamps for legacy checklist")
+
         if not checklist._stream_tasks_template:
             logger.info("Repopulating stream_tasks_template from YAML for legacy session")
             yaml_path = get_global_checklist_path()
@@ -286,7 +294,11 @@ def save_session_checklist(session_id: str, checklist: TaskList) -> None:
 
     temp_path = checklist_path.with_suffix(".tmp")
     try:
-        content = json.dumps(checklist.model_dump(), indent=2, ensure_ascii=False)
+        content = json.dumps(
+            checklist.model_dump(mode="json", exclude={"elapsed_time"}),
+            indent=2,
+            ensure_ascii=False,
+        )
         temp_path.write_text(content, encoding="utf-8")
         temp_path.replace(checklist_path)
         logger.info(f"Saved session checklist to: {checklist_path}")
