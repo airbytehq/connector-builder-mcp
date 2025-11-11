@@ -96,7 +96,6 @@ def get_next_tasks(
     Returns both the next tasks to work on (prioritizing in-progress before not-started)
     and any blocked tasks that need attention.
     """
-
     logger.info(f"Getting next {count} tasks")
     checklist = load_session_checklist(ctx.session_id)
     return NextTasksResult(

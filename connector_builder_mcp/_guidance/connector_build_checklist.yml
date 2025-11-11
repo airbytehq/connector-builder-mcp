@@ -8,6 +8,24 @@
 
 # Task lists matching TaskList model properties
 basic_connector_tasks:
+
+  - id: understand-connector-build-process
+    name: Understand MCP server and the connector build process
+    description: >
+      Review the Connector Builder MCP documentation to understand the
+      overall process and requirements for building a connector.
+
+      Mark this task complete only after you have read and understood the
+      following:
+      - Start by listing your Connector Builder MCP tools to
+        understand what functionality is available to you.
+      - If your client supports it, you can also list the MCP resource assets.
+        (Ignore if your client does not support MCP 'resource' assets.)
+      - Review the "overview" topic in the docs tool to understand the
+        overall process.
+      - Understand that you will step through the checklist tasks
+        sequentially, using the 'get next tasks' tool and 'update task status' tool to progress through the checklist.
+
   - id: locate-api-docs
     name: Locate API documentation
     description: 📝 Locate API reference docs using online search.
