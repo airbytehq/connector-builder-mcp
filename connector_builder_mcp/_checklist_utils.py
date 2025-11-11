@@ -10,7 +10,7 @@ from enum import Enum
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from connector_builder_mcp._paths import get_global_checklist_path, get_session_checklist_path
 
@@ -68,11 +68,7 @@ class TaskList(BaseModel):
         default_factory=list,
         description="List of finalization tasks",
     )
-    _stream_tasks_template: list[Task] = Field(
-        default_factory=list,
-        description="List of stream task to use for enumerated streams",
-        exclude=True,  # Don't serialize this field when sending to MCP tool
-    )
+    _stream_tasks_template: list[Task] = PrivateAttr(default_factory=list)
 
     @property
     def tasks(self) -> list[Task]:
@@ -162,14 +158,15 @@ class TaskList(BaseModel):
 
         finalization_tasks = [_task_from_dict(task) for task in data.get("finalization_tasks", [])]
 
-        return cls(
+        task_list = cls(
             basic_connector_tasks=basic_connector_tasks,
-            _stream_tasks_template=stream_tasks_template,
             stream_tasks={},
             special_requirements=special_requirements,
             acceptance_tests=acceptance_tests,
             finalization_tasks=finalization_tasks,
         )
+        task_list._stream_tasks_template = stream_tasks_template
+        return task_list
 
 
 def load_session_checklist(session_id: str) -> TaskList:
@@ -218,7 +215,7 @@ def load_session_checklist(session_id: str) -> TaskList:
 
         checklist = TaskList.model_validate(data)
 
-        if not checklist.stream_tasks_template:
+        if not checklist._stream_tasks_template:
             logger.info("Repopulating stream_tasks_template from YAML for legacy session")
             yaml_path = get_global_checklist_path()
             with open(yaml_path, encoding="utf-8") as f:
@@ -226,7 +223,7 @@ def load_session_checklist(session_id: str) -> TaskList:
 
             stream_tasks_data = yaml_data.get("stream_tasks", [])
             if stream_tasks_data:
-                checklist.stream_tasks_template = [
+                checklist._stream_tasks_template = [
                     Task(
                         id=task_dict["id"],
                         name=task_dict["name"],
