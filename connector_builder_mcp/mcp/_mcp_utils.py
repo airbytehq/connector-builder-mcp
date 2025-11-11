@@ -52,8 +52,11 @@ class ToolDomain(str, Enum):
     These domains correspond to the main functional areas of the server.
     """
 
+    CHECKLIST = "checklist"
+    """Checklist tools for tracking connector development progress (list_tasks, update_task_status, reset_checklist)"""
+
     GUIDANCE = "guidance"
-    """Checklist and docs tools (get_connector_builder_checklist, find_connectors_by_class_name, etc.)"""
+    """Guidance and docs tools (get_connector_builder_checklist, find_connectors_by_class_name, etc.)"""
 
     MANIFEST_CHECKS = "manifest_checks"
     """Testing that doesn't run the connector (validate_manifest)"""

@@ -43,7 +43,7 @@ from connector_builder_mcp._util import (
     parse_manifest_input,
 )
 from connector_builder_mcp._validation_helpers import validate_manifest_content
-from connector_builder_mcp.mcp._mcp_utils import ToolDomain, register_mcp_tools
+from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 from connector_builder_mcp.mcp.manifest_edits import (
     get_session_manifest_content,
     set_session_manifest_content,
@@ -479,6 +479,11 @@ def _format_validation_error(
     return detailed_error
 
 
+@mcp_tool(
+    domain=ToolDomain.MANIFEST_TESTS,
+    read_only=True,
+    open_world=True,
+)
 def validate_manifest(
     ctx: Context,
     *,
@@ -537,6 +542,10 @@ def validate_manifest(
     )
 
 
+@mcp_tool(
+    domain=ToolDomain.MANIFEST_TESTS,
+    open_world=True,
+)
 def execute_stream_test_read(  # noqa: PLR0914
     ctx: Context,
     *,
@@ -831,6 +840,11 @@ def _as_saved_report(
     return report_text
 
 
+@mcp_tool(
+    domain=ToolDomain.MANIFEST_TESTS,
+    read_only=True,
+    open_world=True,
+)
 def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too complex)
     ctx: Context,
     *,
@@ -1128,6 +1142,10 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
     )
 
 
+@mcp_tool(
+    domain=ToolDomain.MANIFEST_TESTS,
+    read_only=True,
+)
 def execute_dynamic_manifest_resolution_test(
     ctx: Context,
     *,

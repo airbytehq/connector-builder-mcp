@@ -3,7 +3,7 @@
 import pytest
 import requests
 
-from connector_builder_mcp._guidance import TOPIC_MAPPING
+from connector_builder_mcp._guidance.topics import TOPIC_MAPPING
 from connector_builder_mcp.mcp.guidance import get_connector_builder_docs
 
 

@@ -1,0 +1,150 @@
+# Connector Builder Development Checklist
+#
+# This checklist guides you through the process of building a declarative
+# (yaml) source connector using the Connector Builder MCP Server.
+#
+# Steps marked with "📝" have outputs which should be shared with your user,
+# or in a log file if no user is available.
+
+# Task lists matching TaskList model properties
+basic_connector_tasks:
+
+  - id: understand-connector-build-process
+    name: Understand MCP server and the connector build process
+    description: >
+      Review the Connector Builder MCP documentation to understand the
+      overall process and requirements for building a connector.
+
+      Mark this task complete only after you have read and understood the
+      following:
+      - Start by listing your Connector Builder MCP tools to
+        understand what functionality is available to you.
+      - If your client supports it, you can also list the MCP resource assets.
+        (Ignore if your client does not support MCP 'resource' assets.)
+      - Review the "overview" topic in the docs tool to understand the
+        overall process.
+      - Understand that you will step through the checklist tasks
+        sequentially, using the 'get next tasks' tool and 'update task status' tool to progress through the checklist.
+
+  - id: locate-api-docs
+    name: Locate API documentation
+    description: 📝 Locate API reference docs using online search.
+
+  - id: enumerate-available-streams
+    name: Enumerate available streams
+    description: >
+      📝 **Enumerate all available streams first**: Before beginning work on
+      any stream, research the API documentation to identify and list ALL
+      available streams/endpoints. Share this complete list with your user
+      (or the message thread) so they can provide guidance on priorities or
+      exclusions.
+
+
+      After enumerating the streams, call the add_stream_tasks tool with the
+      list of stream names to register tasks for each stream in the checklist.
+
+  - id: identify-auth-requirements
+    name: Identify authentication requirements
+    description: >
+      📝 Identify supported authentication methods. If multiple auth methods
+      are available, decide which to build first.
+
+  - id: understand-special-requirements
+    name: Understand special requirements
+    description: >
+      If the user or the API itself appear to require advanced features,
+      check the docs tool to understand how those features might be
+      implemented before you start. Document special requirements in the
+      'special requirements' tasks section.
+
+  - id: confirm-secrets-and-connection-details
+    name: Confirm secrets and connection details
+    description: >
+      If you need secrets and/or connection information, you will need to
+      gather those from the user. This is a no-op if the user has already
+      provided you a dotenv with all necessary values, or if the connector does
+      not require secrets.
+
+      Do not proceed until you have all necessary secrets and connection
+      details.
+
+      **Important**: Secrets should not be sent directly to or through the LLM.
+
+  - id: create-new-scaffold
+    name: Create new Manifest Scaffold
+    description: >
+      Create a new Connector Builder MCP Server scaffold using the MCP tool.
+
+      You will need to provide the chosen authentication method and the
+      "first stream" to be created. If you have not yet identified which
+      stream to build first and if the user has not specified a preference,
+      choose one that is simple and likely to succeed.
+
+stream_tasks:
+  - id: build-minimal-stream-definition
+    name: Build minimal stream definition
+    description: >
+      📝 Build a minimal stream definition for the chosen first stream.
+
+  - id: define-pagination-and-primary-key
+    name: Define pagination and primary key
+    description: >
+      📝 Define pagination strategy and primary key for the stream if
+      applicable.
+
+  - id: run-and-debug-initial-test-read
+    name: Run and debug initial test read
+    description: >
+      📝 Run and debug an initial test read for the stream using the
+      provided tool. Report any issues encountered and continue to debug
+      until the test read is successful.
+
+  - id: add-incremental-cursor-support
+    name: Add incremental cursor support, including testing and debugging
+    description: >
+      📝 If the stream supports incremental syncs, add incremental cursor
+      support and test/debug using the test read tool until successful.
+
+  - id: handle-special-requirements
+    name: Handle special requirements
+    description: >
+      📝 If there are any special requirements for this stream, implement
+      them now and test/debug using the test read tool until successful.
+
+  - id: print-checkpoint-summary
+    name: Print checkpoint summary
+    description: >
+      📝 Print a checkpoint summary for the stream, including details on
+      pagination, primary key, incremental support, and any special
+      requirements implemented.
+
+special_requirements: []
+
+acceptance_tests:
+  - id: connector-readiness-check
+    name: Run connector readiness check tool and audit results
+    description: >
+      Run connector readiness check tool and audit results of all streams.
+
+finalization_tasks:
+
+  - id: run-connector-readiness-check
+    name: Run connector readiness check
+    description: >
+      📝 Run the connector readiness check tool and closely inspect the report
+      for any issues. You should always share the full report with your user.
+
+      Address any issues found before proceeding. If required,
+      you may return to earlier steps and fix problems as necessary.
+
+      Do not ignore warnings or errors printed in the readiness check report. At minimum, let the user know about warnings - and defer to their
+      judgment on whether to address them. You may suggest that they might
+      be false positives, but you must provide evidence to support that claim
+      if so.
+
+  - id: provide-final-summary
+    name: Provide final summary to user
+    description: >
+      📝 Provide a final summary to the user, including any important details
+      about the connector, such as supported streams, authentication method,
+      and any special configurations or considerations.

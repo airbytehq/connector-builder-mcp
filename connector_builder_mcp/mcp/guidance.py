@@ -13,10 +13,7 @@ import requests
 from fastmcp import FastMCP
 from pydantic import Field
 
-from connector_builder_mcp._guidance import (
-    CONNECTOR_BUILDER_CHECKLIST,
-    TOPIC_MAPPING,
-)
+from connector_builder_mcp._guidance.topics import TOPIC_MAPPING
 from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 
 
@@ -26,22 +23,6 @@ _REGISTRY_URL = "https://connectors.airbyte.com/files/registries/v0/oss_registry
 _MANIFEST_ONLY_LANGUAGE = "manifest-only"
 _MANIFEST_SCHEMA_URL = "https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/refs/heads/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
 _HTTP_OK = 200
-
-
-@mcp_tool(
-    domain=ToolDomain.GUIDANCE,
-)
-def get_connector_builder_checklist() -> str:
-    """Get the comprehensive development checklist for building declarative source connectors.
-
-    This checklist provides a step-by-step guide for building connectors using the Connector Builder MCP Server,
-    with emphasis on proper validation, pagination testing, and avoiding common pitfalls.
-
-    Returns:
-        Complete development checklist in markdown format
-    """
-    logger.info("Getting connector builder development checklist")
-    return CONNECTOR_BUILDER_CHECKLIST
 
 
 @mcp_tool(
@@ -68,8 +49,8 @@ def get_connector_builder_docs(
     if not topic:
         return """# Connector Builder Documentation
 **Important**: Before starting development, call the `get_connector_builder_checklist()` tool.
-Save its contents to a new text file if you are able. The checklist provides step-by-step guidance
-for building connectors and helps avoid common pitfalls like pagination issues and incomplete validation.
+The checklist provides step-by-step guidance for building connectors and helps avoid common pitfalls
+like pagination issues and incomplete validation.
 
 For detailed guidance on specific components and features, you can request documentation for any of these topics:
 

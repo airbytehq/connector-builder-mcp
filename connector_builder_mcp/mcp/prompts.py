@@ -10,7 +10,7 @@ from typing import Annotated
 from fastmcp import FastMCP
 from pydantic import Field
 
-from connector_builder_mcp._guidance import (
+from connector_builder_mcp._guidance.prompts import (
     ADD_STREAM_TO_CONNECTOR_PROMPT,
     CONNECTOR_BUILD_PROMPT,
     CREATIVE_MODE_NOTE,
