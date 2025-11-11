@@ -28,31 +28,13 @@ logger = logging.getLogger(__name__)
     read_only=True,
     idempotent=True,
 )
-def list_tasks(ctx: Context) -> dict:
+def get_connector_builder_checklist(ctx: Context) -> TaskList:
     """List all tasks in the checklist grouped by type.
 
-    Returns:
-        Dictionary containing:
-        - connector_tasks: List of general connector tasks
-        - stream_tasks: Dict of stream tasks, keyed by stream name
-        - special_requirements: List of special requirement tasks
-        - acceptance_tests: List of acceptance test tasks
-        - finalization_tasks: List of finalization tasks
-        - summary: Task status summary (total, not_started, in_progress, completed, blocked)
+    Call update_task_status to modify task statuses.
     """
     logger.info("Listing all tasks in checklist")
-    checklist = load_session_checklist(ctx.session_id)
-    return {
-        "connector_tasks": [task.model_dump() for task in checklist.basic_connector_tasks],
-        "stream_tasks": {
-            stream_name: [task.model_dump() for task in tasks]
-            for stream_name, tasks in checklist.stream_tasks.items()
-        },
-        "special_requirements": [task.model_dump() for task in checklist.special_requirements],
-        "acceptance_tests": [task.model_dump() for task in checklist.acceptance_tests],
-        "finalization_tasks": [task.model_dump() for task in checklist.finalization_tasks],
-        "summary": checklist.get_summary(),
-    }
+    return load_session_checklist(ctx.session_id)
 
 
 @mcp_tool(
@@ -96,23 +78,38 @@ def update_task_status(
 
 @mcp_tool(
     domain=ToolDomain.CHECKLIST,
+    read_only=True,
 )
-def reset_checklist(ctx: Context) -> dict:
-    """Reset the checklist to the default connector build task list.
+def get_next_tasks(
+    ctx: Context,
+    count: int = 1,
+) -> list[Task]:
+    """Get the next N tasks that are not yet completed."""
+    logger.info(f"Getting next {count} tasks")
+    checklist = load_session_checklist(ctx.session_id)
+    next_tasks = checklist.get_next_tasks(count)
+    return [task for task in next_tasks]
 
-    This will clear all tasks and restore the default set of connector build tasks.
 
-    Returns:
-        Success message with the new task list summary
-    """
-    logger.info("Resetting checklist to default")
-    checklist = TaskList.new_connector_build_task_list()
-    save_session_checklist(ctx.session_id, checklist)
-    return {
-        "success": True,
-        "message": "Checklist reset to default connector build tasks",
-        "summary": checklist.get_summary(),
-    }
+# @mcp_tool(
+#     domain=ToolDomain.CHECKLIST,
+# )
+# def reset_checklist(ctx: Context) -> dict:
+#     """Reset the checklist to the default connector build task list.
+
+#     This will clear all tasks and restore the default set of connector build tasks.
+
+#     Returns:
+#         Success message with the new task list summary
+#     """
+#     logger.info("Resetting checklist to default")
+#     checklist = TaskList.new_connector_build_task_list()
+#     save_session_checklist(ctx.session_id, checklist)
+#     return {
+#         "success": True,
+#         "message": "Checklist reset to default connector build tasks",
+#         "summary": checklist.get_summary(),
+#     }
 
 
 @mcp_tool(
@@ -124,7 +121,7 @@ def add_special_requirements(
         list[str],
         Field(description="List of special requirement descriptions to add as tasks"),
     ],
-) -> dict:
+) -> str:
     """Add special requirement tasks to the checklist.
 
     This is the only way for agents to add custom tasks to the checklist.
@@ -137,11 +134,7 @@ def add_special_requirements(
     checklist = load_session_checklist(ctx.session_id)
     added_tasks = add_special_requirements_to_checklist(checklist, requirements)
     save_session_checklist(ctx.session_id, checklist)
-    return {
-        "success": True,
-        "added_tasks": added_tasks,
-        "summary": checklist.get_summary(),
-    }
+    return "Success! Task(s) added to checklist."
 
 
 def register_checklist_tools(
