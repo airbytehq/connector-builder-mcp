@@ -48,37 +48,81 @@ basic_connector_tasks:
 
       **Important**: Secrets should not be sent directly to or through the LLM.
 
-stream_tasks: {}
+  - id: create-new-scaffold
+    name: Create new Manifest Scaffold
+    description: >
+      Create a new Connector Builder MCP Server scaffold using the MCP tool.
 
-# Special requirements are added by agents as needed
+      You will need to provide the chosen authentication method and the
+      "first stream" to be created. If you have not yet identified which
+      stream to build first and if the user has not specified a preference,
+      choose one that is simple and likely to succeed.
+
+stream_tasks:
+  - id: build-minimal-stream-definition
+    name: Build minimal stream definition
+    description: >
+      📝 Build a minimal stream definition for the chosen first stream.
+
+  - id: define-pagination-and-primary-key
+    name: Define pagination and primary key
+    description: >
+      📝 Define pagination strategy and primary key for the stream if
+      applicable.
+
+  - id: run-and-debug-initial-test-read
+    name: Run and debug initial test read
+    description: >
+      📝 Run and debug an initial test read for the stream using the
+      provided tool. Report any issues encountered and continue to debug
+      until the test read is successful.
+
+  - id: add-incremental-cursor-support
+    name: Add incremental cursor support, including testing and debugging
+    description: >
+      📝 If the stream supports incremental syncs, add incremental cursor
+      support and test/debug using the test read tool until successful.
+
+  - id: handle-special-requirements
+    name: Handle special requirements
+    description: >
+      📝 If there are any special requirements for this stream, implement
+      them now and test/debug using the test read tool until successful.
+
+  - id: print-checkpoint-summary
+    name: Print checkpoint summary
+    description: >
+      📝 Print a checkpoint summary for the stream, including details on
+      pagination, primary key, incremental support, and any special
+      requirements implemented.
+
 special_requirements: []
 
-# Acceptance tests tasks
 acceptance_tests:
   - id: connector-readiness-check
     name: Run connector readiness check tool and audit results
     description: >
       Run connector readiness check tool and audit results of all streams.
 
-# Finalization tasks
 finalization_tasks:
-  - id: individual-tests
-    name: Run individual tests
-    description: All streams pass individual tests.
 
-  - id: smoke-test-validation
-    name: Validate smoke test results
-    description: Smoke test extracts expected total records.
-
-  - id: verify-counts
-    name: Verify counts
-    description: No record counts are suspicious multiples.
-
-  - id: validate-schema
-    name: Validate schema
+  - id: run-connector-readiness-check
+    name: Run connector readiness check
     description: >
-      Use validate manifest tool to confirm JSON schema is correct.
+      📝 Run the connector readiness check tool and closely inspect the report
+      for any issues. You should always share the full report with your user.
 
-  - id: complete-documentation
-    name: Complete documentation
-    description: Documentation is complete.
+      Address any issues found before proceeding. If required,
+      you may return to earlier steps and fix problems as necessary.
+
+      Do not ignore warnings or errors printed in the readiness check report. At minimum, let the user know about warnings - and defer to their
+      judgment on whether to address them. You may suggest that they might
+      be false positives, but you must provide evidence to support that claim
+      if so.
+
+  - id: provide-final-summary
+    name: Provide final summary to user
+    description: >
+      📝 Provide a final summary to the user, including any important details
+      about the connector, such as supported streams, authentication method,
+      and any special configurations or considerations.
