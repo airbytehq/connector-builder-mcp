@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-from connector_builder_mcp._paths import get_session_checklist_path
+from connector_builder_mcp._paths import get_global_checklist_path, get_session_checklist_path
 
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,10 @@ class TaskList(BaseModel):
     stream_tasks: dict[str, list[Task]] = Field(
         default_factory=dict,
         description="Dict of stream tasks, keyed by stream name",
+    )
+    stream_tasks_template: list[Task] = Field(
+        default_factory=list,
+        description="List of stream task to use for enumerated streams",
     )
     special_requirements: list[Task] = Field(
         default_factory=list,
@@ -132,7 +136,7 @@ class TaskList(BaseModel):
     @classmethod
     def new_connector_build_task_list(cls) -> "TaskList":
         """Create a new task list with default connector build tasks from YAML file."""
-        yaml_path = Path(__file__).parent / "_guidance" / "connector_build_checklist.yml"
+        yaml_path: Path = get_global_checklist_path()
 
         with open(yaml_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
@@ -148,13 +152,9 @@ class TaskList(BaseModel):
         basic_connector_tasks = [
             _task_from_dict(task) for task in data.get("basic_connector_tasks", [])
         ]
-
-        stream_tasks_data = data.get("stream_tasks", {})
-        stream_tasks = {}
-        if isinstance(stream_tasks_data, dict):
-            for stream_name, tasks in stream_tasks_data.items():
-                stream_tasks[stream_name] = [_task_from_dict(task) for task in tasks]
-
+        stream_tasks_template = [
+            _task_from_dict(task) for task in data.get("basic_connector_tasks", [])
+        ]
         special_requirements = [
             _task_from_dict(task) for task in data.get("special_requirements", [])
         ]
@@ -165,7 +165,8 @@ class TaskList(BaseModel):
 
         return cls(
             basic_connector_tasks=basic_connector_tasks,
-            stream_tasks=stream_tasks,
+            stream_tasks_template=stream_tasks_template,
+            stream_tasks={},
             special_requirements=special_requirements,
             acceptance_tests=acceptance_tests,
             finalization_tasks=finalization_tasks,
@@ -298,35 +299,6 @@ def add_special_requirements_to_checklist(
     return added_tasks
 
 
-def get_stream_task_templates() -> list[Task]:
-    """Load stream task templates from the YAML file.
-
-    Returns:
-        List of template Task objects for streams
-    """
-    yaml_path = Path(__file__).parent / "_guidance" / "connector_build_checklist.yml"
-
-    with open(yaml_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-
-    stream_tasks_data = data.get("stream_tasks", [])
-    if not isinstance(stream_tasks_data, list):
-        logger.warning("stream_tasks in YAML is not a list, returning empty list")
-        return []
-
-    templates = []
-    for task_dict in stream_tasks_data:
-        templates.append(
-            Task(
-                id=task_dict["id"],
-                name=task_dict["name"],
-                description=task_dict.get("description"),
-            )
-        )
-
-    return templates
-
-
 def register_stream_tasks(
     checklist: TaskList,
     stream_names: list[str],
@@ -343,9 +315,9 @@ def register_stream_tasks(
     Returns:
         Tuple of (added_streams, skipped_streams_with_reasons)
     """
-    templates = get_stream_task_templates()
+    templates = checklist.stream_tasks_template
     if not templates:
-        logger.warning("No stream task templates found in YAML")
+        logger.warning("No stream task templates found in checklist")
         return [], {}
 
     added = []
