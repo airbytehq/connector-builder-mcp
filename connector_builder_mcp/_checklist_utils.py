@@ -7,12 +7,11 @@ The MCP integration layer is in mcp/checklist.py.
 import json
 import logging
 from enum import Enum
-from pathlib import Path
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from connector_builder_mcp._paths import get_global_checklist_path, get_session_checklist_path
+from connector_builder_mcp._checklist_loader import load_checklist_yaml
+from connector_builder_mcp._paths import get_session_checklist_path
 
 
 logger = logging.getLogger(__name__)
@@ -133,10 +132,7 @@ class TaskList(BaseModel):
     @classmethod
     def new_connector_build_task_list(cls) -> "TaskList":
         """Create a new task list with default connector build tasks from YAML file."""
-        yaml_path: Path = get_global_checklist_path()
-
-        with open(yaml_path, encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        data = load_checklist_yaml()
 
         def _task_from_dict(task_dict: dict) -> Task:
             """Convert a task dict from YAML to a Task object."""
@@ -217,9 +213,7 @@ def load_session_checklist(session_id: str) -> TaskList:
 
         if not checklist._stream_tasks_template:
             logger.info("Repopulating stream_tasks_template from YAML for legacy session")
-            yaml_path = get_global_checklist_path()
-            with open(yaml_path, encoding="utf-8") as f:
-                yaml_data = yaml.safe_load(f)
+            yaml_data = load_checklist_yaml()
 
             stream_tasks_data = yaml_data.get("stream_tasks", [])
             if stream_tasks_data:

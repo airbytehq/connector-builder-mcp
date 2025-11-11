@@ -1,7 +1,7 @@
-"""Builder MCP server implementation.
+"""Builder MCP server implementation (declarative YAML strategy).
 
 This module provides the main MCP server for Airbyte connector building operations,
-following the PyAirbyte MCP pattern with FastMCP integration.
+using the declarative YAML v1 build strategy.
 """
 
 import asyncio
@@ -10,15 +10,13 @@ import sys
 from fastmcp import FastMCP
 
 from connector_builder_mcp._util import initialize_logging
+from connector_builder_mcp.build_strategies.declarative_yaml_v1.build_strategy import (
+    DeclarativeYamlV1Strategy,
+)
 from connector_builder_mcp.constants import MCP_SERVER_NAME
-from connector_builder_mcp.mcp._mcp_utils import ToolDomain
 from connector_builder_mcp.mcp.checklist import register_checklist_tools
-from connector_builder_mcp.mcp.guidance import register_guidance_tools
-from connector_builder_mcp.mcp.manifest_checks import register_manifest_check_tools
 from connector_builder_mcp.mcp.manifest_edits import register_manifest_edit_tools
 from connector_builder_mcp.mcp.manifest_history import register_manifest_history_tools
-from connector_builder_mcp.mcp.manifest_tests import register_manifest_test_tools
-from connector_builder_mcp.mcp.prompts import register_mcp_prompts
 from connector_builder_mcp.mcp.secrets_config import register_secrets_tools
 from connector_builder_mcp.mcp.server_info import register_server_info_resources
 
@@ -31,26 +29,33 @@ app: FastMCP = FastMCP(MCP_SERVER_NAME)
 def register_server_assets(app: FastMCP) -> None:
     """Register all server assets (tools, prompts, resources) with the FastMCP app.
 
-    This function registers assets from all domains:
-    - GUIDANCE: Checklist, docs, schema, find connectors
-    - MANIFEST_CHECKS: Validation without running connector
-    - MANIFEST_TESTS: Testing that runs the connector
-    - MANIFEST_EDITS: Create, edit, manage manifests
-    - SECRETS_CONFIG: Manage secrets and configuration
-    - SERVER_INFO: Server version and information resources
+    This function registers assets in two categories:
+
+    1. Global domains (same for all strategies):
+       - SERVER_INFO: Server version and information resources
+       - SECRETS_CONFIG: Manage secrets and configuration
+       - MANIFEST_HISTORY: View or manage manifest revision history
+       - CHECKLIST: Task tracking (tools global, YAML files variable)
+       - MANIFEST_EDITS: Manifest operations (tools global, content variable)
+
+    2. Variable domains (strategy-specific):
+       - GUIDANCE: Documentation and examples
+       - MANIFEST_CHECKS: Validation without running connector
+       - MANIFEST_TESTS: Testing that runs the connector
+       - PROMPTS: Workflow templates
 
     Args:
         app: FastMCP application instance
     """
-    register_checklist_tools(app)
-    register_guidance_tools(app)
-    register_manifest_edit_tools(app)
-    register_manifest_check_tools(app)
-    register_manifest_test_tools(app)
+    register_server_info_resources(app)
     register_secrets_tools(app)
     register_manifest_history_tools(app)
-    register_mcp_prompts(app, domain=ToolDomain.PROMPTS)
-    register_server_info_resources(app)
+    register_checklist_tools(app)  # Tools global, YAML files variable
+    register_manifest_edit_tools(app)  # Tools global, content variable
+
+    strategy = DeclarativeYamlV1Strategy
+    print(f"Using build strategy: {strategy.name} v{strategy.version}", file=sys.stderr)
+    strategy.register_all_variable_domains(app)
 
 
 register_server_assets(app)
@@ -59,7 +64,7 @@ register_server_assets(app)
 def main() -> None:
     """Main entry point for the Builder MCP server."""
     print("=" * 60, flush=True, file=sys.stderr)
-    print("Starting Builder MCP server.", file=sys.stderr)
+    print("Starting Builder MCP server (declarative YAML v1).", file=sys.stderr)
     try:
         asyncio.run(app.run_stdio_async(show_banner=False))
     except KeyboardInterrupt:
