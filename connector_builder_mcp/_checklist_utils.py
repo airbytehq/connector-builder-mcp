@@ -216,6 +216,24 @@ def load_session_checklist(session_id: str) -> TaskList:
                         task["name"] = task.pop("task_name")
 
         checklist = TaskList.model_validate(data)
+
+        if not checklist.stream_tasks_template:
+            logger.info("Repopulating stream_tasks_template from YAML for legacy session")
+            yaml_path = get_global_checklist_path()
+            with open(yaml_path, encoding="utf-8") as f:
+                yaml_data = yaml.safe_load(f)
+
+            stream_tasks_data = yaml_data.get("stream_tasks", [])
+            if stream_tasks_data:
+                checklist.stream_tasks_template = [
+                    Task(
+                        id=task_dict["id"],
+                        name=task_dict["name"],
+                        description=task_dict.get("description"),
+                    )
+                    for task_dict in stream_tasks_data
+                ]
+
         logger.info(f"Loaded session checklist from: {checklist_path}")
         return checklist
     except Exception as e:
