@@ -5,6 +5,7 @@ Domain models and persistence logic are in _checklist_utils.py.
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastmcp import Context, FastMCP
@@ -59,6 +60,11 @@ def update_task_status(
 ) -> dict:
     """Update the status of a task.
 
+    Automatically sets timestamps:
+    - Sets 'started' timestamp when status changes to IN_PROGRESS
+    - Sets 'completed' timestamp when status changes to COMPLETED
+    - Updates checklist's 'last_updated' timestamp
+
     Returns:
         The updated task as a dictionary
 
@@ -72,8 +78,18 @@ def update_task_status(
     if not task:
         raise ValueError(f"Task with ID '{task_id}' not found.")
 
+    now = datetime.now(timezone.utc)
+
     task.status = status
     task.status_detail = status_detail
+
+    if status == TaskStatusEnum.IN_PROGRESS and task.started is None:
+        task.started = now
+
+    if status == TaskStatusEnum.COMPLETED and task.completed is None:
+        task.completed = now
+
+    checklist.last_updated = now
 
     save_session_checklist(ctx.session_id, checklist)
     return task.model_dump()
@@ -147,6 +163,7 @@ def add_special_requirements(
     logger.info(f"Adding {len(requirements)} special requirements")
     checklist = load_session_checklist(ctx.session_id)
     add_special_requirements_to_checklist(checklist, requirements)
+    checklist.last_updated = datetime.now(timezone.utc)
     save_session_checklist(ctx.session_id, checklist)
     return "Success! Task(s) added to checklist."
 
@@ -188,6 +205,7 @@ def add_stream_tasks(
     logger.info(f"Adding stream tasks for {len(stream_names_list)} stream(s)")
     checklist = load_session_checklist(ctx.session_id)
     added, skipped = register_stream_tasks(checklist, stream_names_list)
+    checklist.last_updated = datetime.now(timezone.utc)
     save_session_checklist(ctx.session_id, checklist)
 
     return AddStreamTasksResult(added=added, skipped=skipped)
