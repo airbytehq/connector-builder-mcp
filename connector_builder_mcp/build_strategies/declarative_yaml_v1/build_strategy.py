@@ -11,7 +11,12 @@ import sys
 from fastmcp import FastMCP
 
 from connector_builder_mcp.build_strategies.base.build_strategy import BuildStrategy
-from connector_builder_mcp.mcp import guidance, manifest_checks, manifest_tests, prompts
+from connector_builder_mcp.build_strategies.declarative_yaml_v1 import (
+    guidance,
+    manifest_checks,
+    manifest_tests,
+    prompts,
+)
 
 
 class DeclarativeYamlV1Strategy(BuildStrategy):
