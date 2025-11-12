@@ -6,6 +6,7 @@ utility for different connector build strategies.
 
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, ClassVar, cast
@@ -143,11 +144,17 @@ class BuildStrategy(ABC):
         Raises:
             FileNotFoundError: If checklist file doesn't exist
             TypeError: If YAML root is not a dict with string keys
+            RuntimeError: If strategy module is not loaded
         """
         checklist_filename = cls.get_checklist_path()
 
-        strategy_module_file = Path(cls.__module__.replace(".", "/") + ".py")
-        strategy_dir = Path(__file__).resolve().parent.parent.parent / strategy_module_file.parent
+        module = sys.modules.get(cls.__module__)
+        if module is None:
+            raise RuntimeError(f"Strategy module '{cls.__module__}' is not loaded")
+        if not hasattr(module, "__file__") or module.__file__ is None:
+            raise RuntimeError(f"Strategy module '{cls.__module__}' has no __file__ attribute")
+
+        strategy_dir = Path(module.__file__).parent
         full_path = strategy_dir / checklist_filename
 
         if not full_path.exists():
