@@ -7,7 +7,7 @@ For Phase 1, directly imports DeclarativeYamlV1Strategy (keeping it simple).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -27,6 +27,7 @@ def load_checklist_yaml() -> dict[str, Any]:
 
     Raises:
         FileNotFoundError: If checklist file doesn't exist
+        TypeError: If YAML root is not a dict with string keys
     """
     strategy = DeclarativeYamlV1Strategy
     checklist_path = strategy.get_checklist_path()
@@ -39,4 +40,9 @@ def load_checklist_yaml() -> dict[str, Any]:
             f"Checklist file not found for strategy '{strategy.name}': {full_path}"
         )
 
-    return yaml.safe_load(full_path.read_text())
+    data = yaml.safe_load(full_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise TypeError(f"Expected mapping at YAML root, got {type(data).__name__}")
+    if not all(isinstance(k, str) for k in data.keys()):
+        raise TypeError("Checklist YAML must have string keys at the root")
+    return cast(dict[str, Any], data)
