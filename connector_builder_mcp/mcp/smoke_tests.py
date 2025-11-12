@@ -12,6 +12,7 @@ from connector_builder_mcp.mcp._mcp_utils import (
     _REGISTERED_TOOLS,
     ToolDomain,
     mcp_prompt,
+    register_mcp_prompts,
 )
 
 
@@ -139,4 +140,4 @@ def mcp_smoke_tests_prompt(
 
 def register_smoke_test_prompt(app: FastMCP) -> None:
     """Register the smoke test prompt with the FastMCP app."""
-    pass
+    register_mcp_prompts(app, domain=ToolDomain.PROMPTS)
