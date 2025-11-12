@@ -7,8 +7,10 @@ utility for different connector build strategies.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar
+from pathlib import Path
+from typing import Any, ClassVar, cast
 
+import yaml
 from fastmcp import FastMCP
 
 
@@ -127,6 +129,38 @@ class BuildStrategy(ABC):
             Path to checklist YAML file relative to _guidance/checklists/
         """
         return f"{cls.name}/base.yaml"
+
+    @classmethod
+    def load_checklist_yaml(cls) -> dict[str, Any]:
+        """Load checklist YAML for this build strategy.
+
+        Calls cls.get_checklist_path() to get the strategy-specific path,
+        then loads and validates the YAML file.
+
+        Returns:
+            Parsed checklist YAML as dictionary
+
+        Raises:
+            FileNotFoundError: If checklist file doesn't exist
+            TypeError: If YAML root is not a dict with string keys
+        """
+        checklist_path = cls.get_checklist_path()
+
+        # Target is at: connector_builder_mcp/_guidance/checklists/
+        base_dir = Path(__file__).resolve().parent.parent.parent / "_guidance" / "checklists"
+        full_path = base_dir / checklist_path
+
+        if not full_path.exists():
+            raise FileNotFoundError(
+                f"Checklist file not found for strategy '{cls.name}': {full_path}"
+            )
+
+        data = yaml.safe_load(full_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise TypeError(f"Expected mapping at YAML root, got {type(data).__name__}")
+        if not all(isinstance(k, str) for k in data.keys()):
+            raise TypeError("Checklist YAML must have string keys at the root")
+        return cast(dict[str, Any], data)
 
     @classmethod
     def get_scaffold_template(cls, auth_type: str) -> str:
