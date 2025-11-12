@@ -103,8 +103,8 @@ class BuildStrategy(ABC):
         ...
 
     @classmethod
-    def register_all_variable_domains(cls, app: FastMCP) -> None:
-        """Register all variable domain tools for this strategy.
+    def register_all_mcp_callables(cls, app: FastMCP) -> None:
+        """Register all MCP callables (tools, prompts, resources) for this strategy.
 
         This is a convenience method that calls all the abstract registration
         methods in a fixed order. Strategies can override this if they need
@@ -123,19 +123,19 @@ class BuildStrategy(ABC):
         """Get the path to this strategy's checklist YAML file.
 
         Override to provide strategy-specific checklist location.
-        Default implementation returns path based on strategy name.
+        Default implementation returns "checklist.yaml" in the strategy directory.
 
         Returns:
-            Path to checklist YAML file relative to _guidance/checklists/
+            Filename of the checklist YAML file (default: "checklist.yaml")
         """
-        return f"{cls.name}/base.yaml"
+        return "checklist.yaml"
 
     @classmethod
     def load_checklist_yaml(cls) -> dict[str, Any]:
         """Load checklist YAML for this build strategy.
 
-        Calls cls.get_checklist_path() to get the strategy-specific path,
-        then loads and validates the YAML file.
+        Calls cls.get_checklist_path() to get the strategy-specific filename,
+        then loads and validates the YAML file from the strategy's directory.
 
         Returns:
             Parsed checklist YAML as dictionary
@@ -144,11 +144,11 @@ class BuildStrategy(ABC):
             FileNotFoundError: If checklist file doesn't exist
             TypeError: If YAML root is not a dict with string keys
         """
-        checklist_path = cls.get_checklist_path()
+        checklist_filename = cls.get_checklist_path()
 
-        # Target is at: connector_builder_mcp/_guidance/checklists/
-        base_dir = Path(__file__).resolve().parent.parent.parent / "_guidance" / "checklists"
-        full_path = base_dir / checklist_path
+        strategy_module_file = Path(cls.__module__.replace(".", "/") + ".py")
+        strategy_dir = Path(__file__).resolve().parent.parent.parent / strategy_module_file.parent
+        full_path = strategy_dir / checklist_filename
 
         if not full_path.exists():
             raise FileNotFoundError(

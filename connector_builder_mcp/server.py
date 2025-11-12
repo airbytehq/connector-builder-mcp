@@ -55,7 +55,7 @@ def register_server_assets(app: FastMCP) -> None:
 
     strategy = DeclarativeYamlV1Strategy
     print(f"Using build strategy: {strategy.name} v{strategy.version}", file=sys.stderr)
-    strategy.register_all_variable_domains(app)
+    strategy.register_all_mcp_callables(app)
 
 
 register_server_assets(app)

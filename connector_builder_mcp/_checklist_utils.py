@@ -11,8 +11,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
 
-from connector_builder_mcp._checklist_loader import load_checklist_yaml
 from connector_builder_mcp._paths import get_session_checklist_path
+from connector_builder_mcp.build_strategies.declarative_yaml_v1.build_strategy import (
+    DeclarativeYamlV1Strategy,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -161,7 +163,7 @@ class TaskList(BaseModel):
     @classmethod
     def new_connector_build_task_list(cls) -> "TaskList":
         """Create a new task list with default connector build tasks from YAML file."""
-        data = load_checklist_yaml()
+        data = DeclarativeYamlV1Strategy.load_checklist_yaml()
 
         def _task_from_dict(task_dict: dict) -> Task:
             """Convert a task dict from YAML to a Task object."""
@@ -254,7 +256,7 @@ def load_session_checklist(session_id: str) -> TaskList:
 
         if not checklist._stream_tasks_template:
             logger.info("Repopulating stream_tasks_template from YAML for legacy session")
-            yaml_data = load_checklist_yaml()
+            yaml_data = DeclarativeYamlV1Strategy.load_checklist_yaml()
 
             stream_tasks_data = yaml_data.get("stream_tasks", [])
             if stream_tasks_data:
