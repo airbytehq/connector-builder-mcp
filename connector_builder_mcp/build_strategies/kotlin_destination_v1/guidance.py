@@ -183,7 +183,7 @@ class BufferedConsumer(
 }
 ```
 """,
-        "write_modes": """# Write Modes Implementation
+        "write_modes": '''# Write Modes Implementation
 
 
 ```kotlin
@@ -253,7 +253,7 @@ class UpsertWriter(
     }
 }
 ```
-""",
+''',
         "batching": """# Batching Strategies
 
 
@@ -307,7 +307,7 @@ class TimeBasedBatchWriter(
 }
 ```
 """,
-        "schema_mapping": """# Schema Mapping and Type Conversion
+        "schema_mapping": '''# Schema Mapping and Type Conversion
 
 
 ```kotlin
@@ -419,7 +419,7 @@ class TransactionalWriter(
     }
 }
 ```
-""",
+''',
     }
 
     if topic in topic_docs:
