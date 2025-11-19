@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 from duckduckgo_search import DDGS
+from pydantic import BaseModel, Field
 
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,19 @@ class URLCandidate:
     score: float
     title_source: str
     requires_login: bool = False
+
+
+class ExternalDocumentationUrl(BaseModel):
+    """A suggested external documentation URL with metadata."""
+
+    title: str = Field(description="Title of the documentation page")
+    url: str = Field(description="URL of the documentation page")
+    doc_type: DOCUMENTATION_TYPES = Field(
+        description="Type of documentation (e.g., api_reference, api_release_history, rate_limits)"
+    )
+    requires_login: bool = Field(
+        description="Whether the URL requires authentication to access"
+    )
 
 
 def _derive_vendor_domain(
@@ -388,7 +402,7 @@ def suggest_external_documentation_urls(
     api_base_url: str | None = None,
     allowed_types: list[str] | None = None,
     max_results_per_type: int = 1,
-) -> list[dict]:
+) -> list[ExternalDocumentationUrl]:
     """Suggest external documentation URLs for an API.
 
     Args:
@@ -434,12 +448,12 @@ def suggest_external_documentation_urls(
     for _category, candidates in results_by_category.items():
         for candidate in candidates:
             results.append(
-                {
-                    "title": candidate.title,
-                    "url": candidate.url,
-                    "type": candidate.category,
-                    "requiresLogin": candidate.requires_login,
-                }
+                ExternalDocumentationUrl(
+                    title=candidate.title,
+                    url=candidate.url,
+                    doc_type=candidate.category,
+                    requires_login=candidate.requires_login,
+                )
             )
 
     logger.info(f"Found {len(results)} external documentation URLs for {api_name}")

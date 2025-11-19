@@ -14,6 +14,9 @@ from fastmcp import FastMCP
 from pydantic import Field
 
 from connector_builder_mcp._external_docs_suggester import (
+    ExternalDocumentationUrl,
+)
+from connector_builder_mcp._external_docs_suggester import (
     suggest_external_documentation_urls as _suggest_docs,
 )
 from connector_builder_mcp._guidance.topics import TOPIC_MAPPING
@@ -313,7 +316,7 @@ def suggest_external_documentation_urls(
             le=5,
         ),
     ] = 1,
-) -> list[dict]:
+) -> list[ExternalDocumentationUrl]:
     """Auto-suggest external documentation URLs for an API using web search and metadata enrichment.
 
     This tool helps discover official vendor documentation URLs by:
