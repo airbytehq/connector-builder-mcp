@@ -243,15 +243,19 @@ def _enrich_title(url: str, search_title: str, category: str, vendor_name: str) 
 
         og_title_tag = soup.find("meta", property="og:title")
         if og_title_tag and og_title_tag.get("content"):
-            title = og_title_tag["content"].strip()
-            if title:
-                return _clean_title(title), "og_title"
+            content = og_title_tag["content"]
+            if isinstance(content, str):
+                title = content.strip()
+                if title:
+                    return _clean_title(title), "og_title"
 
         twitter_title_tag = soup.find("meta", attrs={"name": "twitter:title"})
         if twitter_title_tag and twitter_title_tag.get("content"):
-            title = twitter_title_tag["content"].strip()
-            if title:
-                return _clean_title(title), "twitter_title"
+            content = twitter_title_tag["content"]
+            if isinstance(content, str):
+                title = content.strip()
+                if title:
+                    return _clean_title(title), "twitter_title"
 
         h1_tag = soup.find("h1")
         if h1_tag:
