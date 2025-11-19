@@ -6,8 +6,6 @@ using Sonar's connector-sdk framework with x-airbyte-* extensions.
 
 from __future__ import annotations
 
-import sys
-
 from fastmcp import FastMCP
 
 from connector_builder_mcp.build_strategies.base.build_strategy import BuildStrategy

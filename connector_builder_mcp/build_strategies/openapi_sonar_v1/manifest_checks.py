@@ -60,9 +60,9 @@ def validate_openapi_spec(
             warnings=[],
         )
 
-    errors = []
-    warnings = []
-    resources_found = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    resources_found: list[str] = []
 
     if len(spec_content) < 10:
         errors.append("OpenAPI specification appears to be empty or too short")

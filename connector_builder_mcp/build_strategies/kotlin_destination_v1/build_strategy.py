@@ -5,8 +5,6 @@ This strategy supports building Airbyte destination connectors using Kotlin.
 
 from __future__ import annotations
 
-import sys
-
 from fastmcp import FastMCP
 
 from connector_builder_mcp.build_strategies.base.build_strategy import BuildStrategy

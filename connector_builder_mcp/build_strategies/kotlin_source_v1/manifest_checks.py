@@ -57,9 +57,9 @@ def validate_kotlin_source_connector(
             warnings=[],
         )
 
-    errors = []
-    warnings = []
-    streams_found = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    streams_found: list[str] = []
 
     warnings.append("Kotlin source validation is a placeholder implementation")
 

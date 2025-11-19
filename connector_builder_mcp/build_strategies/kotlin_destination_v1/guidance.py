@@ -119,16 +119,16 @@ class ExampleConsumer(
     private val config: JsonNode,
     private val catalog: ConfiguredAirbyteCatalog
 ) : AirbyteMessageConsumer {
-    
+
     private val writers = mutableMapOf<String, StreamWriter>()
-    
+
     override fun start() {
         // Initialize connections and writers
         catalog.streams.forEach { stream ->
             writers[stream.stream.name] = createWriter(stream)
         }
     }
-    
+
     override fun accept(message: AirbyteMessage) {
         when (message.type) {
             Type.RECORD -> {
@@ -141,7 +141,7 @@ class ExampleConsumer(
             }
         }
     }
-    
+
     override fun close() {
         writers.values.forEach { it.close() }
     }
@@ -155,16 +155,16 @@ class BufferedConsumer(
     private val catalog: ConfiguredAirbyteCatalog,
     private val bufferSize: Int = 1000
 ) : AirbyteMessageConsumer {
-    
+
     private val buffers = mutableMapOf<String, MutableList<JsonNode>>()
-    
+
     override fun accept(message: AirbyteMessage) {
         when (message.type) {
             Type.RECORD -> {
                 val streamName = message.record.stream
                 val buffer = buffers.getOrPut(streamName) { mutableListOf() }
                 buffer.add(message.record.data)
-                
+
                 if (buffer.size >= bufferSize) {
                     flushBuffer(streamName)
                 }
@@ -174,7 +174,7 @@ class BufferedConsumer(
             }
         }
     }
-    
+
     private fun flushBuffer(streamName: String) {
         val buffer = buffers[streamName] ?: return
         writers[streamName]?.writeBatch(buffer)
@@ -191,7 +191,7 @@ class AppendWriter(
     private val tableName: String,
     private val connection: Connection
 ) : StreamWriter {
-    
+
     override fun write(record: JsonNode) {
         val sql = "INSERT INTO $tableName (${getColumns()}) VALUES (${getPlaceholders()})"
         connection.prepareStatement(sql).use { stmt ->
@@ -208,9 +208,9 @@ class OverwriteWriter(
     private val tableName: String,
     private val connection: Connection
 ) : StreamWriter {
-    
+
     private var isFirstBatch = true
-    
+
     override fun writeBatch(records: List<JsonNode>) {
         if (isFirstBatch) {
             // Truncate or drop/recreate table
@@ -219,7 +219,7 @@ class OverwriteWriter(
             }
             isFirstBatch = false
         }
-        
+
         // Insert records
         records.forEach { write(it) }
     }
@@ -233,7 +233,7 @@ class UpsertWriter(
     private val primaryKeys: List<String>,
     private val connection: Connection
 ) : StreamWriter {
-    
+
     override fun write(record: JsonNode) {
         val sql = buildUpsertSql()
         connection.prepareStatement(sql).use { stmt ->
@@ -241,7 +241,7 @@ class UpsertWriter(
             stmt.executeUpdate()
         }
     }
-    
+
     private fun buildUpsertSql(): String {
         // PostgreSQL example
         return """
@@ -262,17 +262,17 @@ class BatchWriter(
     private val batchSize: Int = 1000
 ) {
     private val buffer = mutableListOf<JsonNode>()
-    
+
     fun addRecord(record: JsonNode) {
         buffer.add(record)
         if (buffer.size >= batchSize) {
             flush()
         }
     }
-    
+
     fun flush() {
         if (buffer.isEmpty()) return
-        
+
         val sql = buildBatchInsertSql(buffer.size)
         connection.prepareStatement(sql).use { stmt ->
             var paramIndex = 1
@@ -294,10 +294,10 @@ class TimeBasedBatchWriter(
 ) {
     private val buffer = mutableListOf<JsonNode>()
     private var lastFlushTime = System.currentTimeMillis()
-    
+
     fun addRecord(record: JsonNode) {
         buffer.add(record)
-        
+
         val now = System.currentTimeMillis()
         if (now - lastFlushTime >= flushIntervalMs) {
             flush()
@@ -323,7 +323,7 @@ object TypeMapper {
             else -> "VARCHAR"
         }
     }
-    
+
     fun convertValue(value: JsonNode, targetType: String): Any? {
         return when (targetType) {
             "BIGINT" -> value.asLong()
@@ -339,7 +339,7 @@ object TypeMapper {
 
 ```kotlin
 class SchemaManager(private val connection: Connection) {
-    
+
     fun createTableFromAirbyteSchema(
         tableName: String,
         schema: JsonNode
@@ -349,7 +349,7 @@ class SchemaManager(private val connection: Connection) {
                 "$name ${TypeMapper.airbyteTypeToSqlType(type)}"
             }
             .joinToString(", ")
-        
+
         val sql = "CREATE TABLE IF NOT EXISTS $tableName ($columns)"
         connection.createStatement().use { it.execute(sql) }
     }
@@ -364,11 +364,11 @@ class RetryableWriter(
     private val delegate: StreamWriter,
     private val maxRetries: Int = 3
 ) : StreamWriter {
-    
+
     override fun write(record: JsonNode) {
         var attempt = 0
         var lastException: Exception? = null
-        
+
         while (attempt < maxRetries) {
             try {
                 delegate.write(record)
@@ -376,7 +376,7 @@ class RetryableWriter(
             } catch (e: SQLException) {
                 lastException = e
                 attempt++
-                
+
                 if (isRetryable(e)) {
                     Thread.sleep(getBackoffDelay(attempt))
                 } else {
@@ -384,15 +384,15 @@ class RetryableWriter(
                 }
             }
         }
-        
+
         throw RuntimeException("Failed after $maxRetries attempts", lastException)
     }
-    
+
     private fun isRetryable(e: SQLException): Boolean {
         // Check for transient errors
         return e.sqlState in listOf("08001", "08006", "40001")
     }
-    
+
     private fun getBackoffDelay(attempt: Int): Long {
         return (1000L * Math.pow(2.0, attempt.toDouble())).toLong()
     }
@@ -404,7 +404,7 @@ class RetryableWriter(
 class TransactionalWriter(
     private val connection: Connection
 ) : StreamWriter {
-    
+
     override fun writeBatch(records: List<JsonNode>) {
         connection.autoCommit = false
         try {

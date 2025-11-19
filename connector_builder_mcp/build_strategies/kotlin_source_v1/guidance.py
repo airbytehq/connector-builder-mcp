@@ -116,10 +116,10 @@ source-example/
 ```kotlin
 class UsersStream(config: JsonNode) : HttpStream(config) {
     override fun path(): String = "users"
-    
-    override fun primaryKey(): List<List<String>> = 
+
+    override fun primaryKey(): List<List<String>> =
         listOf(listOf("id"))
-    
+
     override fun parseResponse(
         response: HttpResponse,
         streamState: JsonNode?
@@ -133,7 +133,7 @@ class UsersStream(config: JsonNode) : HttpStream(config) {
 ```kotlin
 class EventsStream(config: JsonNode) : IncrementalHttpStream(config) {
     override fun cursorField(): String = "created_at"
-    
+
     override fun getUpdatedState(
         currentStreamState: JsonNode?,
         latestRecord: JsonNode
@@ -234,7 +234,7 @@ override fun getUpdatedState(
 ): JsonNode {
     val currentCursor = currentStreamState?.get(cursorField())?.asText() ?: "1970-01-01"
     val recordCursor = latestRecord.get(cursorField()).asText()
-    
+
     return Jsons.jsonNode(
         mapOf(cursorField() to maxOf(currentCursor, recordCursor))
     )
@@ -251,11 +251,11 @@ override fun request(
     nextPageToken: String?
 ): HttpRequest {
     val params = mutableMapOf<String, String>()
-    
+
     streamState?.get(cursorField())?.asText()?.let {
         params["since"] = it
     }
-    
+
     return HttpRequest.builder()
         .url(url(streamSlice))
         .params(params)
