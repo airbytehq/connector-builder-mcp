@@ -1,7 +1,7 @@
-"""Builder MCP server implementation (declarative YAML strategy).
+"""Builder MCP server implementation with multiple build strategies.
 
 This module provides the main MCP server for Airbyte connector building operations,
-using the declarative YAML v1 build strategy.
+supporting multiple build strategies for different connector types.
 """
 
 import asyncio
@@ -10,8 +10,17 @@ import sys
 from fastmcp import FastMCP
 
 from connector_builder_mcp._util import initialize_logging
+from connector_builder_mcp.build_strategies.declarative_openapi_v3.build_strategy import (
+    DeclarativeOpenApiV3Strategy,
+)
 from connector_builder_mcp.build_strategies.declarative_yaml_v1.build_strategy import (
     DeclarativeYamlV1Strategy,
+)
+from connector_builder_mcp.build_strategies.kotlin_destination.build_strategy import (
+    KotlinDestinationStrategy,
+)
+from connector_builder_mcp.build_strategies.kotlin_source.build_strategy import (
+    KotlinSourceStrategy,
 )
 from connector_builder_mcp.constants import MCP_SERVER_NAME
 from connector_builder_mcp.mcp.checklist import register_checklist_tools
@@ -53,9 +62,20 @@ def register_server_assets(app: FastMCP) -> None:
     register_checklist_tools(app)  # Tools global, YAML files variable
     register_manifest_edit_tools(app)  # Tools global, content variable
 
-    strategy = DeclarativeYamlV1Strategy
-    print(f"Using build strategy: {strategy.name} v{strategy.version}", file=sys.stderr)
-    strategy.register_all_mcp_callables(app)
+    strategies = [
+        DeclarativeYamlV1Strategy,
+        DeclarativeOpenApiV3Strategy,
+        KotlinSourceStrategy,
+        KotlinDestinationStrategy,
+    ]
+
+    print("Registering build strategies:", file=sys.stderr)
+    for strategy in strategies:
+        if strategy.is_available():
+            print(f"  - {strategy.name} v{strategy.version}", file=sys.stderr)
+            strategy.register_all_mcp_callables(app)
+        else:
+            print(f"  - {strategy.name} v{strategy.version} (unavailable)", file=sys.stderr)
 
 
 register_server_assets(app)
@@ -64,7 +84,7 @@ register_server_assets(app)
 def main() -> None:
     """Main entry point for the Builder MCP server."""
     print("=" * 60, flush=True, file=sys.stderr)
-    print("Starting Builder MCP server (declarative YAML v1).", file=sys.stderr)
+    print("Starting Builder MCP server with multiple build strategies.", file=sys.stderr)
     try:
         asyncio.run(app.run_stdio_async(show_banner=False))
     except KeyboardInterrupt:
