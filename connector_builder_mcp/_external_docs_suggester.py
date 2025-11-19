@@ -145,7 +145,9 @@ def _is_official_domain(url: str, vendor_domain: str) -> bool:
     return False
 
 
-def _score_url(url: str, category: DOCUMENTATION_TYPES, vendor_domain: str, search_title: str = "") -> float:
+def _score_url(
+    url: str, category: DOCUMENTATION_TYPES, vendor_domain: str, search_title: str = ""
+) -> float:
     """Score a URL based on various heuristics."""
     score = 0.0
     parsed = urlparse(url)
