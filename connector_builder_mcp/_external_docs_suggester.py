@@ -5,7 +5,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 from urllib.parse import urlparse
 
 import requests
@@ -80,7 +80,7 @@ class URLCandidate:
 
     url: str
     title: str
-    category: str
+    category: DOCUMENTATION_TYPES
     score: float
     title_source: str
     requires_login: bool = False
@@ -145,7 +145,7 @@ def _is_official_domain(url: str, vendor_domain: str) -> bool:
     return False
 
 
-def _score_url(url: str, category: str, vendor_domain: str, search_title: str = "") -> float:
+def _score_url(url: str, category: DOCUMENTATION_TYPES, vendor_domain: str, search_title: str = "") -> float:
     """Score a URL based on various heuristics."""
     score = 0.0
     parsed = urlparse(url)
@@ -327,7 +327,7 @@ def _generate_canonical_title(vendor_name: str, category: str) -> str:
 
 
 def _search_for_category(
-    category: str, vendor_domain: str, vendor_name: str, max_results: int = 3
+    category: DOCUMENTATION_TYPES, vendor_domain: str, vendor_name: str, max_results: int = 3
 ) -> list[URLCandidate]:
     """Search for URLs in a specific category."""
     candidates = []
@@ -418,7 +418,9 @@ def suggest_external_documentation_urls(
 
     logger.info(f"Suggesting external docs for {api_name} (domain: {vendor_domain})")
 
-    categories_to_search = allowed_types or list(CATEGORY_SEARCH_PATTERNS.keys())
+    categories_to_search_raw = allowed_types or list(CATEGORY_SEARCH_PATTERNS.keys())
+    categories_filtered = [t for t in categories_to_search_raw if t in CATEGORY_SEARCH_PATTERNS]
+    categories_to_search = cast(list[DOCUMENTATION_TYPES], categories_filtered)
 
     all_candidates: list[URLCandidate] = []
     for category in categories_to_search:
@@ -427,7 +429,7 @@ def suggest_external_documentation_urls(
 
     all_candidates.sort(key=lambda c: c.score, reverse=True)
 
-    results_by_category: dict[str, list[URLCandidate]] = {}
+    results_by_category: dict[DOCUMENTATION_TYPES, list[URLCandidate]] = {}
     for candidate in all_candidates:
         if candidate.category not in results_by_category:
             results_by_category[candidate.category] = []
