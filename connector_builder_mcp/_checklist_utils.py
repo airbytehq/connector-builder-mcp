@@ -9,11 +9,15 @@ import logging
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
 
-from connector_builder_mcp._paths import get_global_checklist_path, get_session_checklist_path
+from connector_builder_mcp._paths import get_session_checklist_path
+from connector_builder_mcp.build_strategies.declarative_yaml_v1.build_strategy import (
+    DeclarativeYamlV1Strategy,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -160,12 +164,20 @@ class TaskList(BaseModel):
         return [t for t in self.tasks if t.status == TaskStatusEnum.BLOCKED]
 
     @classmethod
-    def new_connector_build_task_list(cls) -> "TaskList":
-        """Create a new task list with default connector build tasks from YAML file."""
-        yaml_path: Path = get_global_checklist_path()
+    def from_checklist_dict(cls, data: dict[str, Any]) -> "TaskList":
+        """Create a TaskList from a parsed checklist dictionary.
 
-        with open(yaml_path, encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        This is the pure, strategy-agnostic constructor that builds a TaskList
+        from a dictionary (typically parsed from YAML). The caller is responsible
+        for loading/parsing the data.
+
+        Args:
+            data: Parsed checklist dictionary with keys like 'basic_connector_tasks',
+                  'stream_tasks', 'special_requirements', etc.
+
+        Returns:
+            TaskList instance populated from the dictionary
+        """
 
         def _task_from_dict(task_dict: dict) -> Task:
             """Convert a task dict from YAML to a Task object."""
@@ -182,9 +194,7 @@ class TaskList(BaseModel):
         special_requirements = [
             _task_from_dict(task) for task in data.get("special_requirements", [])
         ]
-
         acceptance_tests = [_task_from_dict(task) for task in data.get("acceptance_tests", [])]
-
         finalization_tasks = [_task_from_dict(task) for task in data.get("finalization_tasks", [])]
 
         task_list = cls(
@@ -196,6 +206,44 @@ class TaskList(BaseModel):
         )
         task_list._stream_tasks_template = stream_tasks_template
         return task_list
+
+    @classmethod
+    def from_checklist_yaml(cls, path: Path) -> "TaskList":
+        """Create a TaskList from a YAML file path.
+
+        This is a convenience constructor that loads and parses the YAML file,
+        then delegates to from_checklist_dict().
+
+        Args:
+            path: Path to the checklist YAML file
+
+        Returns:
+            TaskList instance populated from the YAML file
+
+        Raises:
+            FileNotFoundError: If the YAML file doesn't exist
+            TypeError: If YAML root is not a dict with string keys
+        """
+        if not path.exists():
+            raise FileNotFoundError(f"Checklist file not found: {path}")
+
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise TypeError(f"Expected mapping at YAML root, got {type(data).__name__}")
+        if not all(isinstance(k, str) for k in data.keys()):
+            raise TypeError("Checklist YAML must have string keys at the root")
+
+        return cls.from_checklist_dict(data)
+
+    @classmethod
+    def new_connector_build_task_list(cls) -> "TaskList":
+        """Create a new task list with default connector build tasks from YAML file.
+
+        This is a thin wrapper that loads the checklist YAML from the declarative
+        strategy and delegates to from_checklist_dict(). Kept for backward compatibility.
+        """
+        data = DeclarativeYamlV1Strategy.load_checklist_yaml()
+        return cls.from_checklist_dict(data)
 
 
 def load_session_checklist(session_id: str) -> TaskList:
@@ -258,9 +306,7 @@ def load_session_checklist(session_id: str) -> TaskList:
 
         if not checklist._stream_tasks_template:
             logger.info("Repopulating stream_tasks_template from YAML for legacy session")
-            yaml_path = get_global_checklist_path()
-            with open(yaml_path, encoding="utf-8") as f:
-                yaml_data = yaml.safe_load(f)
+            yaml_data = DeclarativeYamlV1Strategy.load_checklist_yaml()
 
             stream_tasks_data = yaml_data.get("stream_tasks", [])
             if stream_tasks_data:

@@ -4,7 +4,9 @@ import pytest
 import requests
 
 from connector_builder_mcp._guidance.topics import TOPIC_MAPPING
-from connector_builder_mcp.mcp.guidance import get_connector_builder_docs
+from connector_builder_mcp.build_strategies.declarative_yaml_v1.guidance import (
+    get_connector_builder_docs,
+)
 
 
 def test_get_connector_builder_docs_overview() -> None:

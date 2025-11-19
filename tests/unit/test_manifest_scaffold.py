@@ -3,12 +3,14 @@
 import yaml
 
 from connector_builder_mcp._manifest_scaffold_utils import AuthenticationType
+from connector_builder_mcp.build_strategies.declarative_yaml_v1.manifest_tests import (
+    validate_manifest,
+)
 from connector_builder_mcp.mcp.manifest_edits import (
     create_connector_manifest_scaffold,
     get_session_manifest_content,
     set_session_manifest_content,
 )
-from connector_builder_mcp.mcp.manifest_tests import validate_manifest
 
 
 def test_valid_basic_manifest(ctx) -> None:
