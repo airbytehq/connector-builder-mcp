@@ -94,9 +94,7 @@ class ExternalDocumentationUrl(BaseModel):
     doc_type: DOCUMENTATION_TYPES = Field(
         description="Type of documentation (e.g., api_reference, api_release_history, rate_limits)"
     )
-    requires_login: bool = Field(
-        description="Whether the URL requires authentication to access"
-    )
+    requires_login: bool = Field(description="Whether the URL requires authentication to access")
 
 
 def _derive_vendor_domain(
