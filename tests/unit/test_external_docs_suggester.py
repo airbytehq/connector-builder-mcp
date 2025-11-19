@@ -198,19 +198,19 @@ def test_clean_title(title, expected):
         pytest.param(
             "Stripe",
             "api_release_history",
-            "Stripe API changelog",
+            "Stripe API Changelog",
             id="changelog",
         ),
         pytest.param(
             "Stripe",
             "api_reference",
-            "Stripe API reference",
+            "Stripe API Reference",
             id="api_reference",
         ),
         pytest.param(
             "Stripe",
             "rate_limits",
-            "Stripe rate limits",
+            "Stripe Rate Limits",
             id="rate_limits",
         ),
         pytest.param(

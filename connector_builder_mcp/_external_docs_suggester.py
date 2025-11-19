@@ -297,17 +297,17 @@ def _clean_title(title: str) -> str:
 def _generate_canonical_title(vendor_name: str, category: str) -> str:
     """Generate a canonical title for a category."""
     category_names = {
-        "api_release_history": "API changelog",
-        "api_reference": "API reference",
-        "authentication_guide": "authentication guide",
-        "permissions_scopes": "permissions and scopes",
-        "rate_limits": "rate limits",
+        "api_release_history": "API Changelog",
+        "api_reference": "API Reference",
+        "authentication_guide": "Authentication Guide",
+        "permissions_scopes": "Permissions and Scopes",
+        "rate_limits": "Rate Limits",
         "status_page": "Status",
-        "data_model_reference": "data model reference",
-        "sql_reference": "SQL reference",
-        "migration_guide": "migration guide",
-        "api_deprecations": "API deprecations",
-        "developer_community": "developer community",
+        "data_model_reference": "Data Model Reference",
+        "sql_reference": "SQL Reference",
+        "migration_guide": "Migration Guide",
+        "api_deprecations": "API Deprecations",
+        "developer_community": "Developer Community",
     }
 
     category_name = category_names.get(category, category.replace("_", " "))
