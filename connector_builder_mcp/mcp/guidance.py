@@ -13,6 +13,12 @@ import requests
 from fastmcp import FastMCP
 from pydantic import Field
 
+from connector_builder_mcp._external_docs_suggester import (
+    ExternalDocumentationUrl,
+)
+from connector_builder_mcp._external_docs_suggester import (
+    suggest_external_documentation_urls as _suggest_docs,
+)
 from connector_builder_mcp._guidance.topics import TOPIC_MAPPING
 from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 
@@ -274,6 +280,101 @@ def find_connectors_by_class_name(class_names: str) -> list[str]:
             result_connectors = result_connectors.intersection(connectors_with_class)
 
     return sorted(result_connectors) if result_connectors else []
+
+
+@mcp_tool(
+    domain=ToolDomain.GUIDANCE,
+)
+def suggest_external_documentation_urls(
+    api_name: Annotated[
+        str,
+        Field(description="Name of the API (e.g., 'Stripe', 'Salesforce', 'GitHub')"),
+    ],
+    vendor_domain: Annotated[
+        str | None,
+        Field(
+            description="Optional vendor domain (e.g., 'stripe.com'). If not provided, will be derived from api_base_url or discovered via search."
+        ),
+    ] = None,
+    api_base_url: Annotated[
+        str | None,
+        Field(
+            description="Optional API base URL (e.g., 'https://api.stripe.com'). Used to derive vendor domain if not provided."
+        ),
+    ] = None,
+    allowed_types: Annotated[
+        list[str] | None,
+        Field(
+            description="Optional list of documentation types to search for. If not provided, searches for all types. Valid types: api_release_history, api_reference, authentication_guide, permissions_scopes, rate_limits, status_page, data_model_reference, sql_reference, migration_guide, api_deprecations, developer_community."
+        ),
+    ] = None,
+    max_results_per_type: Annotated[
+        int,
+        Field(
+            description="Maximum number of results per documentation type. Default is 1.",
+            ge=1,
+            le=5,
+        ),
+    ] = 1,
+) -> list[ExternalDocumentationUrl]:
+    """Auto-suggest external documentation URLs for an API using web search and metadata enrichment.
+
+    This tool helps discover official vendor documentation URLs by:
+    1. Searching for documentation using DuckDuckGo with category-specific queries
+    2. Scoring and filtering results based on domain, path patterns, and relevance
+    3. Enriching titles by fetching page metadata (og:title, h1, etc.)
+    4. Validating URLs and checking for authentication requirements
+
+    The tool returns structured documentation URLs that can be added to connector
+    metadata.yaml files in the externalDocumentationUrls field.
+
+    Args:
+        api_name: Name of the API (e.g., "Stripe", "Salesforce")
+        vendor_domain: Optional vendor domain (e.g., "stripe.com")
+        api_base_url: Optional API base URL to derive domain from
+        allowed_types: Optional list of specific documentation types to search for
+        max_results_per_type: Maximum results per type (1-5, default: 1)
+
+    Returns:
+        List of suggested URLs with title, url, type, and requiresLogin fields
+
+    Example:
+        >>> suggest_external_documentation_urls(
+        ...     api_name="Stripe",
+        ...     vendor_domain="stripe.com"
+        ... )
+        [
+            {
+                "title": "Stripe API changelog",
+                "url": "https://stripe.com/docs/changelog",
+                "type": "api_release_history",
+                "requiresLogin": false
+            },
+            {
+                "title": "Stripe API reference",
+                "url": "https://stripe.com/docs/api",
+                "type": "api_reference",
+                "requiresLogin": false
+            },
+            ...
+        ]
+    """
+    logger.info(f"Suggesting external documentation URLs for {api_name}")
+
+    try:
+        results = _suggest_docs(
+            api_name=api_name,
+            vendor_domain=vendor_domain,
+            api_base_url=api_base_url,
+            allowed_types=allowed_types,
+            max_results_per_type=max_results_per_type,
+        )
+        logger.info(f"Successfully suggested {len(results)} URLs for {api_name}")
+        return results
+
+    except Exception as e:
+        logger.error(f"Error suggesting external documentation URLs for {api_name}: {e}")
+        return []
 
 
 def register_guidance_tools(

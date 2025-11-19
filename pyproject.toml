@@ -9,8 +9,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "airbyte-cdk>=7.4.1,<8.0",
+    "beautifulsoup4>=4.12.0,<5.0",
+    "duckduckgo-search>=7.0.0,<8.0",
     "fastmcp>=2.12.1,<3.0",
     "jsonschema>=4.0.0,<5.0",
+    "lxml>=5.0.0,<6.0",
     "privatebin>=0.3.0,<1.0",
     "pydantic>=2.11.9,<3.0",
     "python-dotenv>=1.1.1,<2.0",
@@ -82,3 +85,4 @@ extend_exclude = [
 
 [tool.deptry.per_rule_ignores]
 DEP001 = ["pydantic_ai", "emoji"] # These are used in the connector builder agents project.
+DEP002 = ["lxml"] # Used as a runtime dependency by BeautifulSoup via string argument
