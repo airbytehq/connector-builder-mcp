@@ -1,0 +1,153 @@
+#
+# This checklist guides you through the process of building a connector
+#
+# Steps marked with "📝" have outputs which should be shared with your user,
+# or in a log file if no user is available.
+
+# Task lists matching TaskList model properties
+basic_connector_tasks:
+
+  - id: understand-openapi-connector-build-process
+    name: Understand OpenAPI connector build process
+    description: >
+      Review the Sonar connector-sdk documentation to understand the
+      overall process and requirements for building OpenAPI-based connectors.
+
+      Mark this task complete only after you have read and understood the
+      following:
+      - Start by listing your Connector Builder MCP tools to
+        understand what functionality is available to you.
+      - If your client supports it, you can also list the MCP resource assets.
+        (Ignore if your client does not support MCP 'resource' assets.)
+      - Review the "openapi_overview" topic in the docs tool to understand the
+        overall process.
+      - Understand that you will step through the checklist tasks
+        sequentially, using the 'get next tasks' tool and 'update task status' tool to progress through the checklist.
+
+  - id: locate-openapi-specification
+    name: Locate OpenAPI specification
+    description: >
+      📝 Locate or obtain the OpenAPI specification file (YAML or JSON format).
+      This could be from a URL, a local file, or generated from API documentation.
+
+  - id: validate-openapi-spec
+    name: Validate OpenAPI specification
+    description: >
+      📝 Validate that the OpenAPI specification is well-formed and contains
+      all necessary information (paths, operations, schemas, authentication).
+
+  - id: identify-auth-requirements
+    name: Identify authentication requirements
+    description: >
+      📝 Identify authentication methods from the OpenAPI spec's security
+      schemes. Determine which auth method to implement first if multiple
+      are available.
+
+  - id: enumerate-available-resources
+    name: Enumerate available resources
+    description: >
+      📝 **Enumerate all available resources first**: Before beginning work on
+      any resource, analyze the OpenAPI specification to identify and list ALL
+      available resources/endpoints. Share this complete list with your user
+      (or the message thread) so they can provide guidance on priorities or
+      exclusions.
+
+      After enumerating the resources, call the add_stream_tasks tool with the
+      list of resource names to register tasks for each resource in the checklist.
+
+  - id: understand-special-requirements
+    name: Understand special requirements
+    description: >
+      If the user or the API itself appear to require advanced features,
+      check the docs tool to understand how those features might be
+      implemented before you start. Document special requirements in the
+      'special requirements' tasks section.
+
+  - id: confirm-secrets-and-connection-details
+    name: Confirm secrets and connection details
+    description: >
+      If you need secrets and/or connection information, you will need to
+      gather those from the user. This is a no-op if the user has already
+      provided you a dotenv with all necessary values, or if the connector does
+      not require secrets.
+
+      Do not proceed until you have all necessary secrets and connection
+      details.
+
+      **Important**: Secrets should not be sent directly to or through the LLM.
+
+  - id: create-connector-config
+    name: Create connector configuration
+    description: >
+      Create the connector configuration file using the OpenAPI specification.
+      This includes mapping OpenAPI paths to Airbyte resources and configuring
+      authentication using Sonar's x-airbyte-* extensions.
+
+stream_tasks:
+  - id: map-openapi-operation
+    name: Map OpenAPI operation to resource
+    description: >
+      📝 Map the OpenAPI operation (path + method) to an Airbyte resource
+      definition using x-airbyte-resource and x-airbyte-verb extensions.
+
+  - id: configure-resource-schema
+    name: Configure resource schema
+    description: >
+      📝 Configure the resource schema based on the OpenAPI response schema.
+      Ensure proper type mappings and handle nested objects.
+
+  - id: configure-pagination
+    name: Configure pagination
+    description: >
+      📝 If the resource supports pagination, configure pagination parameters
+      using x-airbyte-pagination extensions or query parameters.
+
+  - id: test-resource-read
+    name: Test resource read operation
+    description: >
+      📝 Test reading data from the resource using the connector-sdk test
+      tools. Report any issues encountered and continue to debug until
+      the test read is successful.
+
+  - id: handle-resource-special-requirements
+    name: Handle resource-specific requirements
+    description: >
+      📝 If there are any special requirements for this resource (filtering,
+      transformations, etc.), implement them now and test until successful.
+
+  - id: print-resource-checkpoint-summary
+    name: Print resource checkpoint summary
+    description: >
+      📝 Print a checkpoint summary for the resource, including details on
+      pagination, schema mapping, and any special requirements implemented.
+
+special_requirements: []
+
+acceptance_tests:
+  - id: connector-readiness-check
+    name: Run connector readiness check tool and audit results
+    description: >
+      Run connector readiness check tool and audit results of all resources.
+
+finalization_tasks:
+
+  - id: run-connector-readiness-check
+    name: Run connector readiness check
+    description: >
+      📝 Run the connector readiness check tool and closely inspect the report
+      for any issues. You should always share the full report with your user.
+
+      Address any issues found before proceeding. If required,
+      you may return to earlier steps and fix problems as necessary.
+
+      Do not ignore warnings or errors printed in the readiness check report. At minimum, let the user know about warnings - and defer to their
+      judgment on whether to address them. You may suggest that they might
+      be false positives, but you must provide evidence to support that claim
+      if so.
+
+  - id: provide-final-summary
+    name: Provide final summary to user
+    description: >
+      📝 Provide a final summary to the user, including any important details
+      about the connector, such as supported resources, authentication method,
+      and any special configurations or considerations.

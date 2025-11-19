@@ -1,0 +1,181 @@
+#
+# This checklist guides you through the process of building a Kotlin-based
+#
+# Steps marked with "📝" have outputs which should be shared with your user,
+# or in a log file if no user is available.
+
+# Task lists matching TaskList model properties
+basic_connector_tasks:
+
+  - id: understand-kotlin-destination-build-process
+    name: Understand Kotlin destination connector build process
+    description: >
+      Review the Kotlin destination connector documentation to understand the
+      overall process and requirements for building Kotlin-based destination connectors.
+
+      Mark this task complete only after you have read and understood the
+      following:
+      - Start by listing your Connector Builder MCP tools to
+        understand what functionality is available to you.
+      - If your client supports it, you can also list the MCP resource assets.
+        (Ignore if your client does not support MCP 'resource' assets.)
+      - Review the "kotlin_destination_overview" topic in the docs tool to understand the
+        overall process.
+      - Understand that you will step through the checklist tasks
+        sequentially, using the 'get next tasks' tool and 'update task status' tool to progress through the checklist.
+
+  - id: setup-kotlin-development-environment
+    name: Setup Kotlin development environment
+    description: >
+      📝 Ensure the Kotlin development environment is properly configured,
+      including JDK, Gradle, and necessary dependencies.
+
+  - id: identify-destination-requirements
+    name: Identify destination requirements
+    description: >
+      📝 Identify the destination system requirements (database, data warehouse,
+      storage system, etc.) and supported write modes (append, overwrite, upsert).
+
+  - id: enumerate-supported-streams
+    name: Enumerate supported streams
+    description: >
+      📝 **Enumerate all supported streams first**: Before beginning work on
+      any stream, identify and list ALL stream types that the destination will
+      support. Share this complete list with your user (or the message thread)
+      so they can provide guidance on priorities or exclusions.
+
+      After enumerating the streams, call the add_stream_tasks tool with the
+      list of stream names to register tasks for each stream in the checklist.
+
+  - id: identify-auth-requirements
+    name: Identify authentication requirements
+    description: >
+      📝 Identify authentication methods required for the destination system.
+      If multiple auth methods are available, decide which to build first.
+
+  - id: understand-special-requirements
+    name: Understand special requirements
+    description: >
+      If the user or the destination system appear to require advanced features
+      (like custom transformations, deduplication, etc.), check the docs tool
+      to understand how those features might be implemented before you start.
+      Document special requirements in the 'special requirements' tasks section.
+
+  - id: confirm-secrets-and-connection-details
+    name: Confirm secrets and connection details
+    description: >
+      If you need secrets and/or connection information, you will need to
+      gather those from the user. This is a no-op if the user has already
+      provided you a dotenv with all necessary values, or if the connector does
+      not require secrets.
+
+      Do not proceed until you have all necessary secrets and connection
+      details.
+
+      **Important**: Secrets should not be sent directly to or through the LLM.
+
+  - id: create-connector-scaffold
+    name: Create connector scaffold
+    description: >
+      Create the Kotlin destination connector scaffold with the basic project
+      structure, including build.gradle.kts, source files, and configuration.
+
+  - id: implement-spec-operation
+    name: Implement spec operation
+    description: >
+      📝 Implement the spec() operation that returns the connector's
+      configuration specification (connection parameters, authentication, etc.).
+
+  - id: implement-check-operation
+    name: Implement check operation
+    description: >
+      📝 Implement the check() operation that validates the connection
+      configuration and tests connectivity to the destination system.
+
+  - id: implement-write-operation
+    name: Implement write operation
+    description: >
+      📝 Implement the write() operation that handles writing records to
+      the destination system, including batching and error handling.
+
+stream_tasks:
+  - id: implement-stream-writer
+    name: Implement stream writer
+    description: >
+      📝 Create the writer class for this stream type, handling schema
+      mapping and data transformation.
+
+  - id: configure-write-mode
+    name: Configure write mode
+    description: >
+      📝 Configure the write mode for this stream (append, overwrite, or
+      upsert) and implement the necessary logic.
+
+  - id: implement-batching
+    name: Implement batching logic
+    description: >
+      📝 Implement batching logic to efficiently write records in groups
+      rather than one at a time.
+
+  - id: implement-schema-mapping
+    name: Implement schema mapping
+    description: >
+      📝 Implement schema mapping from Airbyte types to destination system
+      types, handling type conversions and nested structures.
+
+  - id: test-stream-write
+    name: Test stream write operation
+    description: >
+      📝 Test writing data to the stream using the connector-sdk test tools.
+      Report any issues encountered and continue to debug until the test
+      write is successful.
+
+  - id: handle-stream-special-requirements
+    name: Handle stream-specific requirements
+    description: >
+      📝 If there are any special requirements for this stream (deduplication,
+      transformations, etc.), implement them now and test until successful.
+
+  - id: print-stream-checkpoint-summary
+    name: Print stream checkpoint summary
+    description: >
+      📝 Print a checkpoint summary for the stream, including details on
+      write mode, batching, schema mapping, and any special requirements
+      implemented.
+
+special_requirements: []
+
+acceptance_tests:
+  - id: connector-readiness-check
+    name: Run connector readiness check tool and audit results
+    description: >
+      Run connector readiness check tool and audit results of all streams.
+
+finalization_tasks:
+
+  - id: run-connector-readiness-check
+    name: Run connector readiness check
+    description: >
+      📝 Run the connector readiness check tool and closely inspect the report
+      for any issues. You should always share the full report with your user.
+
+      Address any issues found before proceeding. If required,
+      you may return to earlier steps and fix problems as necessary.
+
+      Do not ignore warnings or errors printed in the readiness check report. At minimum, let the user know about warnings - and defer to their
+      judgment on whether to address them. You may suggest that they might
+      be false positives, but you must provide evidence to support that claim
+      if so.
+
+  - id: build-and-package-connector
+    name: Build and package connector
+    description: >
+      📝 Build the connector using Gradle and ensure it packages correctly
+      as a Docker image.
+
+  - id: provide-final-summary
+    name: Provide final summary to user
+    description: >
+      📝 Provide a final summary to the user, including any important details
+      about the connector, such as supported streams, write modes, authentication
+      method, and any special configurations or considerations.
