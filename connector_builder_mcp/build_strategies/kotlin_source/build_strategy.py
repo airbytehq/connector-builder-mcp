@@ -1,14 +1,17 @@
-"""Kotlin Destination build strategy.
+"""Kotlin Source build strategy.
 
-This strategy supports building Airbyte destination connectors using Kotlin.
+This strategy supports building Airbyte source connectors using Kotlin.
 """
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+
 from fastmcp import FastMCP
 
 from connector_builder_mcp.build_strategies.base.build_strategy import BuildStrategy
-from connector_builder_mcp.build_strategies.kotlin_destination_v1 import (
+from connector_builder_mcp.build_strategies.kotlin_source import (
     guidance,
     manifest_checks,
     manifest_tests,
@@ -16,24 +19,38 @@ from connector_builder_mcp.build_strategies.kotlin_destination_v1 import (
 )
 
 
-class KotlinDestinationV1Strategy(BuildStrategy):
-    """Build strategy for Kotlin destination connectors.
+class KotlinSourceStrategy(BuildStrategy):
+    """Build strategy for Kotlin source connectors.
 
     This is a stateless registration utility that orchestrates registration
-    of MCP tools for Kotlin-based destination connectors.
+    of MCP tools for Kotlin-based source connectors.
     """
 
-    name = "kotlin_destination_v1"
+    name = "kotlin_source"
     version = "1.0"
     is_default = False
 
     @classmethod
     def is_available(cls) -> bool:
-        """Check if Kotlin/JVM dependencies are available.
+        """Check if Java 21 is available.
 
-        Returns True if Kotlin-related modules might be available.
+        Returns True if Java 21 is installed and available.
         """
-        return True  # For now, always available
+        java_path = shutil.which("java")
+        if not java_path:
+            return False
+
+        try:
+            result = subprocess.run(
+                ["java", "-version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            version_output = result.stderr + result.stdout
+            return "21" in version_output or "openjdk 21" in version_output.lower()
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+            return False
 
     @classmethod
     def register_guidance_tools(cls, app: FastMCP) -> None:

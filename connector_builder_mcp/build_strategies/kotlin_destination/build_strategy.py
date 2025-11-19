@@ -1,15 +1,17 @@
-"""OpenAPI/Sonar build strategy.
+"""Kotlin Destination build strategy.
 
-This strategy supports building Airbyte connectors from OpenAPI specifications
-using Sonar's connector-sdk framework with x-airbyte-* extensions.
+This strategy supports building Airbyte destination connectors using Kotlin.
 """
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+
 from fastmcp import FastMCP
 
 from connector_builder_mcp.build_strategies.base.build_strategy import BuildStrategy
-from connector_builder_mcp.build_strategies.openapi_sonar_v1 import (
+from connector_builder_mcp.build_strategies.kotlin_destination import (
     guidance,
     manifest_checks,
     manifest_tests,
@@ -17,24 +19,38 @@ from connector_builder_mcp.build_strategies.openapi_sonar_v1 import (
 )
 
 
-class OpenApiSonarV1Strategy(BuildStrategy):
-    """Build strategy for OpenAPI/Sonar connectors.
+class KotlinDestinationStrategy(BuildStrategy):
+    """Build strategy for Kotlin destination connectors.
 
     This is a stateless registration utility that orchestrates registration
-    of MCP tools for OpenAPI-based connectors using Sonar's connector-sdk.
+    of MCP tools for Kotlin-based destination connectors.
     """
 
-    name = "openapi_sonar_v1"
+    name = "kotlin_destination"
     version = "1.0"
     is_default = False
 
     @classmethod
     def is_available(cls) -> bool:
-        """Check if connector-sdk is available.
+        """Check if Java 21 is available.
 
-        Returns True if connector-sdk related modules are in sys.modules.
+        Returns True if Java 21 is installed and available.
         """
-        return True  # For now, always available
+        java_path = shutil.which("java")
+        if not java_path:
+            return False
+
+        try:
+            result = subprocess.run(
+                ["java", "-version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            version_output = result.stderr + result.stdout
+            return "21" in version_output or "openjdk 21" in version_output.lower()
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+            return False
 
     @classmethod
     def register_guidance_tools(cls, app: FastMCP) -> None:

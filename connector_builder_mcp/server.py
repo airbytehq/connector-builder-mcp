@@ -10,17 +10,17 @@ import sys
 from fastmcp import FastMCP
 
 from connector_builder_mcp._util import initialize_logging
+from connector_builder_mcp.build_strategies.declarative_openapi_v3.build_strategy import (
+    DeclarativeOpenApiV3Strategy,
+)
 from connector_builder_mcp.build_strategies.declarative_yaml_v1.build_strategy import (
     DeclarativeYamlV1Strategy,
 )
-from connector_builder_mcp.build_strategies.kotlin_destination_v1.build_strategy import (
-    KotlinDestinationV1Strategy,
+from connector_builder_mcp.build_strategies.kotlin_destination.build_strategy import (
+    KotlinDestinationStrategy,
 )
-from connector_builder_mcp.build_strategies.kotlin_source_v1.build_strategy import (
-    KotlinSourceV1Strategy,
-)
-from connector_builder_mcp.build_strategies.openapi_sonar_v1.build_strategy import (
-    OpenApiSonarV1Strategy,
+from connector_builder_mcp.build_strategies.kotlin_source.build_strategy import (
+    KotlinSourceStrategy,
 )
 from connector_builder_mcp.constants import MCP_SERVER_NAME
 from connector_builder_mcp.mcp.checklist import register_checklist_tools
@@ -64,9 +64,9 @@ def register_server_assets(app: FastMCP) -> None:
 
     strategies = [
         DeclarativeYamlV1Strategy,
-        OpenApiSonarV1Strategy,
-        KotlinSourceV1Strategy,
-        KotlinDestinationV1Strategy,
+        DeclarativeOpenApiV3Strategy,
+        KotlinSourceStrategy,
+        KotlinDestinationStrategy,
     ]
 
     print("Registering build strategies:", file=sys.stderr)

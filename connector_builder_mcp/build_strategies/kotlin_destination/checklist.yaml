@@ -98,50 +98,7 @@ basic_connector_tasks:
       📝 Implement the write() operation that handles writing records to
       the destination system, including batching and error handling.
 
-stream_tasks:
-  - id: implement-stream-writer
-    name: Implement stream writer
-    description: >
-      📝 Create the writer class for this stream type, handling schema
-      mapping and data transformation.
-
-  - id: configure-write-mode
-    name: Configure write mode
-    description: >
-      📝 Configure the write mode for this stream (append, overwrite, or
-      upsert) and implement the necessary logic.
-
-  - id: implement-batching
-    name: Implement batching logic
-    description: >
-      📝 Implement batching logic to efficiently write records in groups
-      rather than one at a time.
-
-  - id: implement-schema-mapping
-    name: Implement schema mapping
-    description: >
-      📝 Implement schema mapping from Airbyte types to destination system
-      types, handling type conversions and nested structures.
-
-  - id: test-stream-write
-    name: Test stream write operation
-    description: >
-      📝 Test writing data to the stream using the connector-sdk test tools.
-      Report any issues encountered and continue to debug until the test
-      write is successful.
-
-  - id: handle-stream-special-requirements
-    name: Handle stream-specific requirements
-    description: >
-      📝 If there are any special requirements for this stream (deduplication,
-      transformations, etc.), implement them now and test until successful.
-
-  - id: print-stream-checkpoint-summary
-    name: Print stream checkpoint summary
-    description: >
-      📝 Print a checkpoint summary for the stream, including details on
-      write mode, batching, schema mapping, and any special requirements
-      implemented.
+stream_tasks: []
 
 special_requirements: []
 

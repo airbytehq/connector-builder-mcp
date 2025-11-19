@@ -91,62 +91,7 @@ basic_connector_tasks:
       📝 Implement the check() operation that validates the connection
       configuration and tests connectivity to the API.
 
-stream_tasks:
-  - id: implement-stream-class
-    name: Implement stream class
-    description: >
-      📝 Create the Kotlin class for this stream, extending the appropriate
-      base class (e.g., HttpStream, IncrementalStream).
-
-  - id: define-stream-schema
-    name: Define stream schema
-    description: >
-      📝 Define the JSON schema for the stream's records, including all
-      fields and their types.
-
-  - id: implement-path-method
-    name: Implement path method
-    description: >
-      📝 Implement the path() method that returns the API endpoint path
-      for this stream.
-
-  - id: implement-parse-response
-    name: Implement parse response method
-    description: >
-      📝 Implement the parseResponse() method that extracts records from
-      the API response.
-
-  - id: define-pagination-and-primary-key
-    name: Define pagination and primary key
-    description: >
-      📝 Define pagination strategy and primary key for the stream if
-      applicable. Implement nextPageToken() if needed.
-
-  - id: run-and-debug-initial-test-read
-    name: Run and debug initial test read
-    description: >
-      📝 Run and debug an initial test read for the stream using the
-      provided tool. Report any issues encountered and continue to debug
-      until the test read is successful.
-
-  - id: add-incremental-cursor-support
-    name: Add incremental cursor support, including testing and debugging
-    description: >
-      📝 If the stream supports incremental syncs, implement cursor field
-      handling and test/debug using the test read tool until successful.
-
-  - id: handle-special-requirements
-    name: Handle special requirements
-    description: >
-      📝 If there are any special requirements for this stream, implement
-      them now and test/debug using the test read tool until successful.
-
-  - id: print-checkpoint-summary
-    name: Print checkpoint summary
-    description: >
-      📝 Print a checkpoint summary for the stream, including details on
-      pagination, primary key, incremental support, and any special
-      requirements implemented.
+stream_tasks: []
 
 special_requirements: []
 

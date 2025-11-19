@@ -1,6 +1,7 @@
-"""Kotlin Source build strategy.
+"""Declarative OpenAPI v3 build strategy.
 
-This strategy supports building Airbyte source connectors using Kotlin.
+This strategy supports building Airbyte connectors from OpenAPI v3 specifications
+with declarative configuration patterns.
 """
 
 from __future__ import annotations
@@ -8,7 +9,7 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from connector_builder_mcp.build_strategies.base.build_strategy import BuildStrategy
-from connector_builder_mcp.build_strategies.kotlin_source_v1 import (
+from connector_builder_mcp.build_strategies.declarative_openapi_v3 import (
     guidance,
     manifest_checks,
     manifest_tests,
@@ -16,22 +17,22 @@ from connector_builder_mcp.build_strategies.kotlin_source_v1 import (
 )
 
 
-class KotlinSourceV1Strategy(BuildStrategy):
-    """Build strategy for Kotlin source connectors.
+class DeclarativeOpenApiV3Strategy(BuildStrategy):
+    """Build strategy for declarative OpenAPI v3 connectors.
 
     This is a stateless registration utility that orchestrates registration
-    of MCP tools for Kotlin-based source connectors.
+    of MCP tools for OpenAPI v3-based connectors with declarative patterns.
     """
 
-    name = "kotlin_source_v1"
-    version = "1.0"
+    name = "declarative_openapi_v3"
+    version = "3.0"
     is_default = False
 
     @classmethod
     def is_available(cls) -> bool:
-        """Check if Kotlin/JVM dependencies are available.
+        """Check if connector-sdk is available.
 
-        Returns True if Kotlin-related modules might be available.
+        Returns True if connector-sdk related modules are in sys.modules.
         """
         return True  # For now, always available
 
