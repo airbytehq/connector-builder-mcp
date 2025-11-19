@@ -85,3 +85,4 @@ extend_exclude = [
 
 [tool.deptry.per_rule_ignores]
 DEP001 = ["pydantic_ai", "emoji"] # These are used in the connector builder agents project.
+DEP002 = ["lxml"] # Used as a runtime dependency by BeautifulSoup via string argument
