@@ -10,6 +10,9 @@ from typing import Annotated, Any
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
+from connector_builder_mcp.build_strategies.declarative_openapi_v3.openapi_to_manifest import (
+    generate_manifest_from_openapi,
+)
 from connector_builder_mcp.mcp._mcp_utils import ToolDomain, mcp_tool, register_mcp_tools
 
 
@@ -89,6 +92,94 @@ def test_openapi_resource(
         errors=[],
         records=[],
     )
+
+
+class BuildAndTestResult(BaseModel):
+    """Result of building and testing an OpenAPI connector."""
+
+    success: bool
+    manifest_yaml: str | None = None
+    generation_warnings: list[str] = []
+    validation_errors: list[str] = []
+    test_summary: dict[str, Any] | None = None
+    errors: list[str] = []
+
+
+@mcp_tool(
+    domain=ToolDomain.MANIFEST_TESTS,
+    open_world=True,
+)
+def build_and_test_openapi_connector(
+    ctx: Context,
+    *,
+    spec_content: Annotated[
+        str,
+        Field(
+            description="The OpenAPI specification content (YAML or JSON). "
+            "Can be raw content or path to spec file."
+        ),
+    ],
+    source_name: Annotated[
+        str,
+        Field(
+            description="Name for the generated source connector",
+            default="generated_source",
+        ),
+    ] = "generated_source",
+) -> BuildAndTestResult:
+    """Build an OpenAPI connector from specification.
+
+    This tool generates an Airbyte declarative manifest from an OpenAPI spec.
+    
+    Note: Full validation and testing capabilities will be added in a future update
+    when the testing infrastructure is available.
+
+    Args:
+        ctx: FastMCP context (automatically injected)
+        spec_content: The OpenAPI specification
+        source_name: Name for the generated source connector
+
+    Returns:
+        Build result with manifest and any warnings
+    """
+    logger.info(f"Building OpenAPI connector: {source_name}")
+
+    try:
+        logger.info("Generating manifest from OpenAPI spec")
+        manifest_yaml, generation_warnings = generate_manifest_from_openapi(
+            spec_content=spec_content,
+            source_name=source_name,
+        )
+
+        return BuildAndTestResult(
+            success=True,
+            manifest_yaml=manifest_yaml,
+            generation_warnings=generation_warnings,
+            validation_errors=[],
+            test_summary=None,
+            errors=[],
+        )
+
+    except ValueError as e:
+        logger.error(f"Failed to build connector: {e}")
+        return BuildAndTestResult(
+            success=False,
+            manifest_yaml=None,
+            generation_warnings=[],
+            validation_errors=[],
+            test_summary=None,
+            errors=[str(e)],
+        )
+    except Exception as e:
+        logger.exception("Unexpected error building connector")
+        return BuildAndTestResult(
+            success=False,
+            manifest_yaml=None,
+            generation_warnings=[],
+            validation_errors=[],
+            test_summary=None,
+            errors=[f"Unexpected error: {str(e)}"],
+        )
 
 
 def register_manifest_test_tools(app: FastMCP) -> None:
