@@ -1,4 +1,4 @@
-"""MANIFEST_TESTS domain tools - Testing for Kotlin destination connectors.
+"""TESTING domain tools - Testing for Kotlin destination connectors.
 
 This module contains tools for testing Kotlin destination connectors by actually
 running them against the destination system.
@@ -26,7 +26,7 @@ class KotlinDestinationTestResult(BaseModel):
 
 
 @mcp_tool(
-    domain=ToolDomain.MANIFEST_TESTS,
+    domain=ToolDomain.TESTING,
     open_world=True,
 )
 def test_kotlin_destination_write(
@@ -92,10 +92,10 @@ def test_kotlin_destination_write(
     )
 
 
-def register_manifest_test_tools(app: FastMCP) -> None:
-    """Register manifest test tools with the FastMCP app.
+def register_testing_tools(app: FastMCP) -> None:
+    """Register testing tools with the FastMCP app.
 
     Args:
         app: FastMCP application instance
     """
-    register_mcp_tools(app, domain=ToolDomain.MANIFEST_TESTS)
+    register_mcp_tools(app, domain=ToolDomain.TESTING)

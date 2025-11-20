@@ -58,14 +58,14 @@ class KotlinDestinationStrategy(BuildStrategy):
         guidance.register_guidance_tools(app)
 
     @classmethod
-    def register_manifest_check_tools(cls, app: FastMCP) -> None:
-        """Register manifest check tools by calling the registration function."""
-        manifest_checks.register_manifest_check_tools(app)
+    def register_validation_tools(cls, app: FastMCP) -> None:
+        """Register validation tools by calling the registration function."""
+        manifest_checks.register_validation_tools(app)
 
     @classmethod
-    def register_manifest_test_tools(cls, app: FastMCP) -> None:
-        """Register manifest test tools by calling the registration function."""
-        manifest_tests.register_manifest_test_tools(app)
+    def register_testing_tools(cls, app: FastMCP) -> None:
+        """Register testing tools by calling the registration function."""
+        manifest_tests.register_testing_tools(app)
 
     @classmethod
     def register_prompts(cls, app: FastMCP) -> None:

@@ -26,8 +26,8 @@ class BuildStrategy(ABC):
 
     Variable domains (strategy-specific):
     - Guidance: Documentation and examples
-    - Manifest Checks: Validation without running connector
-    - Manifest Tests: Testing that runs the connector
+    - Validation: Validation without running connector
+    - Testing: Testing that runs the connector
     - Prompts: Workflow templates
 
     Global domains (shared, not in strategy):
@@ -75,8 +75,8 @@ class BuildStrategy(ABC):
 
     @classmethod
     @abstractmethod
-    def register_manifest_check_tools(cls, app: FastMCP) -> None:
-        """Register manifest check domain tools by calling registration functions.
+    def register_validation_tools(cls, app: FastMCP) -> None:
+        """Register validation domain tools by calling registration functions.
 
         Args:
             app: FastMCP application instance
@@ -85,8 +85,8 @@ class BuildStrategy(ABC):
 
     @classmethod
     @abstractmethod
-    def register_manifest_test_tools(cls, app: FastMCP) -> None:
-        """Register manifest test domain tools by calling registration functions.
+    def register_testing_tools(cls, app: FastMCP) -> None:
+        """Register testing domain tools by calling registration functions.
 
         Args:
             app: FastMCP application instance
@@ -115,8 +115,8 @@ class BuildStrategy(ABC):
             app: FastMCP application instance
         """
         cls.register_guidance_tools(app)
-        cls.register_manifest_check_tools(app)
-        cls.register_manifest_test_tools(app)
+        cls.register_validation_tools(app)
+        cls.register_testing_tools(app)
         cls.register_prompts(app)
 
     @classmethod

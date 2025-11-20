@@ -1,4 +1,4 @@
-"""MANIFEST_CHECKS domain tools - Validation that doesn't run the connector.
+"""VALIDATION domain tools - Validation that doesn't run the connector.
 
 This module contains tools for validating manifest structure and syntax
 without actually running the connector.
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 @mcp_tool(
-    ToolDomain.MANIFEST_CHECKS,
+    ToolDomain.VALIDATION,
     read_only=True,
     idempotent=True,
     open_world=False,
@@ -90,10 +90,10 @@ def validate_manifest(
     )
 
 
-def register_manifest_check_tools(app) -> None:
-    """Register manifest check tools with the FastMCP app.
+def register_validation_tools(app) -> None:
+    """Register validation tools with the FastMCP app.
 
     Args:
         app: FastMCP application instance
     """
-    register_mcp_tools(app, domain=ToolDomain.MANIFEST_CHECKS)
+    register_mcp_tools(app, domain=ToolDomain.VALIDATION)

@@ -58,11 +58,11 @@ class ToolDomain(str, Enum):
     GUIDANCE = "guidance"
     """Guidance and docs tools (get_connector_builder_checklist, find_connectors_by_class_name, etc.)"""
 
-    MANIFEST_CHECKS = "manifest_checks"
-    """Testing that doesn't run the connector (validate_manifest)"""
+    VALIDATION = "validation"
+    """Validation tools that don't run the connector (validate_manifest, validate_kotlin_source_connector)"""
 
-    MANIFEST_TESTS = "manifest_tests"
-    """Testing that runs the connector (execute_stream_test_read, run_connector_readiness_test_report, execute_dynamic_manifest_resolution_test)"""
+    TESTING = "testing"
+    """Testing tools that run the connector (execute_stream_test_read, run_connector_readiness_test_report, test_kotlin_source_stream)"""
 
     MANIFEST_EDITS = "manifest_edits"
     """Tools to create, edit, or clear the manifest (set_session_manifest_text, get_session_manifest_text, create_connector_manifest_scaffold)"""
