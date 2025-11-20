@@ -458,12 +458,21 @@ def build_manifest(
 
         stream_definitions.append(stream_def)
 
+    definitions = {
+        "base_requester": {
+            "type": "HttpRequester",
+            "url_base": base_url or "{{ config['base_url'] }}",
+            "authenticator": auth_config,
+        }
+    }
+
     manifest = {
         "version": "6.51.0",
         "type": "DeclarativeSource",
         "metadata": {
             "name": source_name,
         },
+        "definitions": definitions,
         "check": {
             "type": "CheckStream",
             "stream_names": [streams[0]["name"]] if streams else [],
