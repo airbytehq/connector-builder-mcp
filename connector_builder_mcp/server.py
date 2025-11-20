@@ -76,7 +76,7 @@ def register_server_assets(app: FastMCP) -> None:
             if strategy.name == CONNECTOR_BUILDER_STRATEGY:
                 selected_strategy = strategy
                 break
-        
+
         if selected_strategy is None:
             valid_names = [s.name for s in all_strategies]
             print(
@@ -85,9 +85,12 @@ def register_server_assets(app: FastMCP) -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-        
+
         strategies = [selected_strategy]
-        print(f"Using strategy from CONNECTOR_BUILDER_STRATEGY: {selected_strategy.name}", file=sys.stderr)
+        print(
+            f"Using strategy from CONNECTOR_BUILDER_STRATEGY: {selected_strategy.name}",
+            file=sys.stderr,
+        )
     else:
         default_strategies = [s for s in all_strategies if s.is_default]
         if default_strategies:
