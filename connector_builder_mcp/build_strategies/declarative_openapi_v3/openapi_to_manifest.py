@@ -49,7 +49,8 @@ def detect_base_url(spec: dict[str, Any]) -> str | None:
     if servers and isinstance(servers, list) and len(servers) > 0:
         first_server = servers[0]
         if isinstance(first_server, dict) and "url" in first_server:
-            return first_server["url"]
+            url = first_server["url"]
+            return str(url) if url is not None else None
     return None
 
 
@@ -111,7 +112,8 @@ def infer_record_selector(
         JSONPath selector string (e.g., "$.data", "$.results")
     """
     if x_airbyte_hints and "record_selector" in x_airbyte_hints:
-        return x_airbyte_hints["record_selector"]
+        selector = x_airbyte_hints["record_selector"]
+        return str(selector)
 
     if response_schema and isinstance(response_schema, dict):
         properties = response_schema.get("properties", {})
