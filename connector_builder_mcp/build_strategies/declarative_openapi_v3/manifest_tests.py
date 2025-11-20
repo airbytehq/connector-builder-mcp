@@ -1,4 +1,4 @@
-"""MANIFEST_TESTS domain tools - Testing for OpenAPI/Sonar connectors.
+"""TESTING domain tools - Testing for OpenAPI/Sonar connectors.
 
 This module contains tools for testing OpenAPI-based connectors by actually
 running them against the API.
@@ -29,7 +29,7 @@ class ResourceTestResult(BaseModel):
 
 
 @mcp_tool(
-    domain=ToolDomain.MANIFEST_TESTS,
+    domain=ToolDomain.TESTING,
     open_world=True,
 )
 def test_openapi_resource(
@@ -91,10 +91,10 @@ def test_openapi_resource(
     )
 
 
-def register_manifest_test_tools(app: FastMCP) -> None:
-    """Register manifest test tools with the FastMCP app.
+def register_testing_tools(app: FastMCP) -> None:
+    """Register testing tools with the FastMCP app.
 
     Args:
         app: FastMCP application instance
     """
-    register_mcp_tools(app, domain=ToolDomain.MANIFEST_TESTS)
+    register_mcp_tools(app, domain=ToolDomain.TESTING)

@@ -1,4 +1,4 @@
-"""MANIFEST_CHECKS domain tools - Validation for Kotlin source connectors.
+"""VALIDATION domain tools - Validation for Kotlin source connectors.
 
 This module contains tools for validating Kotlin source connector code and
 configuration without actually running the connector.
@@ -26,7 +26,7 @@ class KotlinSourceValidationResult(BaseModel):
 
 
 @mcp_tool(
-    ToolDomain.MANIFEST_CHECKS,
+    ToolDomain.VALIDATION,
     read_only=True,
     idempotent=True,
     open_world=False,
@@ -73,10 +73,10 @@ def validate_kotlin_source_connector(
     )
 
 
-def register_manifest_check_tools(app: FastMCP) -> None:
-    """Register manifest check tools with the FastMCP app.
+def register_validation_tools(app: FastMCP) -> None:
+    """Register validation tools with the FastMCP app.
 
     Args:
         app: FastMCP application instance
     """
-    register_mcp_tools(app, domain=ToolDomain.MANIFEST_CHECKS)
+    register_mcp_tools(app, domain=ToolDomain.VALIDATION)

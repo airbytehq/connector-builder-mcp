@@ -1,4 +1,4 @@
-"""MANIFEST_TESTS domain tools - Testing that runs the connector.
+"""TESTING domain tools - Testing that runs the connector.
 
 This module contains tools for testing connectors by actually running them.
 """
@@ -480,7 +480,7 @@ def _format_validation_error(
 
 
 @mcp_tool(
-    domain=ToolDomain.MANIFEST_TESTS,
+    domain=ToolDomain.TESTING,
     read_only=True,
     open_world=True,
 )
@@ -543,7 +543,7 @@ def validate_manifest(
 
 
 @mcp_tool(
-    domain=ToolDomain.MANIFEST_TESTS,
+    domain=ToolDomain.TESTING,
     open_world=True,
 )
 def execute_stream_test_read(  # noqa: PLR0914
@@ -841,7 +841,7 @@ def _as_saved_report(
 
 
 @mcp_tool(
-    domain=ToolDomain.MANIFEST_TESTS,
+    domain=ToolDomain.TESTING,
     read_only=True,
     open_world=True,
 )
@@ -1143,7 +1143,7 @@ def run_connector_readiness_test_report(  # noqa: PLR0912, PLR0914, PLR0915 (too
 
 
 @mcp_tool(
-    domain=ToolDomain.MANIFEST_TESTS,
+    domain=ToolDomain.TESTING,
     read_only=True,
 )
 def execute_dynamic_manifest_resolution_test(
@@ -1217,10 +1217,10 @@ def execute_dynamic_manifest_resolution_test(
     return "Failed to resolve manifest"
 
 
-def register_manifest_test_tools(app: FastMCP) -> None:
-    """Register manifest test tools with the FastMCP app.
+def register_testing_tools(app: FastMCP) -> None:
+    """Register testing tools with the FastMCP app.
 
     Args:
         app: FastMCP application instance
     """
-    register_mcp_tools(app, domain=ToolDomain.MANIFEST_TESTS)
+    register_mcp_tools(app, domain=ToolDomain.TESTING)
