@@ -130,7 +130,7 @@ def build_and_test_openapi_connector(
     """Build an OpenAPI connector from specification.
 
     This tool generates an Airbyte declarative manifest from an OpenAPI spec.
-    
+
     Note: Full validation and testing capabilities will be added in a future update
     when the testing infrastructure is available.
 
