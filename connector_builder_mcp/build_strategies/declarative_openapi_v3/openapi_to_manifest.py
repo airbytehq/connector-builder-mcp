@@ -85,12 +85,14 @@ def detect_auth_scheme(spec: dict[str, Any]) -> dict[str, Any]:
                 "type": "ApiKeyAuthenticator",
                 "header": header_name,
                 "api_token": "{{ config['api_key'] }}",
+                "connection_spec_fields": ["api_key"],
             }
 
         elif scheme_type == "http" and scheme_def.get("scheme", "").lower() == "bearer":
             return {
                 "type": "BearerAuthenticator",
                 "api_token": "{{ config['api_token'] }}",
+                "connection_spec_fields": ["api_token"],
             }
 
         elif scheme_type == "http" and scheme_def.get("scheme", "").lower() == "basic":
@@ -98,10 +100,12 @@ def detect_auth_scheme(spec: dict[str, Any]) -> dict[str, Any]:
                 "type": "BasicHttpAuthenticator",
                 "username": "{{ config['username'] }}",
                 "password": "{{ config['password'] }}",
+                "connection_spec_fields": ["username", "password"],
             }
 
     return {
         "type": "NoAuth",
+        "connection_spec_fields": [],
     }
 
 
@@ -118,8 +122,8 @@ def infer_record_selector(
     Returns:
         JSONPath selector string (e.g., "$.data", "$.results")
     """
-    if x_airbyte_hints and "record_selector" in x_airbyte_hints:
-        selector = x_airbyte_hints["record_selector"]
+    if x_airbyte_hints and "record-selector" in x_airbyte_hints:
+        selector = x_airbyte_hints["record-selector"]
         return str(selector)
 
     if response_schema and isinstance(response_schema, dict):
