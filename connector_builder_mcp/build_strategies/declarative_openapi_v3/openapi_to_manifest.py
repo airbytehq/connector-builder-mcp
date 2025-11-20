@@ -287,6 +287,20 @@ def enumerate_candidate_streams(spec: dict[str, Any]) -> list[dict[str, Any]]:
             json_content = content.get("application/json", {})
             response_schema = json_content.get("schema")
 
+        if response_schema and isinstance(response_schema, dict):
+            schema_type = response_schema.get("type")
+            if schema_type == "array":
+                pass
+            elif schema_type == "object":
+                properties = response_schema.get("properties", {})
+                has_array_property = any(
+                    prop.get("type") == "array" for prop in properties.values() if isinstance(prop, dict)
+                )
+                if not has_array_property:
+                    continue
+            else:
+                continue
+
         streams.append(
             {
                 "name": stream_name,
@@ -395,14 +409,16 @@ def build_manifest(
     for stream in streams:
         stream_name = stream["name"]
         path = stream["path"]
-        operation = stream["operation"]
-        response_schema = stream["response_schema"]
+        operation = stream.get("operation", {})
+        response_schema = stream.get("response_schema")
 
-        x_airbyte_hints = {
-            k.replace("x-airbyte-", ""): v
-            for k, v in operation.items()
-            if k.startswith("x-airbyte-")
-        }
+        x_airbyte_hints = {}
+        if operation and isinstance(operation, dict):
+            x_airbyte_hints = {
+                k.replace("x-airbyte-", ""): v
+                for k, v in operation.items()
+                if k.startswith("x-airbyte-")
+            }
 
         record_selector = infer_record_selector(response_schema, x_airbyte_hints)
 
@@ -443,8 +459,11 @@ def build_manifest(
         stream_definitions.append(stream_def)
 
     manifest = {
-        "version": "0.79.0",
+        "version": "6.51.0",
         "type": "DeclarativeSource",
+        "metadata": {
+            "name": source_name,
+        },
         "check": {
             "type": "CheckStream",
             "stream_names": [streams[0]["name"]] if streams else [],
@@ -494,8 +513,8 @@ def generate_manifest_from_openapi(
 
     streams = enumerate_candidate_streams(spec)
     if not streams:
-        warnings.append(
-            "No candidate streams found. Only GET operations returning lists are supported in MVP."
+        raise ValueError(
+            "No candidate streams found. Only GET operations returning arrays are supported in MVP."
         )
 
     manifest = build_manifest(source_name, spec, streams, auth_config, base_url)
