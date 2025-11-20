@@ -37,24 +37,14 @@ The connector-builder-mcp supports multiple build strategies for different conne
   - [Stream testing](connector_builder_mcp.build_strategies.kotlin_source.manifest_tests)
   - [Documentation and guidance](connector_builder_mcp.build_strategies.kotlin_source.guidance)
   - [Prompt templates](connector_builder_mcp.build_strategies.kotlin_source.prompts)
-"""
 
-import os
-from pathlib import Path
+.. include:: ../README.md
+"""
 
 from connector_builder_mcp import (
     mcp,
     server,
 )
-
-
-if os.environ.get("PDOC_ALLOW_EXEC") == "1":
-    try:
-        readme_path = Path(__file__).resolve().parents[1] / "README.md"
-        readme_content = readme_path.read_text(encoding="utf-8")
-        __doc__ = (__doc__ or "") + "\n\n" + readme_content
-    except Exception:
-        pass
 
 
 __all__ = [
