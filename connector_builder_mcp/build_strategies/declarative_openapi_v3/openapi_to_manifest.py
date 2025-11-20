@@ -294,7 +294,9 @@ def enumerate_candidate_streams(spec: dict[str, Any]) -> list[dict[str, Any]]:
             elif schema_type == "object":
                 properties = response_schema.get("properties", {})
                 has_array_property = any(
-                    prop.get("type") == "array" for prop in properties.values() if isinstance(prop, dict)
+                    prop.get("type") == "array"
+                    for prop in properties.values()
+                    if isinstance(prop, dict)
                 )
                 if not has_array_property:
                     continue
