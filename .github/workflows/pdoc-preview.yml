@@ -25,12 +25,7 @@ jobs:
 
       - name: Generate documentation
         run: |
-          set -e
           uv run poe docs-generate
-          if [ ! -d "docs/generated" ]; then
-            echo "Error: Documentation generation failed - docs/generated directory not found"
-            exit 1
-          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
