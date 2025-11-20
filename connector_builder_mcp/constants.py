@@ -38,6 +38,22 @@ variable to match the name configured in the client's MCP settings file.
 Default: "connector-builder-mcp"
 """
 
+CONNECTOR_BUILDER_STRATEGY = os.environ.get("CONNECTOR_BUILDER_STRATEGY")
+"""Active build strategy name.
+
+This environment variable controls which build strategy is active. Only one
+strategy can be active at a time to avoid tool name conflicts. If not set,
+the default strategy (declarative_yaml_v1) will be used.
+
+Valid values:
+- declarative_yaml_v1 (default)
+- declarative_openapi_v3
+- kotlin_source
+- kotlin_destination
+
+Example: CONNECTOR_BUILDER_STRATEGY=kotlin_source
+"""
+
 REQUIRE_SESSION_MANIFEST_IN_TOOL_CALLS = True
 """Whether to require a session manifest for tool calls.
 
