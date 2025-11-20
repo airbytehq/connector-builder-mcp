@@ -22,7 +22,7 @@ from connector_builder_mcp.build_strategies.kotlin_destination.build_strategy im
 from connector_builder_mcp.build_strategies.kotlin_source.build_strategy import (
     KotlinSourceStrategy,
 )
-from connector_builder_mcp.constants import MCP_SERVER_NAME
+from connector_builder_mcp.constants import CONNECTOR_BUILDER_STRATEGY, MCP_SERVER_NAME
 from connector_builder_mcp.mcp.checklist import register_checklist_tools
 from connector_builder_mcp.mcp.manifest_edits import register_manifest_edit_tools
 from connector_builder_mcp.mcp.manifest_history import register_manifest_history_tools
@@ -62,12 +62,43 @@ def register_server_assets(app: FastMCP) -> None:
     register_checklist_tools(app)  # Tools global, YAML files variable
     register_manifest_edit_tools(app)  # Tools global, content variable
 
-    strategies = [
+    all_strategies = [
         DeclarativeYamlV1Strategy,
         DeclarativeOpenApiV3Strategy,
         KotlinSourceStrategy,
         KotlinDestinationStrategy,
     ]
+
+    # Select active strategy based on environment variable
+    if CONNECTOR_BUILDER_STRATEGY:
+        selected_strategy = None
+        for strategy in all_strategies:
+            if strategy.name == CONNECTOR_BUILDER_STRATEGY:
+                selected_strategy = strategy
+                break
+
+        if selected_strategy is None:
+            valid_names = [s.name for s in all_strategies]
+            print(
+                f"ERROR: Invalid CONNECTOR_BUILDER_STRATEGY='{CONNECTOR_BUILDER_STRATEGY}'. "
+                f"Valid values: {', '.join(valid_names)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        strategies = [selected_strategy]
+        print(
+            f"Using strategy from CONNECTOR_BUILDER_STRATEGY: {selected_strategy.name}",
+            file=sys.stderr,
+        )
+    else:
+        default_strategies = [s for s in all_strategies if s.is_default]
+        if default_strategies:
+            strategies = [default_strategies[0]]
+            print(f"Using default strategy: {strategies[0].name}", file=sys.stderr)
+        else:
+            strategies = [DeclarativeYamlV1Strategy]
+            print(f"Using fallback strategy: {strategies[0].name}", file=sys.stderr)
 
     print("Registering build strategies:", file=sys.stderr)
     for strategy in strategies:
