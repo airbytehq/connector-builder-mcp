@@ -78,6 +78,7 @@ norecursedirs = ["connector_builder_agents"]
 [tool.deptry]
 extend_exclude = [
     ".*connector_builder_agents/.*",
+    "^docs/",
 ]
 
 [tool.deptry.per_rule_ignores]
