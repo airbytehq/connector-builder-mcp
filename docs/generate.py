@@ -18,7 +18,10 @@ import pdoc
 
 def run() -> None:
     """Generate docs for all public modules in connector-builder-mcp and save them to docs/generated."""
-    public_modules = ["connector_builder_mcp"]
+    public_modules = [
+        "connector_builder_mcp",
+        "connector_builder_mcp/build_strategies",
+    ]
 
     # recursively delete the docs/generated folder if it exists
     if pathlib.Path("docs/generated").exists():
