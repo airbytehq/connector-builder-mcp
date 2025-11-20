@@ -49,8 +49,8 @@ def register_server_assets(app: FastMCP) -> None:
 
     2. Variable domains (strategy-specific):
        - GUIDANCE: Documentation and examples
-       - MANIFEST_CHECKS: Validation without running connector
-       - MANIFEST_TESTS: Testing that runs the connector
+       - VALIDATION: Validation without running connector
+       - TESTING: Testing that runs the connector
        - PROMPTS: Workflow templates
 
     Args:
