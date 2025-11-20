@@ -30,9 +30,13 @@ def parse_openapi_spec(spec_content: str) -> dict[str, Any]:
     try:
         spec = yaml.safe_load(spec_content)
         if not isinstance(spec, dict):
-            raise ValueError("OpenAPI spec must be a dictionary")
+            raise ValueError("Failed to parse OpenAPI spec: result is not a dictionary")
         return spec
     except yaml.YAMLError as e:
+        raise ValueError(f"Failed to parse OpenAPI spec: {e}") from e
+    except ValueError:
+        raise
+    except Exception as e:
         raise ValueError(f"Failed to parse OpenAPI spec: {e}") from e
 
 
