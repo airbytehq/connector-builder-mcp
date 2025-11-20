@@ -47,14 +47,17 @@ def detect_base_url(spec: dict[str, Any]) -> str | None:
         spec: Parsed OpenAPI specification
 
     Returns:
-        Base URL or None if not found
+        Base URL or None if not found or multiple servers present
     """
     servers = spec.get("servers", [])
-    if servers and isinstance(servers, list) and len(servers) > 0:
-        first_server = servers[0]
-        if isinstance(first_server, dict) and "url" in first_server:
-            url = first_server["url"]
-            return str(url) if url is not None else None
+    if servers and isinstance(servers, list):
+        if len(servers) > 1:
+            return None
+        if len(servers) == 1:
+            first_server = servers[0]
+            if isinstance(first_server, dict) and "url" in first_server:
+                url = first_server["url"]
+                return str(url) if url is not None else None
     return None
 
 
