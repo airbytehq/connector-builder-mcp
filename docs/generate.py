@@ -20,7 +20,6 @@ def run() -> None:
     """Generate docs for all public modules in connector-builder-mcp and save them to docs/generated."""
     public_modules = [
         "connector_builder_mcp",
-        "connector_builder_mcp/build_strategies",
     ]
 
     # recursively delete the docs/generated folder if it exists
@@ -31,7 +30,7 @@ def run() -> None:
         template_directory=pathlib.Path("docs/templates"),
         show_source=True,
         search=True,
-        logo="https://docs.airbyte.com/img/airbyte-logo-dark.png",
+        logo="https://docs.airbyte.com/img/logo-dark.png",
         favicon="https://docs.airbyte.com/img/favicon.png",
         mermaid=True,
         docformat="google",
