@@ -15,6 +15,7 @@ from connector_builder_mcp import (
     mcp,
     server,
 )
+from connector_builder_mcp.server_class import ConnectorBuilderMCPServer
 
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "constants",
     "mcp",
     "server",
+    "ConnectorBuilderMCPServer",
 ]
