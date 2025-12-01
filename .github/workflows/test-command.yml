@@ -72,7 +72,7 @@ jobs:
           name: pr-info
 
       - name: Checkout PR
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Checkout PR (${{ github.event.inputs.pr }})
