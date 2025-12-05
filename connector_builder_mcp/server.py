@@ -28,6 +28,7 @@ from connector_builder_mcp.mcp.manifest_edits import register_manifest_edit_tool
 from connector_builder_mcp.mcp.manifest_history import register_manifest_history_tools
 from connector_builder_mcp.mcp.secrets_config import register_secrets_tools
 from connector_builder_mcp.mcp.server_info import register_server_info_resources
+from connector_builder_mcp.mcp.smoke_tests import mcp_smoke_tests_prompt  # noqa: F401
 
 
 initialize_logging()
