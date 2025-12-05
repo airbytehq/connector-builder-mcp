@@ -323,3 +323,46 @@ CREATIVE_MODE_NOTE = """
 
 **Warning**: Creative mode is less reliable and may lead to mistakes. Use only for complex scenarios.
 """
+
+TEST_MY_TOOLS_GUIDANCE = """
+Test all available tools in this MCP server to confirm they are working properly.
+
+Guidelines:
+- Iterate through each tool systematically
+- Use read-only operations whenever possible
+- For tools that modify data, use test/safe modes or skip if no safe testing method exists
+- Avoid creating persistent side effects (e.g., don't create real resources, connections, or data)
+- Document which tools were tested and their status
+- Report any errors or issues encountered
+- Provide a summary of the test results at the end
+
+Focus on validating that tools:
+1. Accept their required parameters correctly
+2. Return expected output formats
+3. Handle errors gracefully
+4. Connect to required services (if applicable)
+
+Testing Guidance Tools:
+- Test `get_connector_builder_checklist()` to verify checklist retrieval
+- Test `get_connector_builder_docs(topic)` with various topics like 'pagination', 'authentication'
+- Test `find_connectors_by_class_name(class_names)` with common class names
+
+Testing Manifest Operations:
+- Test `create_connector_manifest_scaffold()` with a simple API like JSONPlaceholder
+- Test `get_session_manifest_text()` to retrieve the created manifest
+- Test `validate_manifest()` to check manifest structure
+- Test `set_session_manifest_text()` with minor edits to the manifest
+
+Testing Stream Operations:
+- Test `execute_stream_test_read()` on a simple stream (if manifest is configured)
+- Test `run_connector_readiness_test_report()` for comprehensive validation
+
+Testing Secrets Management:
+- Test `list_dotenv_secrets()` to view available secret keys (without exposing values)
+
+Testing Version History:
+- Test `list_session_manifest_versions()` to view manifest history
+- Test `diff_session_manifest_versions()` to compare versions (if multiple exist)
+
+Be efficient and practical in your testing approach.
+""".strip()
