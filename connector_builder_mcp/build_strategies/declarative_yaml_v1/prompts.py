@@ -15,6 +15,7 @@ from connector_builder_mcp._guidance.prompts import (
     CONNECTOR_BUILD_PROMPT,
     CREATIVE_MODE_NOTE,
     NON_CREATIVE_MODE_NOTE,
+    TEST_MY_TOOLS_GUIDANCE,
 )
 from connector_builder_mcp.mcp._mcp_utils import (
     ToolDomain,
@@ -109,6 +110,25 @@ def add_stream_to_connector(
         manifest_path=manifest_path or "(path to manifest)",
     )
     return [{"role": "user", "content": content}]
+
+
+@mcp_prompt(
+    name="test-my-tools",
+    description="Test all available MCP tools to confirm they are working properly",
+    domain=ToolDomain.PROMPTS,
+)
+def test_my_tools_prompt() -> list[dict[str, str]]:
+    """Generate a prompt that instructs the agent to test all available tools.
+
+    Returns:
+        List containing a single message dict with the guidance text
+    """
+    return [
+        {
+            "role": "user",
+            "content": TEST_MY_TOOLS_GUIDANCE,
+        }
+    ]
 
 
 def register_prompts(app: FastMCP) -> None:

@@ -323,3 +323,24 @@ CREATIVE_MODE_NOTE = """
 
 **Warning**: Creative mode is less reliable and may lead to mistakes. Use only for complex scenarios.
 """
+
+TEST_MY_TOOLS_GUIDANCE = """
+Test all available tools in this MCP server to confirm they are working properly.
+
+Guidelines:
+- Iterate through each tool systematically
+- Use read-only operations whenever possible
+- For tools that modify data, use test/safe modes or skip if no safe testing method exists
+- Avoid creating persistent side effects (e.g., don't create real resources, connections, or data)
+- Document which tools were tested and their status
+- Report any errors or issues encountered
+- Provide a summary of the test results at the end
+
+Focus on validating that tools:
+1. Accept their required parameters correctly
+2. Return expected output formats
+3. Handle errors gracefully
+4. Connect to required services (if applicable)
+
+Be efficient and practical in your testing approach.
+""".strip()
