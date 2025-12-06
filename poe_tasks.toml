@@ -61,3 +61,13 @@ codex-run.shell = """
     -
 """
 codex-run.args = ["prompt"]
+
+# Claude Code MCP Testing Tasks
+[tool.poe.tasks.test-my-tools]
+help = "Run Claude Code in headless mode with the test-my-tools MCP prompt"
+shell = """
+claude --print "Use the test-my-tools prompt${scope:+ with scope: $scope}" \
+    --allowedTools "mcp__connector-builder-mcp__*" \
+    --mcp-config .mcp.json
+"""
+args = [{ name = "scope", default = "", help = "Optional scope/context to focus testing (e.g., 'focus on areas of the code changed versus main')" }]
