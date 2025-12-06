@@ -66,7 +66,7 @@ codex-run.args = ["prompt"]
 [tool.poe.tasks.test-my-tools]
 help = "Run Claude Code in headless mode with the test-my-tools MCP prompt"
 shell = """
-claude --print "Use the test-my-tools prompt${scope:+ with scope: $scope}" \
+npx @anthropic-ai/claude-code --print "Use the test-my-tools prompt${scope:+ with scope: $scope}" \
     --allowedTools "mcp__connector-builder-mcp__*" \
     --mcp-config .mcp.json
 """
