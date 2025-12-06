@@ -117,16 +117,32 @@ def add_stream_to_connector(
     description="Test all available MCP tools to confirm they are working properly",
     domain=ToolDomain.PROMPTS,
 )
-def test_my_tools_prompt() -> list[dict[str, str]]:
+def test_my_tools_prompt(
+    scope: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional free-form text to focus or constrain testing. "
+                "This can be a single word, a sentence, or a paragraph "
+                "describing the desired scope or constraints."
+            ),
+        ),
+    ] = None,
+) -> list[dict[str, str]]:
     """Generate a prompt that instructs the agent to test all available tools.
 
     Returns:
         List containing a single message dict with the guidance text
     """
+    content = TEST_MY_TOOLS_GUIDANCE
+
+    if scope:
+        content = f"{content}\n\n---\n\nAdditional scope or constraints:\n{scope}"
+
     return [
         {
             "role": "user",
-            "content": TEST_MY_TOOLS_GUIDANCE,
+            "content": content,
         }
     ]
 
