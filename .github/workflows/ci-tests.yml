@@ -46,7 +46,7 @@ jobs:
     steps:
       # Common steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - id: changes
         uses: dorny/paths-filter@v3.0.2
         with:

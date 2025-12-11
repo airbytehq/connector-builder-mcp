@@ -28,7 +28,7 @@ jobs:
           node-version: '20'
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Run Poe Slash Command Processor
         uses: aaronsteers/poe-command-processor@v1.3.3
