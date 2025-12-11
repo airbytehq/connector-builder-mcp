@@ -142,6 +142,22 @@ finalization_tasks:
       be false positives, but you must provide evidence to support that claim
       if so.
 
+  - id: write-connector-description
+    name: Write connector description for README
+    description: >
+      📝 Write a clear, informative description for the connector that will
+      appear in the generated README. This description should be added to the
+      `info.description` field in the connector's OpenAPI specification.
+
+      The description should:
+      - Explain what the connector does and what API it connects to
+      - Highlight key features or capabilities
+      - Mention any important limitations or requirements
+      - Be written in a professional, user-friendly tone
+
+      Share the proposed description with your user for approval before
+      finalizing.
+
   - id: provide-final-summary
     name: Provide final summary to user
     description: >
